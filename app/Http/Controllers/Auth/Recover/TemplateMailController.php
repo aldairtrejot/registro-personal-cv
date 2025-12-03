@@ -26,7 +26,7 @@ class TemplateMailController extends Controller
         style="background-color:#ffffff; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1); overflow:hidden;">
         <tr style="background-color:#7b1f32;">
             <td style="padding:20px 30px;">
-                <h1 style="color:#fff; font-size:20px; margin:0;">Promoción por profesionalización 2025</h1>
+                <h1 style="color:#fff; font-size:20px; margin:0;">Proceso Curricular</h1>
                 <p style="color:#c9a54b; font-size:14px; margin:5px 0 0;">Restablecimiento de contraseña</p>
             </td>
         </tr>

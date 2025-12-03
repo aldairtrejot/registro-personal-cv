@@ -7,7 +7,7 @@
 
             <div class="text-center mb-5">
                 <h4 class="display-6 fw-bold text-primary" style="color: #8A8A8A !important;">
-                    Sistema de promoción por profesionalización 2025 IMSS BIENESTAR
+                    Proceso Curricular
                 </h4>
                 <span class="badge badge-outline text-default">Version {{ config('app.version', '-') }}</span>
             </div>

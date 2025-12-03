@@ -34,7 +34,7 @@
                     </div>
 
                     <h2 class="h2 text-center mb-4">
-                        Promoción por profesionalización 2025
+                        Proceso Curricular
                     </h2>
 
                     {{ $slot }}
