@@ -7,7 +7,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="shortcut icon" href="{{ asset('assets/images/favicon.png') }}" />
-    <title>SIPROIB</title>
+    <title>CVPROIB</title>
     <link rel="stylesheet" href="{{ asset('assets/css/tabler.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/icons/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/icons/tabler-icons.min.css') }}">

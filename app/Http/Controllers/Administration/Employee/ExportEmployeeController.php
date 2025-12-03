@@ -609,11 +609,11 @@ class ExportEmployeeController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Empleados');
 
-        $userName = Auth::user()?->name ?? 'SIPROIB';
+        $userName = Auth::user()?->name ?? 'CVPROIB';
         $spreadsheet->getProperties()
             ->setCreator($userName)
             ->setLastModifiedBy($userName)
-            ->setTitle('Empleados - SIPROIB')
+            ->setTitle('Empleados - CVPROIB')
             ->setSubject('Exportación con columnas personalizadas en orden específico.')
             ->setDescription('Exportación con columnas personalizadas en orden específico.')
             ->setCategory('Reportes');

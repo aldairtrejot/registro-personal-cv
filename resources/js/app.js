@@ -36,6 +36,9 @@ import vue_follow_dashboard from './app/follow/follow.vue'
 import vue_modal_follow_history from './app/follow/followHistory.vue'
 import vue_data_employee from './app/follow/data.vue'
 
+import RegistroWizard from './app/registro/RegistroWizard.vue'
+
+
 // Lista de componentes a montar (selector -> componente)
 const components = [
   // Auth
@@ -80,6 +83,9 @@ const components = [
   { selector: '#blade_form_update_follow', component: vue_form_update_follow },
   { selector: '#blade_follow_dashboard', component: vue_follow_dashboard },
   { selector: '#blade_data_employee', component: vue_data_employee },
+
+    // Registro CV (empleado)
+  { selector: '#blade_registro_wizard', component: RegistroWizard },
 ]
 
 // Monta cada componente si existe su contenedor en el DOM
