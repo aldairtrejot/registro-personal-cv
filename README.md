@@ -1,2 +1,1 @@
-# registro-personal-cv
-registro-personal-cv
+# profesionalizacion-imss-bienestar
