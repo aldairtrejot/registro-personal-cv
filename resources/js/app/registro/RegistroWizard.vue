@@ -1,505 +1,878 @@
 <template>
-  <div class="registro-wizard">
-    <!-- Encabezado dinámico -->
-    <div class="text-center mb-3">
-      <h2 class="h2 mb-1">{{ tituloPaso }}</h2>
-      <p class="text-muted mb-0">{{ subtituloPaso }}</p>
-    </div>
-
-    <div v-if="mensajeGlobal" class="alert alert-success" role="alert">
-      {{ mensajeGlobal }}
-    </div>
-
-    <!-- PASO 1: Acceso al sistema -->
-    <form v-if="step === 1" @submit.prevent="handleAcceso">
-      <div class="mb-3">
-        <label class="form-label">CURP</label>
-        <input
-          type="text"
-          v-model="acceso.curp"
-          maxlength="18"
-          class="form-control"
-          placeholder="Ingresa tu CURP"
-          autocomplete="off"
-        />
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Correo electrónico</label>
-        <input
-          type="email"
-          v-model="acceso.email"
-          class="form-control"
-          placeholder="ejemplo@correo.com"
-          autocomplete="off"
-        />
-      </div>
-
-      <div class="d-flex justify-content-end mt-3">
-        <button type="submit" class="btn btn-primary">
-          Enviar token
-        </button>
-      </div>
-    </form>
-
-    <!-- PASO 2: Validar token -->
-    <form v-if="step === 2" @submit.prevent="handleValidarToken">
-      <div class="card card-sm mb-3">
-        <div class="card-body">
-          <div class="d-flex justify-content-between">
-            <span class="text-muted fw-semibold">CURP:</span>
-            <span class="fw-semibold">{{ acceso.curp || '---' }}</span>
-          </div>
-          <div class="d-flex justify-content-between mt-1">
-            <span class="text-muted fw-semibold">Correo:</span>
-            <span class="fw-semibold">{{ acceso.email || '---' }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="mb-2">
-        <label class="form-label">Token de verificación</label>
-        <input
-          type="text"
-          v-model="token.code"
-          class="form-control"
-          placeholder="Código enviado a tu correo"
-          autocomplete="off"
-        />
-        <small class="form-hint">Código enviado a tu correo electrónico.</small>
-      </div>
-
-      <div class="d-flex justify-content-between mt-3">
-        <button type="button" class="btn btn-secondary" @click="prevStep">
-          ← Regresar
-        </button>
-        <button type="submit" class="btn btn-primary">
-          Ingresar
-        </button>
-      </div>
-    </form>
-
-    <!-- PASO 3: Datos personales -->
-    <form v-if="step === 3" @submit.prevent="nextStep">
-      <div class="mb-3">
-        <label class="form-label">Nombre(s)</label>
-        <input type="text" v-model="datosPersonales.nombres" class="form-control" />
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Primer apellido</label>
-        <input type="text" v-model="datosPersonales.primerApellido" class="form-control" />
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Segundo apellido</label>
-        <input type="text" v-model="datosPersonales.segundoApellido" class="form-control" />
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Puesto actual</label>
-        <input type="text" v-model="datosPersonales.puestoActual" class="form-control" />
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Fecha de inicio</label>
-        <input type="date" v-model="datosPersonales.fechaInicio" class="form-control" />
-      </div>
-      <div class="mb-4">
-        <label class="form-label">Área de adscripción</label>
-        <select v-model="datosPersonales.areaAdscripcion" class="form-select">
-          <option value="">Selecciona un área</option>
-          <option value="Marketing">Marketing</option>
-          <option value="Administración">Administración</option>
-          <option value="Operaciones">Operaciones</option>
-          <option value="Otro">Otro</option>
-        </select>
-      </div>
-
-      <div class="d-flex justify-content-between">
-        <button type="button" class="btn btn-secondary" @click="prevStep">
-          ← Regresar
-        </button>
-        <button type="submit" class="btn btn-primary">
-          Continuar →
-        </button>
-      </div>
-    </form>
-
-    <!-- PASO 4: Experiencia laboral -->
-    <form v-if="step === 4" @submit.prevent="nextStep">
-      <p class="text-muted mb-1">
-        Agrega de 1 a 3 experiencias laborales
-      </p>
-      <p class="text-muted small mb-3">Registros: {{ experiencias.length }}/3</p>
-
-      <div v-for="(exp, index) in experiencias" :key="exp.id" class="card card-sm mb-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <span>Experiencia #{{ index + 1 }}</span>
-          <button
-            v-if="experiencias.length > 1"
-            type="button"
-            class="btn btn-link text-danger p-0"
-            @click="removeExperiencia(index)"
-          >
-            Eliminar
-          </button>
-        </div>
-        <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label">Fecha de inicio</label>
-            <input type="date" v-model="exp.fechaInicio" class="form-control" />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Fecha de término</label>
-            <input type="date" v-model="exp.fechaTermino" class="form-control" />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Sector</label>
-            <select v-model="exp.sector" class="form-select">
-              <option value="">Selecciona sector</option>
-              <option value="publico">Público</option>
-              <option value="privado">Privado</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Cargo o puesto</label>
-            <input type="text" v-model="exp.puesto" class="form-control" />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Denominación de la institución o empresa</label>
-            <input type="text" v-model="exp.institucion" class="form-control" />
-          </div>
-          <div class="mb-0">
-            <label class="form-label">Campo de experiencia (máx. 100 caracteres)</label>
-            <textarea
-              v-model="exp.campo"
-              maxlength="100"
-              rows="2"
-              class="form-control"
-            ></textarea>
-            <small class="form-hint">
-              {{ exp.campo.length }}/100 caracteres
+  <div class="container-tight py-4">
+    <div
+      class="card card-md shadow-sm border-0 mx-auto"
+      style="max-width: 640px;"
+    >
+      <div class="card-body p-4 p-md-5">
+        <!-- Encabezado del paso -->
+        <div
+          class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4"
+        >
+          <div class="mb-3 mb-md-0">
+            <span class="badge bg-primary-lt text-uppercase fw-semibold mb-1">
+              Paso {{ paso }} de {{ totalPasos }}
+            </span>
+            <div class="fw-semibold">
+              {{ tituloPaso }}
+            </div>
+            <small class="text-muted">
+              {{ descripcionPaso }}
             </small>
           </div>
+
+          <!-- Barra de progreso -->
+          <div class="w-100 w-md-50 ms-md-3">
+            <div class="progress progress-sm">
+              <div
+                class="progress-bar"
+                role="progressbar"
+                :style="{ width: progreso + '%' }"
+                :aria-valuenow="progreso"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              ></div>
+            </div>
+            <div class="d-flex justify-content-between mt-1 small text-muted">
+              <span>Inicio</span>
+              <span>Fin</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <button
-        type="button"
-        class="btn btn-outline-primary w-100 mb-3"
-        :disabled="experiencias.length >= 3"
-        @click="addExperiencia"
-      >
-        + Agregar experiencia
-      </button>
+        <hr class="mt-0 mb-3" />
 
-      <div class="d-flex justify-content-between">
-        <button type="button" class="btn btn-secondary" @click="prevStep">
-          ← Regresar
-        </button>
-        <button type="submit" class="btn btn-primary">
-          Siguiente →
-        </button>
-      </div>
-    </form>
+        <!-- Mensaje global -->
+        <div
+          v-if="alerta"
+          :class="[
+            'alert mb-4',
+            tipoAlerta === 'error' ? 'alert-danger' : 'alert-success'
+          ]"
+          role="alert"
+        >
+          {{ alerta }}
+        </div>
 
-    <!-- PASO 5: Estudios académicos -->
-    <form v-if="step === 5" @submit.prevent="nextStep">
-      <div class="mb-3">
-        <label class="form-label">Institución</label>
-        <input
-          type="text"
-          v-model="estudios.institucion"
-          class="form-control"
-          placeholder="Nombre de la institución educativa"
-        />
-      </div>
-      <div class="mb-3">
-        <label class="form-label">País</label>
-        <select v-model="estudios.pais" class="form-select">
-          <option value="">Selecciona un país</option>
-          <option value="México">México</option>
-          <option value="España">España</option>
-          <option value="Estados Unidos">Estados Unidos</option>
-          <option value="Otro">Otro</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Nivel máximo de estudios</label>
-        <select v-model="estudios.nivel" class="form-select">
-          <option value="">Selecciona nivel</option>
-          <option value="Licenciatura">Licenciatura</option>
-          <option value="Maestría">Maestría</option>
-          <option value="Doctorado">Doctorado</option>
-          <option value="Otro">Otro</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Número de cédula</label>
-        <input
-          type="text"
-          v-model="estudios.cedula"
-          class="form-control"
-          placeholder="Ej: 12345678"
-        />
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Carrera genérica</label>
-        <select v-model="estudios.carreraGenerica" class="form-select">
-          <option value="">Selecciona carrera genérica</option>
-          <option value="Economía y Administración">Economía y Administración</option>
-          <option value="Ingeniería">Ingeniería</option>
-          <option value="Salud">Salud</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Carrera específica</label>
-        <select v-model="estudios.carreraEspecifica" class="form-select">
-          <option value="">Selecciona carrera específica</option>
-          <option value="Arquitectura">Arquitectura</option>
-          <option value="Contaduría">Contaduría</option>
-          <option value="Otra">Otra</option>
-        </select>
-      </div>
-      <div class="mb-4">
-        <label class="form-label">Área de estudios</label>
-        <select v-model="estudios.area" class="form-select">
-          <option value="">Selecciona área de estudios</option>
-          <option value="Económico-Administrativas">Económico-Administrativas</option>
-          <option value="Ingeniería y Tecnología">Ingeniería y Tecnología</option>
-        </select>
-      </div>
+        <!-- =========================
+             PASO 1: Enviar código
+        ========================== -->
+        <div v-if="paso === 1">
+          <p class="text-muted mb-4">
+            Ingresa tu CURP y un correo electrónico donde recibirás un código
+            de verificación para continuar con el registro de tu CV.
+          </p>
 
-      <div class="d-flex justify-content-between">
-        <button type="button" class="btn btn-secondary" @click="prevStep">
-          ← Regresar
-        </button>
-        <button type="submit" class="btn btn-primary">
-          Siguiente →
-        </button>
-      </div>
-    </form>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">CURP</label>
+            <input
+              v-model="form.curp"
+              type="text"
+              class="form-control"
+              maxlength="18"
+              placeholder="Ej. TICF950130HDFNHL02"
+            />
+          </div>
 
-    <!-- PASO 6: Cursos y capacitaciones -->
-    <form v-if="step === 6" @submit.prevent="finalizar">
-      <p class="text-muted mb-1">
-        Agrega de 1 a 3 cursos o capacitaciones
-      </p>
-      <p class="text-muted small mb-3">Registros: {{ cursos.length }}/3</p>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Correo electrónico</label>
+            <input
+              v-model="form.correo"
+              type="email"
+              class="form-control"
+              placeholder="Ej. nombre@correo.com"
+            />
+          </div>
 
-      <div v-for="(curso, index) in cursos" :key="curso.id" class="card card-sm mb-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <span>Curso #{{ index + 1 }}</span>
-          <button
-            v-if="cursos.length > 1"
-            type="button"
-            class="btn btn-link text-danger p-0"
-            @click="removeCurso(index)"
+          <div class="d-flex justify-content-end">
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="cargando"
+              @click="enviarCodigo"
+            >
+              <span
+                v-if="cargando"
+                class="spinner-border spinner-border-sm me-2"
+              ></span>
+              Enviar código
+            </button>
+          </div>
+        </div>
+
+        <!-- =========================
+             PASO 2: Validar código
+        ========================== -->
+        <div v-else-if="paso === 2">
+          <p class="text-muted mb-4">
+            Revisa tu correo e ingresa el código de verificación que recibiste.
+          </p>
+
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">CURP</label>
+              <input
+                type="text"
+                class="form-control bg-light"
+                :value="form.curp"
+                readonly
+              />
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Correo electrónico</label>
+              <input
+                type="email"
+                class="form-control bg-light"
+                :value="form.correo"
+                readonly
+              />
+            </div>
+          </div>
+
+          <div class="border rounded p-3 mb-3 bg-light-subtle">
+            <label class="form-label fw-semibold mb-1">
+              Código de verificación
+            </label>
+            <input
+              v-model="form.token"
+              type="text"
+              class="form-control"
+              maxlength="10"
+              placeholder="Ingresa el código recibido"
+            />
+            <small class="text-muted">
+              El código es válido por 15 minutos. Si no te llega, revisa también
+              tu bandeja de correo no deseado.
+            </small>
+          </div>
+
+          <div class="d-flex justify-content-between mt-3">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              @click="paso = 1"
+              :disabled="cargando"
+            >
+              ← Volver
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="cargando"
+              @click="validarCodigo"
+            >
+              <span
+                v-if="cargando"
+                class="spinner-border spinner-border-sm me-2"
+              ></span>
+              Continuar
+            </button>
+          </div>
+        </div>
+
+        <!-- =========================
+             PASO 3: Datos personales
+        ========================== -->
+        <div v-else-if="paso === 3">
+          <p class="text-muted mb-4">
+            Verifica o completa tus datos personales tal y como deben aparecer
+            en tu CV.
+          </p>
+
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Nombre(s)</label>
+              <input
+                v-model="form.datosPersonales.nombres"
+                type="text"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Primer apellido</label>
+              <input
+                v-model="form.datosPersonales.primer_apellido"
+                type="text"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Segundo apellido</label>
+              <input
+                v-model="form.datosPersonales.segundo_apellido"
+                type="text"
+                class="form-control"
+              />
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Puesto actual</label>
+              <input
+                v-model="form.datosPersonales.puesto_actual"
+                type="text"
+                class="form-control"
+                placeholder="Ej. Médico General, Enfermera Especialista"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Fecha de inicio en el puesto</label>
+              <input
+                v-model="form.datosPersonales.fecha_inicio"
+                type="date"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Área de adscripción</label>
+              <input
+                v-model="form.datosPersonales.area_adscripcion"
+                type="text"
+                class="form-control"
+              />
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-4">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              @click="paso = 2"
+              :disabled="cargando"
+            >
+              ← Volver
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="cargando"
+              @click="guardarDatosPersonales"
+            >
+              <span
+                v-if="cargando"
+                class="spinner-border spinner-border-sm me-2"
+              ></span>
+              Guardar y continuar
+            </button>
+          </div>
+        </div>
+
+        <!-- =========================
+             PASO 4: Experiencia laboral
+        ========================== -->
+        <div v-else-if="paso === 4">
+          <p class="text-muted mb-3">
+            Registra de 1 a 3 experiencias laborales más relevantes.
+          </p>
+
+          <div
+            v-for="(exp, index) in form.experiencias"
+            :key="index"
+            class="card mb-3 border-0 shadow-sm"
           >
-            Eliminar
-          </button>
+            <div class="card-body">
+              <div
+                class="d-flex justify-content-between align-items-center mb-3"
+              >
+                <h4 class="card-title h5 mb-0">Experiencia #{{ index + 1 }}</h4>
+                <button
+                  v-if="form.experiencias.length > 1"
+                  type="button"
+                  class="btn btn-link text-danger p-0"
+                  @click="eliminarExperiencia(index)"
+                >
+                  Eliminar
+                </button>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Fecha de inicio</label>
+                  <input
+                    v-model="exp.fecha_inicio"
+                    type="date"
+                    class="form-control"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Fecha de término</label>
+                  <input
+                    v-model="exp.fecha_termino"
+                    type="date"
+                    class="form-control"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Sector</label>
+                  <select v-model="exp.sector" class="form-select">
+                    <option value="">Selecciona sector</option>
+                    <option value="publico">Público</option>
+                    <option value="privado">Privado</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Cargo o puesto</label>
+                  <input
+                    v-model="exp.puesto"
+                    type="text"
+                    class="form-control"
+                  />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">
+                    Institución o empresa
+                  </label>
+                  <input
+                    v-model="exp.institucion"
+                    type="text"
+                    class="form-control"
+                  />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">
+                    Campo de experiencia (máx. 100 caracteres)
+                  </label>
+                  <textarea
+                    v-model="exp.campo"
+                    rows="2"
+                    class="form-control"
+                    maxlength="100"
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2"
+          >
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              @click="agregarExperiencia"
+              :disabled="form.experiencias.length >= 3"
+            >
+              + Agregar experiencia
+            </button>
+
+            <div class="d-flex">
+              <button
+                type="button"
+                class="btn btn-outline-secondary me-2"
+                @click="paso = 3"
+                :disabled="cargando"
+              >
+                ← Volver
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                :disabled="cargando"
+                @click="guardarExperiencias"
+              >
+                <span
+                  v-if="cargando"
+                  class="spinner-border spinner-border-sm me-2"
+                ></span>
+                Guardar y continuar
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="card-body">
+
+        <!-- =========================
+             PASO 5: Estudios
+        ========================== -->
+        <div v-else-if="paso === 5">
+          <p class="text-muted mb-4">
+            Captura tu formación académica principal.
+          </p>
+
           <div class="mb-3">
-            <label class="form-label">Período</label>
+            <label class="form-label fw-semibold">Institución</label>
             <input
+              v-model="form.estudios.institucion"
               type="text"
-              v-model="curso.periodo"
               class="form-control"
-              placeholder="Ej: Enero - Marzo 2024"
             />
           </div>
-          <div class="mb-3">
-            <label class="form-label">Nombre del curso o capacitación</label>
-            <input
-              type="text"
-              v-model="curso.nombre"
-              class="form-control"
-              placeholder="Ej: Gestión de Proyectos Ágiles"
-            />
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">País</label>
+              <input
+                v-model="form.estudios.pais"
+                type="text"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Nivel máximo de estudios</label>
+              <input
+                v-model="form.estudios.nivel"
+                type="text"
+                class="form-control"
+                placeholder="Licenciatura, Maestría, etc."
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Número de cédula</label>
+              <input
+                v-model="form.estudios.numero_cedula"
+                type="text"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Área de estudios</label>
+              <input
+                v-model="form.estudios.area_estudios"
+                type="text"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Carrera genérica</label>
+              <input
+                v-model="form.estudios.carrera_generica"
+                type="text"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Carrera específica</label>
+              <input
+                v-model="form.estudios.carrera_especifica"
+                type="text"
+                class="form-control"
+              />
+            </div>
           </div>
-          <div class="mb-0">
-            <label class="form-label">Nombre de la institución</label>
-            <input
-              type="text"
-              v-model="curso.institucion"
-              class="form-control"
-              placeholder="Ej: Universidad Nacional"
-            />
+
+          <div class="d-flex justify-content-between mt-4">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              @click="paso = 4"
+              :disabled="cargando"
+            >
+              ← Volver
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="cargando"
+              @click="guardarEstudios"
+            >
+              <span
+                v-if="cargando"
+                class="spinner-border spinner-border-sm me-2"
+              ></span>
+              Guardar y continuar
+            </button>
           </div>
+        </div>
+
+        <!-- =========================
+             PASO 6: Cursos
+        ========================== -->
+        <div v-else-if="paso === 6">
+          <p class="text-muted mb-3">
+            Registra de 1 a 3 cursos o capacitaciones relevantes para tu perfil.
+          </p>
+
+          <div
+            v-for="(curso, index) in form.cursos"
+            :key="index"
+            class="card mb-3 border-0 shadow-sm"
+          >
+            <div class="card-body">
+              <div
+                class="d-flex justify-content-between align-items-center mb-3"
+              >
+                <h4 class="card-title h5 mb-0">Curso #{{ index + 1 }}</h4>
+                <button
+                  v-if="form.cursos.length > 1"
+                  type="button"
+                  class="btn btn-link text-danger p-0"
+                  @click="eliminarCurso(index)"
+                >
+                  Eliminar
+                </button>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Periodo</label>
+                <input
+                  v-model="curso.periodo"
+                  type="text"
+                  class="form-control"
+                  placeholder="Ej. Enero - Marzo 2024"
+                />
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">
+                  Nombre del curso o capacitación
+                </label>
+                <input
+                  v-model="curso.nombre"
+                  type="text"
+                  class="form-control"
+                />
+              </div>
+              <div class="mb-0">
+                <label class="form-label fw-semibold">Nombre de la institución</label>
+                <input
+                  v-model="curso.institucion"
+                  type="text"
+                  class="form-control"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2"
+          >
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              @click="agregarCurso"
+              :disabled="form.cursos.length >= 3"
+            >
+              + Agregar curso
+            </button>
+
+            <div class="d-flex">
+              <button
+                type="button"
+                class="btn btn-outline-secondary me-2"
+                @click="paso = 5"
+                :disabled="cargando"
+              >
+                ← Volver
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                :disabled="cargando"
+                @click="finalizar"
+              >
+                <span
+                  v-if="cargando"
+                  class="spinner-border spinner-border-sm me-2"
+                ></span>
+                Finalizar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fallback -->
+        <div v-else>
+          <p class="text-muted mb-0">Paso no válido.</p>
         </div>
       </div>
-
-      <button
-        type="button"
-        class="btn btn-outline-primary w-100 mb-3"
-        :disabled="cursos.length >= 3"
-        @click="addCurso"
-      >
-        + Agregar curso
-      </button>
-
-      <div class="d-flex justify-content-between">
-        <button type="button" class="btn btn-secondary" @click="prevStep">
-          ← Regresar
-        </button>
-        <button type="submit" class="btn btn-primary">
-          Finalizar
-        </button>
-      </div>
-    </form>
+    </div>
   </div>
 </template>
 
 <script>
+import axios from '../../components/axios'
+
 export default {
   name: 'RegistroWizard',
   data() {
     return {
-      step: 1,
-      maxStep: 6,
-      mensajeGlobal: '',
-      acceso: {
+      paso: 1,
+      totalPasos: 6,
+      cargando: false,
+      alerta: null,
+      tipoAlerta: 'success',
+      empleadoCargado: null,
+      form: {
         curp: '',
-        email: '',
+        correo: '',
+        token: '',
+        datosPersonales: {
+          nombres: '',
+          primer_apellido: '',
+          segundo_apellido: '',
+          puesto_actual: '',
+          fecha_inicio: '',
+          area_adscripcion: '',
+        },
+        experiencias: [
+          {
+            fecha_inicio: '',
+            fecha_termino: '',
+            sector: '',
+            puesto: '',
+            institucion: '',
+            campo: '',
+          },
+        ],
+        estudios: {
+          institucion: '',
+          pais: '',
+          nivel: '',
+          numero_cedula: '',
+          carrera_generica: '',
+          carrera_especifica: '',
+          area_estudios: '',
+        },
+        cursos: [
+          {
+            periodo: '',
+            nombre: '',
+            institucion: '',
+          },
+        ],
       },
-      token: {
-        code: '',
-      },
-      datosPersonales: {
-        nombres: '',
-        primerApellido: '',
-        segundoApellido: '',
-        puestoActual: '',
-        fechaInicio: '',
-        areaAdscripcion: '',
-      },
-      experiencias: [createExperiencia()],
-      estudios: {
-        institucion: '',
-        pais: '',
-        nivel: '',
-        cedula: '',
-        carreraGenerica: '',
-        carreraEspecifica: '',
-        area: '',
-      },
-      cursos: [createCurso()],
-    };
+    }
   },
   computed: {
+    progreso() {
+      return Math.round((this.paso / this.totalPasos) * 100)
+    },
     tituloPaso() {
-      switch (this.step) {
+      switch (this.paso) {
         case 1:
-          return 'Acceso al Sistema';
+          return 'Verificación de identidad'
         case 2:
-          return 'Validar Token';
+          return 'Validación de código'
         case 3:
-          return 'Datos Personales';
+          return 'Datos personales'
         case 4:
-          return 'Experiencia Laboral';
+          return 'Experiencia laboral'
         case 5:
-          return 'Estudios Académicos';
+          return 'Estudios académicos'
         case 6:
-          return 'Cursos y Capacitaciones';
+          return 'Cursos y capacitaciones'
         default:
-          return 'Registro de CV';
+          return ''
       }
     },
-    subtituloPaso() {
-      switch (this.step) {
+    descripcionPaso() {
+      switch (this.paso) {
         case 1:
-          return 'Ingresa tus datos para continuar';
+          return 'Captura tu CURP y correo para enviar el código.'
         case 2:
-          return 'Revisa tus datos e ingresa el token';
+          return 'Ingresa el código que recibiste en tu correo.'
         case 3:
-          return 'Completa tu información personal';
+          return 'Confirma tus datos generales y de puesto.'
         case 4:
-          return 'Agrega tu experiencia laboral';
+          return 'Registra tu experiencia laboral relevante.'
         case 5:
-          return 'Completa tu información académica';
+          return 'Indica tu formación académica principal.'
         case 6:
-          return 'Agrega tus cursos o capacitaciones';
+          return 'Añade tus cursos y envía tu CV.'
         default:
-          return '';
+          return ''
       }
     },
   },
   methods: {
-    nextStep() {
-      if (this.step < this.maxStep) {
-        this.step++;
-        this.mensajeGlobal = '';
+    mostrarAlerta(tipo, mensaje) {
+      this.tipoAlerta = tipo
+      this.alerta = mensaje
+      if (mensaje) {
+        setTimeout(() => {
+          this.alerta = null
+        }, 5000)
       }
     },
-    prevStep() {
-      if (this.step > 1) {
-        this.step--;
-        this.mensajeGlobal = '';
+
+    // Paso 1
+    async enviarCodigo() {
+      this.mostrarAlerta(null, null)
+      if (!this.form.curp || !this.form.correo) {
+        this.mostrarAlerta('error', 'Debes capturar CURP y correo electrónico.')
+        return
+      }
+      this.cargando = true
+      try {
+        const { data } = await axios.post('/api/registro-cv/send-token', {
+          curp: this.form.curp,
+          correo: this.form.correo,
+        })
+        if (data.ok) {
+          this.mostrarAlerta('success', data.message || 'Código enviado.')
+          if (data.token_demo) {
+            console.log('TOKEN DEMO:', data.token_demo)
+          }
+          this.paso = 2
+        } else {
+          this.mostrarAlerta('error', data.message || 'No se pudo enviar el código.')
+        }
+      } catch (e) {
+        console.error(e)
+        this.mostrarAlerta('error', 'Ocurrió un error al enviar el código.')
+      } finally {
+        this.cargando = false
       }
     },
-    handleAcceso() {
-      if (!this.acceso.curp || !this.acceso.email) {
-        alert('Por favor captura CURP y correo.');
-        return;
+
+    // Paso 2
+    async validarCodigo() {
+      this.mostrarAlerta(null, null)
+      if (!this.form.token) {
+        this.mostrarAlerta('error', 'Debes ingresar el código de verificación.')
+        return
       }
-      // Demo: solo simulamos envío de token
-      alert('Token enviado (simulado).');
-      this.nextStep();
-    },
-    handleValidarToken() {
-      if (!this.token.code) {
-        alert('Ingresa el token de verificación.');
-        return;
+      this.cargando = true
+      try {
+        const { data } = await axios.post('/api/registro-cv/validate-token', {
+          curp: this.form.curp,
+          correo: this.form.correo,
+          token: this.form.token,
+        })
+        if (data.ok) {
+          this.empleadoCargado = data.empleado || null
+          if (this.empleadoCargado) {
+            this.form.datosPersonales.nombres =
+              this.empleadoCargado.nombre || ''
+            this.form.datosPersonales.primer_apellido =
+              this.empleadoCargado.primer_apellido || ''
+            this.form.datosPersonales.segundo_apellido =
+              this.empleadoCargado.segundo_apellido || ''
+            this.form.datosPersonales.puesto_actual =
+              this.empleadoCargado.puesto_actual || ''
+            this.form.datosPersonales.fecha_inicio =
+              this.empleadoCargado.fecha_inicio_puesto || ''
+            this.form.datosPersonales.area_adscripcion =
+              this.empleadoCargado.area_adscripcion || ''
+          }
+          this.mostrarAlerta('success', 'Código validado correctamente.')
+          this.paso = 3
+        } else {
+          this.mostrarAlerta('error', data.message || 'Código inválido o expirado.')
+        }
+      } catch (e) {
+        console.error(e)
+        this.mostrarAlerta('error', 'Ocurrió un error al validar el código.')
+      } finally {
+        this.cargando = false
       }
-      // Demo: simulamos token correcto
-      this.nextStep();
     },
-    addExperiencia() {
-      if (this.experiencias.length >= 3) return;
-      this.experiencias.push(createExperiencia());
+
+    // Paso 3
+    async guardarDatosPersonales() {
+      this.mostrarAlerta(null, null)
+      this.cargando = true
+      try {
+        await axios.post('/api/registro-cv/datos-personales', {
+          curp: this.form.curp,
+          ...this.form.datosPersonales,
+        })
+        this.mostrarAlerta('success', 'Datos personales guardados.')
+        this.paso = 4
+      } catch (e) {
+        console.error(e)
+        this.mostrarAlerta(
+          'error',
+          'No se pudieron guardar los datos personales.'
+        )
+      } finally {
+        this.cargando = false
+      }
     },
-    removeExperiencia(index) {
-      if (this.experiencias.length === 1) return;
-      this.experiencias.splice(index, 1);
+
+    // Paso 4
+    agregarExperiencia() {
+      if (this.form.experiencias.length >= 3) return
+      this.form.experiencias.push({
+        fecha_inicio: '',
+        fecha_termino: '',
+        sector: '',
+        puesto: '',
+        institucion: '',
+        campo: '',
+      })
     },
-    addCurso() {
-      if (this.cursos.length >= 3) return;
-      this.cursos.push(createCurso());
+    eliminarExperiencia(index) {
+      this.form.experiencias.splice(index, 1)
     },
-    removeCurso(index) {
-      if (this.cursos.length === 1) return;
-      this.cursos.splice(index, 1);
+    async guardarExperiencias() {
+      this.mostrarAlerta(null, null)
+      this.cargando = true
+      try {
+        await axios.post('/api/registro-cv/experiencias', {
+          curp: this.form.curp,
+          experiencias: this.form.experiencias.map((e) => ({
+            fecha_inicio: e.fecha_inicio || null,
+            fecha_termino: e.fecha_termino || null,
+            sector: e.sector || null,
+            puesto: e.puesto || null,
+            institucion: e.institucion || null,
+            campo: e.campo || null,
+          })),
+        })
+        this.mostrarAlerta('success', 'Experiencias guardadas.')
+        this.paso = 5
+      } catch (e) {
+        console.error(e)
+        this.mostrarAlerta('error', 'No se pudieron guardar las experiencias.')
+      } finally {
+        this.cargando = false
+      }
     },
-    finalizar() {
-      this.mensajeGlobal =
-        '¡Registro completado exitosamente! Todos los datos han sido guardados (demo).';
-      alert('En el futuro aquí se enviará al backend todo el CV.');
+
+    // Paso 5
+    async guardarEstudios() {
+      this.mostrarAlerta(null, null)
+      this.cargando = true
+      try {
+        await axios.post('/api/registro-cv/estudios', {
+          curp: this.form.curp,
+          ...this.form.estudios,
+        })
+        this.mostrarAlerta('success', 'Estudios guardados.')
+        this.paso = 6
+      } catch (e) {
+        console.error(e)
+        this.mostrarAlerta('error', 'No se pudieron guardar los estudios.')
+      } finally {
+        this.cargando = false
+      }
+    },
+
+    // Paso 6
+    agregarCurso() {
+      if (this.form.cursos.length >= 3) return
+      this.form.cursos.push({
+        periodo: '',
+        nombre: '',
+        institucion: '',
+      })
+    },
+    eliminarCurso(index) {
+      this.form.cursos.splice(index, 1)
+    },
+    async finalizar() {
+      this.mostrarAlerta(null, null)
+      this.cargando = true
+      try {
+        await axios.post('/api/registro-cv/cursos', {
+          curp: this.form.curp,
+          cursos: this.form.cursos,
+          enviar: true,
+        })
+        this.mostrarAlerta(
+          'success',
+          'Tu CV se envió correctamente. Serás redirigido en unos segundos.'
+        )
+
+        const urlFin =
+          window.CV_FINISH_URL || '/registro-personal-cv/public/login'
+        setTimeout(() => {
+          window.location.href = urlFin
+        }, 2500)
+      } catch (e) {
+        console.error(e)
+        this.mostrarAlerta('error', 'No se pudieron guardar los cursos.')
+      } finally {
+        this.cargando = false
+      }
     },
   },
-};
-
-let uid = 1;
-function createExperiencia() {
-  return {
-    id: uid++,
-    fechaInicio: '',
-    fechaTermino: '',
-    sector: '',
-    puesto: '',
-    institucion: '',
-    campo: '',
-  };
-}
-function createCurso() {
-  return {
-    id: uid++,
-    periodo: '',
-    nombre: '',
-    institucion: '',
-  };
 }
 </script>
-
-<style scoped>
-.registro-wizard {
-  max-width: 480px;
-  margin: 0 auto;
-}
-</style>

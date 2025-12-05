@@ -39,6 +39,11 @@ import vue_data_employee from './app/follow/data.vue'
 import RegistroWizard from './app/registro/RegistroWizard.vue'
 
 
+import RevisorEmpleadoList from './app/revisor/RevisorEmpleadoList.vue'
+import RevisorEmpleadoShow from './app/revisor/RevisorEmpleadoShow.vue'
+
+
+
 // Lista de componentes a montar (selector -> componente)
 const components = [
   // Auth
@@ -86,6 +91,11 @@ const components = [
 
     // Registro CV (empleado)
   { selector: '#blade_registro_wizard', component: RegistroWizard },
+  { selector: '#blade_revisor_empleados', component: RevisorEmpleadoList },
+  { selector: '#blade_revisor_empleado_show', component: RevisorEmpleadoShow },
+
+
+
 ]
 
 // Monta cada componente si existe su contenedor en el DOM
