@@ -4,58 +4,17 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Cv\WizardController;
 use App\Http\Controllers\Cv\RevisorController;
 
-/*
-|--------------------------------------------------------------------------
-| HOME / LOGIN / DASHBOARD
-|--------------------------------------------------------------------------
-*/
+// Wizard
+Route::get('/registro-cv', fn () => view('registro.wizard'))
+    ->name('registro.wizard');
 
-// Raíz del sistema -> Wizard de CV (pantalla de CURP + correo)
-Route::get('/', function () {
-    return redirect()->route('registro.wizard');
-});
-
-// /login tradicional -> también al wizard de CV
-Route::get('/login', function () {
-    return redirect()->route('registro.wizard');
-})->name('login');
-
-// Después de autenticarse (login viejo) manda al módulo de revisor
-Route::get('/dashboard', function () {
-    return redirect()->route('revisor.empleados');
-})->name('dashboard');
-
-
-/*
-|--------------------------------------------------------------------------
-| VISTA DEL WIZARD (empleado)
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/registro-cv', function () {
-    return view('registro.wizard');
-})->name('registro.wizard');
-
-
-/*
-|--------------------------------------------------------------------------
-| VISTAS DEL REVISOR
-|--------------------------------------------------------------------------
-*/
-
+// Revisor
 Route::view('/revisor/empleados', 'revisor.empleados')
     ->name('revisor.empleados');
-
 Route::view('/revisor/empleados/{id}', 'revisor.empleado-show')
     ->name('revisor.empleados.show');
 
-
-/*
-|--------------------------------------------------------------------------
-| API WIZARD
-|--------------------------------------------------------------------------
-*/
-
+// API WIZARD
 Route::prefix('api/cv')->group(function () {
     Route::post('/send-token',       [WizardController::class, 'sendToken']);
     Route::post('/validate-token',   [WizardController::class, 'validateToken']);
@@ -65,15 +24,11 @@ Route::prefix('api/cv')->group(function () {
     Route::post('/cursos',           [WizardController::class, 'saveCursos']);
 });
 
-
-/*
-|--------------------------------------------------------------------------
-| API REVISOR
-|--------------------------------------------------------------------------
-*/
-
+// API REVISOR
 Route::prefix('api/revisor')->group(function () {
     Route::get('/empleados',              [RevisorController::class, 'index']);
     Route::get('/empleados/{id}',         [RevisorController::class, 'show']);
     Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
 });
+
+// Aquí debajo dejas tus rutas de login actuales mientras las uses

@@ -18,8 +18,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => CheckRole::class,
         ]);
 
-        $middleware->appendToGroup('web', LoadUserRoles::class);
-
         $middleware->append(HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
