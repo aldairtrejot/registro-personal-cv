@@ -30,5 +30,3 @@ Route::prefix('api/revisor')->group(function () {
     Route::get('/empleados/{id}',         [RevisorController::class, 'show']);
     Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
 });
-
-// Aquí debajo dejas tus rutas de login actuales mientras las uses

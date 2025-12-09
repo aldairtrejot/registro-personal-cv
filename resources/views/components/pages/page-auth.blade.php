@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="utf-8" />
@@ -17,20 +17,19 @@
     @vite(['resources/js/app.js'])
 </head>
 
-
 <body>
-
     <div id="spinnerOverlay" class="spinner-overlay">
         <div class="spinner"></div>
     </div>
 
     <div class="page page-center">
         <div class="container container-tight py-4">
-            <div class="card card-md" style="box-shadow:0 4px 20px rgba(0,0,0,0.3); border-radius:10px; padding:20px;">
+            <div class="card card-md"
+                 style="box-shadow:0 4px 20px rgba(0,0,0,0.3); border-radius:10px; padding:20px;">
                 <div class="card-body">
                     <div class="text-center mb-4">
                         <img src="{{ asset('assets/images/imss-bienestar-2025.png') }}"
-                            style="width: 180px; height: auto;" />
+                             style="width: 180px; height: auto;" />
                     </div>
 
                     <h2 class="h2 text-center mb-4">
