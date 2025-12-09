@@ -77,7 +77,6 @@ class WizardController extends Controller
         return response()->json([
             'ok'         => true,
             'message'    => 'Se envió un código de verificación a tu correo.',
-            // SOLO para pruebas locales, puedes comentar esto en producción:
             'token_demo' => app()->environment('local') ? $token : null,
         ]);
     }
@@ -127,24 +126,28 @@ class WizardController extends Controller
     public function saveDatosPersonales(Request $request)
     {
         $data = $request->validate([
-            'curp'            => 'required|string|max:18',
-            'nombres'         => 'required|string|max:150',
-            'primer_apellido' => 'required|string|max:150',
-            'segundo_apellido'=> 'nullable|string|max:150',
-            'puesto_actual'   => 'nullable|string|max:150',
-            'fecha_inicio'    => 'nullable|date',
-            'area_adscripcion'=> 'nullable|string|max:150',
+            'curp'                 => 'required|string|max:18',
+            'nombres'              => 'required|string|max:150',
+            'primer_apellido'      => 'required|string|max:150',
+            'segundo_apellido'     => 'nullable|string|max:150',
+            'puesto_actual'        => 'nullable|string|max:150',
+            'fecha_inicio'         => 'nullable|date',
+            'area_adscripcion'     => 'nullable|string|max:150',
+            'id_puesto'            => 'nullable|integer',
+            'id_unidad_adscripcion'=> 'nullable|integer',
         ]);
 
         $empleado = Empleado::where('curp', $data['curp'])->firstOrFail();
 
-        $empleado->nombre              = $data['nombres'];
-        $empleado->primer_apellido     = $data['primer_apellido'];
-        $empleado->segundo_apellido    = $data['segundo_apellido'] ?? null;
-        $empleado->puesto_actual       = $data['puesto_actual'] ?? null;
-        $empleado->fecha_inicio_puesto = $data['fecha_inicio'] ?? null;
-        $empleado->area_adscripcion    = $data['area_adscripcion'] ?? null;
-        $empleado->estatus_cv          = 1; // En edición
+        $empleado->nombre               = $data['nombres'];
+        $empleado->primer_apellido      = $data['primer_apellido'];
+        $empleado->segundo_apellido     = $data['segundo_apellido'] ?? null;
+        $empleado->puesto_actual        = $data['puesto_actual'] ?? null;
+        $empleado->fecha_inicio_puesto  = $data['fecha_inicio'] ?? null;
+        $empleado->area_adscripcion     = $data['area_adscripcion'] ?? null;
+        $empleado->id_puesto            = $data['id_puesto'] ?? null;
+        $empleado->id_unidad_adscripcion= $data['id_unidad_adscripcion'] ?? null;
+        $empleado->estatus_cv           = 1; // En edición
         $empleado->save();
 
         return response()->json(['ok' => true]);
@@ -156,14 +159,14 @@ class WizardController extends Controller
     public function saveExperiencias(Request $request)
     {
         $data = $request->validate([
-            'curp'                       => 'required|string|max:18',
-            'experiencias'               => 'required|array|min:1|max:3',
-            'experiencias.*.fecha_inicio'=> 'nullable|date',
+            'curp'                        => 'required|string|max:18',
+            'experiencias'                => 'required|array|min:1|max:3',
+            'experiencias.*.fecha_inicio' => 'nullable|date',
             'experiencias.*.fecha_termino'=> 'nullable|date',
-            'experiencias.*.sector'      => 'nullable|string|max:20',
-            'experiencias.*.puesto'      => 'nullable|string|max:150',
-            'experiencias.*.institucion' => 'nullable|string|max:200',
-            'experiencias.*.campo'       => 'nullable|string|max:100',
+            'experiencias.*.sector'       => 'nullable|string|max:20',
+            'experiencias.*.puesto'       => 'nullable|string|max:150',
+            'experiencias.*.institucion'  => 'nullable|string|max:200',
+            'experiencias.*.campo'        => 'nullable|string|max:100',
         ]);
 
         $empleado = Empleado::where('curp', $data['curp'])->firstOrFail();
@@ -194,7 +197,9 @@ class WizardController extends Controller
         $data = $request->validate([
             'curp'               => 'required|string|max:18',
             'institucion'        => 'nullable|string|max:200',
+            'id_pais'            => 'nullable|integer',
             'pais'               => 'nullable|string|max:100',
+            'id_nivel_estudios'  => 'nullable|integer',
             'nivel'              => 'nullable|string|max:100',
             'numero_cedula'      => 'nullable|string|max:50',
             'carrera_generica'   => 'nullable|string|max:150',

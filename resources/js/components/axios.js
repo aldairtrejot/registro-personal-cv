@@ -2,17 +2,17 @@ import axios from 'axios';
 
 // Create an axios instance with custom configuration
 const url = axios.create({
-    // Base URL for all HTTP requests, read from environment variables
-    baseURL: import.meta.env.VITE_BASE_URL,
-    // Request timeout set to 5
+    // Base URL para todas las peticiones
+    baseURL: import.meta.env.VITE_BASE_URL || '',
+    // Request timeout
     timeout: 300000,
-    // Default headers for all requests, specifying JSON content type
+    // Default headers
     headers: {
         'X-Requested-With': 'XMLHttpRequest',
         'Accept': 'application/json',
         'Content-Type': 'application/json'
     },
-    // Send cookies and authentication information with requests
+    // Enviar cookies/autenticación
     withCredentials: true,
 });
 
@@ -26,28 +26,20 @@ url.interceptors.request.use(config => {
 });
 
 /*
+// Si quieres manejar expiración de sesión, descomenta esto
 url.interceptors.response.use(
-    response => response, // Deja pasar respuestas exitosas
+    response => response,
     error => {
-        // Detectar si la sesión expiró
         if (error.response && error.response.status === 401) {
-
-            // Limpiar datos si es necesario
             localStorage.clear();
             sessionStorage.clear();
-
-            // Redirigir al login
-            window.location.href = '/login'; // ajusta la ruta según tu app
-
-            // Detener ejecución
+            // Ojo con la ruta:
+            window.location.href = '/registro-personal-cv/public/login';
             return Promise.reject('Sesión expirada');
         }
-
-        // Otros errores siguen su curso
         return Promise.reject(error);
     }
 );
 */
 
-// Export the configured axios instance for use in other modules
 export default url;

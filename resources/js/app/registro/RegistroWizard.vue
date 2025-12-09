@@ -141,7 +141,7 @@
           </div>
         </div>
 
-        <!-- PASO 3 -->
+        <!-- PASO 3 - DATOS PERSONALES -->
         <div v-else-if="pasoActual === 3">
           <h3 class="cv-section-title">3. Datos personales</h3>
           <p class="cv-section-subtitle">
@@ -176,15 +176,45 @@
                 maxlength="150"
               />
             </div>
+
+            <!-- Puesto actual (cat_puestos) -->
             <div class="col-12">
               <label class="form-label">Puesto actual</label>
-              <input
-                v-model.trim="form.puesto_actual"
-                type="text"
-                class="form-control"
-                maxlength="150"
-              />
+              <select
+                v-model="form.id_puesto"
+                class="form-select"
+                @change="syncPuestoGenerico"
+              >
+                <option :value="null">Selecciona…</option>
+                <option
+                  v-for="puesto in catalogos.puestos"
+                  :key="puesto.id"
+                  :value="puesto.id"
+                >
+                  {{ puesto.nombre }}
+                </option>
+              </select>
             </div>
+
+            <!-- Puesto específico (cat_puestos_especificos) -->
+            <div class="col-12">
+              <label class="form-label">Puesto específico</label>
+              <select
+                v-model="form.id_puesto_especifico"
+                class="form-select"
+                @change="syncPuestoEspecifico"
+              >
+                <option :value="null">Selecciona…</option>
+                <option
+                  v-for="puesto in catalogos.puestosEspecificos"
+                  :key="puesto.id"
+                  :value="puesto.id"
+                >
+                  {{ puesto.nombre }}
+                </option>
+              </select>
+            </div>
+
             <div class="col-12">
               <label class="form-label">Fecha de inicio en el puesto</label>
               <input
@@ -193,14 +223,44 @@
                 class="form-control"
               />
             </div>
+
+            <!-- Unidad de adscripción (cat_unidades) -->
             <div class="col-12">
-              <label class="form-label">Área de adscripción</label>
-              <input
-                v-model.trim="form.area_adscripcion"
-                type="text"
-                class="form-control"
-                maxlength="150"
-              />
+              <label class="form-label">Unidad de adscripción</label>
+              <select
+                v-model="form.id_unidad"
+                class="form-select"
+                @change="cargarCoordinacionesUnidad"
+              >
+                <option :value="null">Selecciona…</option>
+                <option
+                  v-for="uni in catalogos.unidades"
+                  :key="uni.id"
+                  :value="uni.id"
+                >
+                  {{ uni.nombre }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Coordinación (cat_coordinaciones filtradas por rel_unidad_coordinacion) -->
+            <div class="col-12">
+              <label class="form-label">Coordinación</label>
+              <select
+                v-model="form.id_coordinacion"
+                class="form-select"
+                :disabled="!catalogos.coordinaciones.length"
+                @change="syncAreaAdscripcionTexto"
+              >
+                <option :value="null">Selecciona…</option>
+                <option
+                  v-for="coord in catalogos.coordinaciones"
+                  :key="coord.id"
+                  :value="coord.id"
+                >
+                  {{ coord.nombre }}
+                </option>
+              </select>
             </div>
           </div>
 
@@ -351,24 +411,45 @@
                 maxlength="200"
               />
             </div>
+
+            <!-- País (combo) -->
             <div class="col-12">
               <label class="form-label">País</label>
-              <input
-                v-model.trim="form.estudios.pais"
-                type="text"
-                class="form-control"
-                maxlength="100"
-              />
+              <select
+                v-model="form.estudios.id_pais"
+                class="form-select"
+                @change="syncPaisTexto"
+              >
+                <option :value="null">Selecciona…</option>
+                <option
+                  v-for="pais in catalogos.paises"
+                  :key="pais.id"
+                  :value="pais.id"
+                >
+                  {{ pais.nombre }}
+                </option>
+              </select>
             </div>
+
+            <!-- Nivel de estudios (combo) -->
             <div class="col-12">
               <label class="form-label">Nivel de estudios</label>
-              <input
-                v-model.trim="form.estudios.nivel"
-                type="text"
-                class="form-control"
-                maxlength="100"
-              />
+              <select
+                v-model="form.estudios.id_nivel_estudios"
+                class="form-select"
+                @change="syncNivelTexto"
+              >
+                <option :value="null">Selecciona…</option>
+                <option
+                  v-for="nivel in catalogos.nivelesEstudio"
+                  :key="nivel.id"
+                  :value="nivel.id"
+                >
+                  {{ nivel.nombre }}
+                </option>
+              </select>
             </div>
+
             <div class="col-12">
               <label class="form-label">Número de cédula</label>
               <input
@@ -396,14 +477,23 @@
                 maxlength="150"
               />
             </div>
+
+            <!-- Área de estudios (combo) -->
             <div class="col-12">
               <label class="form-label">Área de estudios</label>
-              <input
-                v-model.trim="form.estudios.area_estudios"
-                type="text"
-                class="form-control"
-                maxlength="150"
-              />
+              <select
+                v-model="form.estudios.area_estudios"
+                class="form-select"
+              >
+                <option value="">Selecciona…</option>
+                <option
+                  v-for="area in catalogos.areasEstudio"
+                  :key="area.id"
+                  :value="area.nombre"
+                >
+                  {{ area.nombre }}
+                </option>
+              </select>
             </div>
           </div>
 
@@ -538,6 +628,15 @@ export default {
       totalPasos: 6,
       loading: false,
       mensaje: null,
+      catalogos: {
+        paises: [],
+        nivelesEstudio: [],
+        areasEstudio: [],
+        puestos: [],
+        puestosEspecificos: [],
+        unidades: [],
+        coordinaciones: [],
+      },
       form: {
         curp: '',
         correo: '',
@@ -549,6 +648,10 @@ export default {
         puesto_actual: '',
         fecha_inicio: '',
         area_adscripcion: '',
+        id_puesto: null,
+        id_puesto_especifico: null,
+        id_unidad: null,
+        id_coordinacion: null,
         // experiencias
         experiencias: [
           {
@@ -563,7 +666,9 @@ export default {
         // estudios
         estudios: {
           institucion: '',
+          id_pais: null,
           pais: '',
+          id_nivel_estudios: null,
           nivel: '',
           numero_cedula: '',
           carrera_generica: '',
@@ -592,6 +697,97 @@ export default {
     },
   },
   methods: {
+    // ---------- Catálogos ----------
+    async cargarCatalogos() {
+      try {
+        const [
+          paisesRes,
+          nivelesRes,
+          areasRes,
+          puestosRes,
+          puestosEspRes,
+          unidadesRes,
+        ] = await Promise.all([
+          axios.get('/api/cv/catalogos/paises'),
+          axios.get('/api/cv/catalogos/niveles-estudio'),
+          axios.get('/api/cv/catalogos/areas-estudio'),
+          axios.get('/api/cv/catalogos/puestos'),
+          axios.get('/api/cv/catalogos/puestos-especificos'),
+          axios.get('/api/cv/catalogos/unidades'),
+        ])
+
+        this.catalogos.paises = paisesRes.data || []
+        this.catalogos.nivelesEstudio = nivelesRes.data || []
+        this.catalogos.areasEstudio = areasRes.data || []
+        this.catalogos.puestos = puestosRes.data || []
+        this.catalogos.puestosEspecificos = puestosEspRes.data || []
+        this.catalogos.unidades = unidadesRes.data || []
+        this.catalogos.coordinaciones = []
+      } catch (e) {
+        console.error('Error cargando catálogos', e)
+      }
+    },
+    syncPaisTexto() {
+      const id = this.form.estudios.id_pais
+      const item = this.catalogos.paises.find((p) => p.id === id)
+      this.form.estudios.pais = item ? item.nombre : ''
+    },
+    syncNivelTexto() {
+      const id = this.form.estudios.id_nivel_estudios
+      const item = this.catalogos.nivelesEstudio.find((n) => n.id === id)
+      this.form.estudios.nivel = item ? item.nombre : ''
+    },
+    syncPuestoGenerico() {
+      const id = this.form.id_puesto
+      const item = this.catalogos.puestos.find((p) => p.id === id)
+      // Solo si no hay específico seleccionado
+      if (!this.form.id_puesto_especifico) {
+        this.form.puesto_actual = item ? item.nombre : ''
+      }
+    },
+    syncPuestoEspecifico() {
+      const id = this.form.id_puesto_especifico
+      const item = this.catalogos.puestosEspecificos.find((p) => p.id === id)
+      this.form.puesto_actual = item ? item.nombre : ''
+    },
+    async cargarCoordinacionesUnidad() {
+      this.form.id_coordinacion = null
+      this.catalogos.coordinaciones = []
+      const id = this.form.id_unidad
+      if (!id) {
+        this.syncAreaAdscripcionTexto()
+        return
+      }
+
+      try {
+        const { data } = await axios.get(
+          `/api/cv/catalogos/coordinaciones-por-unidad/${id}`
+        )
+        this.catalogos.coordinaciones = data || []
+      } catch (e) {
+        console.error('Error cargando coordinaciones', e)
+      }
+
+      this.syncAreaAdscripcionTexto()
+    },
+    syncAreaAdscripcionTexto() {
+      const unidad = this.catalogos.unidades.find(
+        (u) => u.id === this.form.id_unidad
+      )
+      const coord = this.catalogos.coordinaciones.find(
+        (c) => c.id === this.form.id_coordinacion
+      )
+
+      if (unidad && coord) {
+        this.form.area_adscripcion = `${unidad.nombre} - ${coord.nombre}`
+      } else if (unidad) {
+        this.form.area_adscripcion = unidad.nombre
+      } else {
+        this.form.area_adscripcion = ''
+      }
+    },
+
+    // ---------- Utilidades generales ----------
     mostrarMensaje(tipo, texto) {
       this.mensaje = { tipo, texto }
       setTimeout(() => {
@@ -638,14 +834,22 @@ export default {
         }
         const { data } = await axios.post('/api/cv/validate-token', payload)
 
-        if (data.empleado) {
-          this.form.nombres = data.empleado.nombre || ''
-          this.form.primer_apellido = data.empleado.primer_apellido || ''
-          this.form.segundo_apellido = data.empleado.segundo_apellido || ''
-          this.form.puesto_actual = data.empleado.puesto_actual || ''
-          this.form.fecha_inicio = data.empleado.fecha_inicio_puesto || ''
-          this.form.area_adscripcion = data.empleado.area_adscripcion || ''
-        }
+if (data.empleado) {
+  this.form.nombres = data.empleado.nombre || ''
+  this.form.primer_apellido = data.empleado.primer_apellido || ''
+  this.form.segundo_apellido = data.empleado.segundo_apellido || ''
+  this.form.puesto_actual = data.empleado.puesto_actual || ''
+  this.form.fecha_inicio = data.empleado.fecha_inicio_puesto || ''
+  this.form.area_adscripcion = data.empleado.area_adscripcion || ''
+
+  // NUEVO: precargar IDs de puesto y unidad
+  this.form.id_puesto = data.empleado.id_puesto || null
+  this.form.id_unidad = data.empleado.id_unidad_adscripcion || null
+
+  if (this.form.id_unidad) {
+    await this.cargarCoordinacionesUnidad()
+  }
+}
 
         this.mostrarMensaje('ok', 'Código validado correctamente.')
         this.irPaso(3)
@@ -663,15 +867,17 @@ export default {
     async guardarDatosPersonales() {
       this.loading = true
       try {
-        const payload = {
-          curp: this.form.curp,
-          nombres: this.form.nombres,
-          primer_apellido: this.form.primer_apellido,
-          segundo_apellido: this.form.segundo_apellido,
-          puesto_actual: this.form.puesto_actual,
-          fecha_inicio: this.form.fecha_inicio,
-          area_adscripcion: this.form.area_adscripcion,
-        }
+const payload = {
+  curp: this.form.curp,
+  nombres: this.form.nombres,
+  primer_apellido: this.form.primer_apellido,
+  segundo_apellido: this.form.segundo_apellido,
+  puesto_actual: this.form.puesto_actual,
+  fecha_inicio: this.form.fecha_inicio,
+  area_adscripcion: this.form.area_adscripcion,
+  id_puesto: this.form.id_puesto,
+  id_unidad_adscripcion: this.form.id_unidad,
+}
         await axios.post('/api/cv/datos-personales', payload)
         this.mostrarMensaje('ok', 'Datos personales guardados.')
         this.irPaso(4)
@@ -787,10 +993,14 @@ export default {
       }
     },
   },
+  mounted() {
+    this.cargarCatalogos()
+  },
 }
 </script>
 
 <style scoped>
+/* (TODO: estilos idénticos, no modifiqué nada) */
 .cv-wrapper {
   min-height: 100vh;
   display: flex;
@@ -965,7 +1175,7 @@ export default {
   margin: 0;
 }
 
-/* Campos de formulario (más aire y bordes suaves) */
+/* Campos de formulario */
 .cv-card .form-label {
   font-size: 0.86rem;
   margin-bottom: 4px;
@@ -1003,7 +1213,7 @@ export default {
   flex: 1 1 auto;
 }
 
-/* Botones con colores institucionales */
+/* Botones */
 .cv-card .btn-primary {
   background: #006341;
   border-color: #006341;
@@ -1035,7 +1245,7 @@ export default {
   border-color: #08663e;
 }
 
-/* Links dentro del card (evitar azul) */
+/* Links */
 .cv-card a,
 .cv-card .btn-link {
   color: #006341;
@@ -1048,13 +1258,11 @@ export default {
   text-decoration: underline;
 }
 
-/* Link para agregar items */
 .cv-link-add {
   font-size: 0.88rem;
   font-weight: 500;
 }
 
-/* Link eliminar, respetando rojo pero sin azul */
 .cv-link-remove {
   text-decoration: none;
 }

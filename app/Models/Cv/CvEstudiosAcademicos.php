@@ -13,7 +13,9 @@ class CvEstudiosAcademicos extends Model
     protected $fillable = [
         'id_tbl_empleados',
         'institucion',
+        'id_pais',
         'pais',
+        'id_nivel_estudios',
         'nivel',
         'numero_cedula',
         'carrera_generica',

@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Cv\WizardController;
 use App\Http\Controllers\Cv\RevisorController;
-
+use App\Http\Controllers\Cv\CatalogosController;
 // Wizard
 Route::get('/registro-cv', fn () => view('registro.wizard'))
     ->name('registro.wizard');
@@ -29,4 +29,19 @@ Route::prefix('api/revisor')->group(function () {
     Route::get('/empleados',              [RevisorController::class, 'index']);
     Route::get('/empleados/{id}',         [RevisorController::class, 'show']);
     Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
+});
+
+Route::prefix('cv/catalogos')->group(function () {
+    // estudios
+    Route::get('/paises',          [CatalogosController::class, 'paises']);
+    Route::get('/niveles-estudio', [CatalogosController::class, 'nivelesEstudio']);
+    Route::get('/areas-estudio',   [CatalogosController::class, 'areasEstudio']);
+
+    // puestos
+    Route::get('/puestos',             [CatalogosController::class, 'puestos']);
+    Route::get('/puestos-especificos', [CatalogosController::class, 'puestosEspecificos']);
+
+    // unidades / coordinaciones
+    Route::get('/unidades',                        [CatalogosController::class, 'unidades']);
+    Route::get('/coordinaciones-por-unidad/{id}',  [CatalogosController::class, 'coordinacionesPorUnidad']);
 });

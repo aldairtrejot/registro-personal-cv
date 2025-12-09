@@ -1,8 +1,9 @@
+{{-- Vista para el wizard de registro de CV --}}
 <x-pages.page-auth>
     <div id="blade_registro_wizard"></div>
 
     <script>
-        // Aquí puedes poner la URL a donde quieres mandar al usuario al terminar
+        // URL a donde enviar al usuario al terminar el flujo
         window.CV_FINISH_URL = "{{ url('/registro-personal-cv/public/login') }}";
     </script>
 </x-pages.page-auth>
