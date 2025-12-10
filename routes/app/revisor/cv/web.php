@@ -1,11 +1,62 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Cv\WizardController;
 use App\Http\Controllers\Cv\RevisorController;
+use App\Http\Controllers\Cv\CatalogosController;
+use App\Http\Controllers\Auth\Login\AuthLoginController;
+use App\Http\Controllers\Auth\Login\ViewLoginController;
+
+/*
+|--------------------------------------------------------------------------
+| Rutas de autenticación
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/login', [ViewLoginController::class, 'login'])->name('login');
+
+Route::post('/auth/authentication', [AuthLoginController::class, 'authentication'])
+    ->name('auth.authentication');
+
+/*
+|--------------------------------------------------------------------------
+| Registro de CV (empleado)
+|--------------------------------------------------------------------------
+*/
+
+// Vista del wizard
+Route::get('/registro-cv', fn () => view('registro.wizard'))
+    ->name('registro.wizard');
+
+// API Wizard + Catálogos (prefijo /api/cv)
+Route::prefix('api/cv')->group(function () {
+    // Wizard
+    Route::post('/send-token',       [WizardController::class, 'sendToken']);
+    Route::post('/validate-token',   [WizardController::class, 'validateToken']);
+    Route::post('/datos-personales', [WizardController::class, 'saveDatosPersonales']);
+    Route::post('/experiencias',     [WizardController::class, 'saveExperiencias']);
+    Route::post('/estudios',         [WizardController::class, 'saveEstudios']);
+    Route::post('/cursos',           [WizardController::class, 'saveCursos']);
+
+    // Catálogos
+    Route::get('/catalogos/paises',          [CatalogosController::class, 'paises']);
+    Route::get('/catalogos/niveles-estudio', [CatalogosController::class, 'nivelesEstudio']);
+    Route::get('/catalogos/areas-estudio',   [CatalogosController::class, 'areasEstudio']);
+    Route::get('/catalogos/puestos',         [CatalogosController::class, 'puestos']);
+    Route::get('/catalogos/puestos-especificos', [CatalogosController::class, 'puestosEspecificos']);
+    Route::get('/catalogos/unidades',        [CatalogosController::class, 'unidades']);
+    Route::get('/catalogos/coordinaciones-por-unidad/{id_unidad}', [CatalogosController::class, 'coordinacionesPorUnidad']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Revisor (protegido con auth + role:3)
+|--------------------------------------------------------------------------
+*/
 
 Route::middleware(['auth', 'role:3'])->group(function () {
 
-    // VISTAS REVISOR
+    // Vistas
     Route::prefix('revisor')->group(function () {
         Route::view('/empleados', 'revisor.empleados')
             ->name('revisor.empleados');
@@ -14,7 +65,7 @@ Route::middleware(['auth', 'role:3'])->group(function () {
             ->name('revisor.empleados.show');
     });
 
-    // API REVISOR
+    // API
     Route::prefix('api/revisor')->group(function () {
         Route::get('/empleados',              [RevisorController::class, 'index']);
         Route::get('/empleados/{id}',         [RevisorController::class, 'show']);

@@ -103,34 +103,35 @@ onMounted(() => {
 
 // Enviar datos
 async function sendData() {
-    try {
-        showSpinner();
-        clearErrors();
+  try {
+    showSpinner();
+    clearErrors();
 
-        const form = document.querySelector('#data_form');
-        const formData = new FormData(form);
+    const form = document.querySelector('#data_form');
+    const formData = new FormData(form);
 
-        const response = await axios.post('/auth/authentication', formData);
+    const response = await axios.post('auth/authentication', formData);
 
-        if (!response.data.status) {
-            notyf.error(response.data.message);
-            refreshCaptcha(); // recargar captcha si falla
-        }
-
-        if (response.data.status) {
-            window.location.href = `${BASE_URL}/dashboard`;
-        }
-
-    } catch (error) {
-        clearErrors();
-        refreshCaptcha();
-
-        if (error.response?.data?.errors) {
-            handleErrors(error.response.data.errors);
-        }
-
-    } finally {
-        hideSpinner();
+    if (!response.data.status) {
+      notyf.error(response.data.message);
+      refreshCaptcha(); // recargar captcha si falla
     }
+
+    if (response.data.status) {
+      window.location.href = `${BASE_URL}/dashboard`;
+    }
+
+  } catch (error) {
+    clearErrors();
+    refreshCaptcha();
+
+    if (error.response?.data?.errors) {
+      handleErrors(error.response.data.errors);
+    }
+
+  } finally {
+    hideSpinner();
+  }
 }
+
 </script>

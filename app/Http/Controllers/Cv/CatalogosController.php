@@ -8,13 +8,11 @@ use App\Models\Cv\CatNivelEstudios;
 use App\Models\Cv\CatAreaEstudio;
 use App\Models\Cv\CatPuesto;
 use App\Models\Cv\CatPuestoEspecifico;
-use App\Models\Cv\CatUnidad;
+use App\Models\Cv\CatUnidad;              // 👈 ESTE es el que usamos
 use Illuminate\Support\Facades\DB;
 
 class CatalogosController extends Controller
 {
-    // ====== ESTUDIOS ======
-
     public function paises()
     {
         return CatPais::where('activo', true)
@@ -45,8 +43,6 @@ class CatalogosController extends Controller
             ]);
     }
 
-    // ====== PUESTOS ======
-
     public function puestos()
     {
         return CatPuesto::where('activo', true)
@@ -65,8 +61,6 @@ class CatalogosController extends Controller
                 'nombre_puesto_especifico as nombre',
             ]);
     }
-
-    // ====== UNIDADES / COORDINACIONES ======
 
     public function unidades()
     {

@@ -5,12 +5,13 @@
       <header class="cv-header">
         <div class="cv-logo-block">
           <div class="cv-logo-circle">
-            <img
-              src="/img/imss-logo.png"
-              alt="IMSS"
-              class="cv-logo-img"
-              onerror="this.style.display='none'"
-            />
+<img
+  :src="`${BASE_URL}/img/imss-logo.png`"
+  alt="IMSS"
+  class="cv-logo-img"
+  onerror="this.style.display='none'"
+/>
+
           </div>
           <div>
             <h1 class="cv-title">Proceso Curricular</h1>
@@ -727,6 +728,7 @@ export default {
         console.error('Error cargando catálogos', e)
       }
     },
+
     syncPaisTexto() {
       const id = this.form.estudios.id_pais
       const item = this.catalogos.paises.find((p) => p.id === id)
@@ -740,7 +742,6 @@ export default {
     syncPuestoGenerico() {
       const id = this.form.id_puesto
       const item = this.catalogos.puestos.find((p) => p.id === id)
-      // Solo si no hay específico seleccionado
       if (!this.form.id_puesto_especifico) {
         this.form.puesto_actual = item ? item.nombre : ''
       }
@@ -770,6 +771,7 @@ export default {
 
       this.syncAreaAdscripcionTexto()
     },
+
     syncAreaAdscripcionTexto() {
       const unidad = this.catalogos.unidades.find(
         (u) => u.id === this.form.id_unidad
@@ -834,22 +836,21 @@ export default {
         }
         const { data } = await axios.post('/api/cv/validate-token', payload)
 
-if (data.empleado) {
-  this.form.nombres = data.empleado.nombre || ''
-  this.form.primer_apellido = data.empleado.primer_apellido || ''
-  this.form.segundo_apellido = data.empleado.segundo_apellido || ''
-  this.form.puesto_actual = data.empleado.puesto_actual || ''
-  this.form.fecha_inicio = data.empleado.fecha_inicio_puesto || ''
-  this.form.area_adscripcion = data.empleado.area_adscripcion || ''
+        if (data.empleado) {
+          this.form.nombres = data.empleado.nombre || ''
+          this.form.primer_apellido = data.empleado.primer_apellido || ''
+          this.form.segundo_apellido = data.empleado.segundo_apellido || ''
+          this.form.puesto_actual = data.empleado.puesto_actual || ''
+          this.form.fecha_inicio = data.empleado.fecha_inicio_puesto || ''
+          this.form.area_adscripcion = data.empleado.area_adscripcion || ''
 
-  // NUEVO: precargar IDs de puesto y unidad
-  this.form.id_puesto = data.empleado.id_puesto || null
-  this.form.id_unidad = data.empleado.id_unidad_adscripcion || null
+          this.form.id_puesto = data.empleado.id_puesto || null
+          this.form.id_unidad = data.empleado.id_unidad_adscripcion || null
 
-  if (this.form.id_unidad) {
-    await this.cargarCoordinacionesUnidad()
-  }
-}
+          if (this.form.id_unidad) {
+            await this.cargarCoordinacionesUnidad()
+          }
+        }
 
         this.mostrarMensaje('ok', 'Código validado correctamente.')
         this.irPaso(3)
@@ -867,17 +868,17 @@ if (data.empleado) {
     async guardarDatosPersonales() {
       this.loading = true
       try {
-const payload = {
-  curp: this.form.curp,
-  nombres: this.form.nombres,
-  primer_apellido: this.form.primer_apellido,
-  segundo_apellido: this.form.segundo_apellido,
-  puesto_actual: this.form.puesto_actual,
-  fecha_inicio: this.form.fecha_inicio,
-  area_adscripcion: this.form.area_adscripcion,
-  id_puesto: this.form.id_puesto,
-  id_unidad_adscripcion: this.form.id_unidad,
-}
+        const payload = {
+          curp: this.form.curp,
+          nombres: this.form.nombres,
+          primer_apellido: this.form.primer_apellido,
+          segundo_apellido: this.form.segundo_apellido,
+          puesto_actual: this.form.puesto_actual,
+          fecha_inicio: this.form.fecha_inicio,
+          area_adscripcion: this.form.area_adscripcion,
+          id_puesto: this.form.id_puesto,
+          id_unidad_adscripcion: this.form.id_unidad,
+        }
         await axios.post('/api/cv/datos-personales', payload)
         this.mostrarMensaje('ok', 'Datos personales guardados.')
         this.irPaso(4)
@@ -892,21 +893,6 @@ const payload = {
     },
 
     // --- Paso 4 ---
-    agregarExperiencia() {
-      if (this.form.experiencias.length >= 3) return
-      this.form.experiencias.push({
-        fecha_inicio: '',
-        fecha_termino: '',
-        sector: '',
-        puesto: '',
-        institucion: '',
-        campo: '',
-      })
-    },
-    eliminarExperiencia(index) {
-      if (this.form.experiencias.length <= 1) return
-      this.form.experiencias.splice(index, 1)
-    },
     async guardarExperiencias() {
       this.loading = true
       try {
@@ -949,18 +935,6 @@ const payload = {
     },
 
     // --- Paso 6 ---
-    agregarCurso() {
-      if (this.form.cursos.length >= 3) return
-      this.form.cursos.push({
-        periodo: '',
-        nombre: '',
-        institucion: '',
-      })
-    },
-    eliminarCurso(index) {
-      if (this.form.cursos.length <= 1) return
-      this.form.cursos.splice(index, 1)
-    },
     async guardarCursos(enviar) {
       this.loading = true
       try {
@@ -1202,7 +1176,7 @@ const payload = {
 }
 
 .cv-actions-two,
-.cv-actions-three {
+cv-actions-three {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

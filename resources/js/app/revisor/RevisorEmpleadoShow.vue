@@ -311,45 +311,46 @@ export default {
           return 'sin_cv'
       }
     },
-    async cargarDetalle(id) {
-      try {
-        const { data } = await axios.get(`/api/revisor/empleados/${id}`)
-        this.empleado = data.empleado
-        this.experiencias = data.experiencias || []
-        this.estudios = data.estudios || null
-        this.cursos = data.cursos || []
-        this.statusLocal = this.mapStatusFromInt(this.empleado.estatus_cv)
-      } catch (e) {
-        this.mensaje = {
-          tipo: 'error',
-          texto: 'No se pudo cargar la información del empleado.',
-        }
-      }
-    },
-    async cambiarStatus(nuevo) {
-      try {
-        const id = this.empleado.id_tbl_empleados
-        await axios.post(`/api/revisor/empleados/${id}/estatus`, {
-          status: nuevo,
-        })
-        this.statusLocal = nuevo
-        this.mensaje = {
-          tipo: 'ok',
-          texto:
-            nuevo === 'aprobado'
-              ? 'CV marcado como Aprobado.'
-              : 'CV marcado como Rechazado.',
-        }
-        setTimeout(() => {
-          this.mensaje = null
-        }, 4000)
-      } catch (e) {
-        this.mensaje = {
-          tipo: 'error',
-          texto: 'No se pudo actualizar el estatus del CV.',
-        }
-      }
-    },
+async cargarDetalle(id) {
+  try {
+    const { data } = await axios.get(`api/revisor/empleados/${id}`)
+    this.empleado = data.empleado
+    this.experiencias = data.experiencias || []
+    this.estudios = data.estudios || null
+    this.cursos = data.cursos || []
+    this.statusLocal = this.mapStatusFromInt(this.empleado.estatus_cv)
+  } catch (e) {
+    this.mensaje = {
+      tipo: 'error',
+      texto: 'No se pudo cargar la información del empleado.',
+    }
+  }
+},
+async cambiarStatus(nuevo) {
+  try {
+    const id = this.empleado.id_tbl_empleados
+    await axios.post(`api/revisor/empleados/${id}/estatus`, {
+      status: nuevo,
+    })
+    this.statusLocal = nuevo
+    this.mensaje = {
+      tipo: 'ok',
+      texto:
+        nuevo === 'aprobado'
+          ? 'CV marcado como Aprobado.'
+          : 'CV marcado como Rechazado.',
+    }
+    setTimeout(() => {
+      this.mensaje = null
+    }, 4000)
+  } catch (e) {
+    this.mensaje = {
+      tipo: 'error',
+      texto: 'No se pudo actualizar el estatus del CV.',
+    }
+  }
+},
+
   },
   mounted() {
     const el = document.getElementById('blade_revisor_empleado_show')
