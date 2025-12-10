@@ -8,13 +8,9 @@ use App\Models\Cv\CatNivelEstudios;
 use App\Models\Cv\CatAreaEstudio;
 use App\Models\Cv\CatPuesto;
 use App\Models\Cv\CatPuestoEspecifico;
-use App\Models\Cv\CatUnidad;      
-use App\Models\Cv\CatCarreraEspecifica; 
-use App\Models\Catalogos\RelCarrera;       // 👈 ESTE es el que usamos
+use App\Models\Cv\CatUnidad;
+use App\Models\Cv\CatCarreraEspecifica;
 use Illuminate\Support\Facades\DB;
-
-
-
 
 class CatalogosController extends Controller
 {
@@ -96,7 +92,10 @@ class CatalogosController extends Controller
             ]);
     }
 
- public function carrerasEspecificas()
+    /* ================== CARRERAS ================== */
+
+    // 1) Carreras específicas
+    public function carrerasEspecificas()
     {
         $rows = CatCarreraEspecifica::where('activo', true)
             ->orderBy('nombre_especifico')
@@ -111,41 +110,48 @@ class CatalogosController extends Controller
         return response()->json($rows);
     }
 
+    // 2) Carreras genéricas por carrera específica
     public function carrerasGenericasPorEspecifica($idEspecifica)
     {
-        $rows = RelCarrera::with('carreraGenerica')
-            ->where('id_carrera_especifica', $idEspecifica)
-            ->get()
-            ->pluck('carreraGenerica')
-            ->unique('id_carrera_generica')
-            ->sortBy('nombre_generico')
-            ->values()
-            ->map(function ($row) {
-                return [
-                    'id'     => $row->id_carrera_generica,
-                    'nombre' => $row->nombre_generico,
-                ];
-            });
+        $rows = DB::table('profesionalizacion.rel_carreras as r')
+            ->join(
+                'profesionalizacion.cat_carreras_genericas as g',
+                'g.id_carrera_generica',
+                '=',
+                'r.id_carrera_generica'
+            )
+            ->where('r.id_carrera_especifica', $idEspecifica)
+            ->where('g.activo', true)
+            ->select(
+                'g.id_carrera_generica as id',
+                'g.nombre_generico as nombre'
+            )
+            ->distinct()
+            ->orderBy('g.nombre_generico')
+            ->get();
 
         return response()->json($rows);
     }
 
+    // 3) Áreas de estudio por combinación (específica + genérica)
     public function areasEstudioPorCarrera($idEspecifica, $idGenerica)
     {
-        $rows = RelCarrera::with('area')
-            ->where('id_carrera_especifica', $idEspecifica)
-            ->where('id_carrera_generica', $idGenerica)
-            ->get()
-            ->pluck('area')
-            ->unique('id_area')
-            ->sortBy('nombre_area')
-            ->values()
-            ->map(function ($row) {
-                return [
-                    'id'     => $row->id_area,
-                    'nombre' => $row->nombre_area,
-                ];
-            });
+        $rows = DB::table('profesionalizacion.rel_carreras as r')
+            ->join(
+                'profesionalizacion.cat_areas as a',
+                'a.id_area',
+                '=',
+                'r.id_area'
+            )
+            ->where('r.id_carrera_especifica', $idEspecifica)
+            ->where('r.id_carrera_generica', $idGenerica)
+            ->select(
+                'a.id_area as id',
+                'a.nombre_area as nombre'
+            )
+            ->distinct()
+            ->orderBy('a.nombre_area')
+            ->get();
 
         return response()->json($rows);
     }

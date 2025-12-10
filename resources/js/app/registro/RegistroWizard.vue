@@ -6,7 +6,7 @@
         <div class="cv-logo-block">
           <div class="cv-logo-circle">
             <img
-              :src="`${BASE_URL}/img/imss-logo.png`
+              :src="`${BASE_URL}/assets/images/imss_logo.png`
               "
               alt="IMSS"
               class="cv-logo-img"
@@ -730,78 +730,79 @@ export default {
   },
   methods: {
     // ---------- Catálogos ----------
-    async cargarCatalogos() {
-      try {
-        const results = await Promise.allSettled([
-          axios.get('/api/cv/catalogos/paises'),
-          axios.get('/api/cv/catalogos/niveles-estudio'),
-          axios.get('/api/cv/catalogos/areas-estudio'),
-          axios.get('/api/cv/catalogos/puestos'),
-          axios.get('/api/cv/catalogos/puestos-especificos'),
-          axios.get('/api/cv/catalogos/unidades'),
-          axios.get('/api/cv/catalogos/carreras-especificas'),
-        ])
+ async cargarCatalogos() {
+  try {
+    const results = await Promise.allSettled([
+      axios.get('/api/cv/catalogos/paises'),
+      axios.get('/api/cv/catalogos/niveles-estudio'),
+      axios.get('/api/cv/catalogos/areas-estudio'),
+      axios.get('/api/cv/catalogos/puestos'),
+      axios.get('/api/cv/catalogos/puestos-especificos'),
+      axios.get('/api/cv/catalogos/unidades'),
+      axios.get('/api/cv/catalogos/carreras-especificas'),
+    ])
 
-        const [
-          paisesRes,
-          nivelesRes,
-          areasRes,
-          puestosRes,
-          puestosEspRes,
-          unidadesRes,
-          carrerasEspRes,
-        ] = results
+    const [
+      paisesRes,
+      nivelesRes,
+      areasRes,
+      puestosRes,
+      puestosEspRes,
+      unidadesRes,
+      carrerasEspRes,
+    ] = results
 
-        if (paisesRes.status === 'fulfilled') {
-          this.catalogos.paises = paisesRes.value.data || []
-        } else {
-          console.error('Error catálogos: paises', paisesRes.reason)
-        }
+    if (paisesRes.status === 'fulfilled') {
+      this.catalogos.paises = paisesRes.value.data || []
+    } else {
+      console.error('Error catálogos: paises', paisesRes.reason)
+    }
 
-        if (nivelesRes.status === 'fulfilled') {
-          this.catalogos.nivelesEstudio = nivelesRes.value.data || []
-        } else {
-          console.error('Error catálogos: niveles-estudio', nivelesRes.reason)
-        }
+    if (nivelesRes.status === 'fulfilled') {
+      this.catalogos.nivelesEstudio = nivelesRes.value.data || []
+    } else {
+      console.error('Error catálogos: niveles-estudio', nivelesRes.reason)
+    }
 
-        if (areasRes.status === 'fulfilled') {
-          this.catalogos.areasEstudio = areasRes.value.data || []
-        } else {
-          console.error('Error catálogos: areas-estudio', areasRes.reason)
-        }
+    if (areasRes.status === 'fulfilled') {
+      this.catalogos.areasEstudio = areasRes.value.data || []
+    } else {
+      console.error('Error catálogos: areas-estudio', areasRes.reason)
+    }
 
-        if (puestosRes.status === 'fulfilled') {
-          this.catalogos.puestos = puestosRes.value.data || []
-        } else {
-          console.error('Error catálogos: puestos', puestosRes.reason)
-        }
+    if (puestosRes.status === 'fulfilled') {
+      this.catalogos.puestos = puestosRes.value.data || []
+    } else {
+      console.error('Error catálogos: puestos', puestosRes.reason)
+    }
 
-        if (puestosEspRes.status === 'fulfilled') {
-          this.catalogos.puestosEspecificos = puestosEspRes.value.data || []
-        } else {
-          console.error('Error catálogos: puestos-especificos', puestosEspRes.reason)
-        }
+    if (puestosEspRes.status === 'fulfilled') {
+      this.catalogos.puestosEspecificos = puestosEspRes.value.data || []
+    } else {
+      console.error('Error catálogos: puestos-especificos', puestosEspRes.reason)
+    }
 
-        if (unidadesRes.status === 'fulfilled') {
-          this.catalogos.unidades = unidadesRes.value.data || []
-        } else {
-          console.error('Error catálogos: unidades', unidadesRes.reason)
-        }
+    if (unidadesRes.status === 'fulfilled') {
+      this.catalogos.unidades = unidadesRes.value.data || []
+    } else {
+      console.error('Error catálogos: unidades', unidadesRes.reason)
+    }
 
-        if (carrerasEspRes.status === 'fulfilled') {
-          this.catalogos.carrerasEspecificas = carrerasEspRes.value.data || []
-        } else {
-          console.error('Error catálogos: carreras-especificas', carrerasEspRes.reason)
-        }
+    if (carrerasEspRes.status === 'fulfilled') {
+      this.catalogos.carrerasEspecificas = carrerasEspRes.value.data || []
+    } else {
+      console.error('Error catálogos: carreras-especificas', carrerasEspRes.reason)
+    }
 
-        // reset dependientes
-        this.catalogos.coordinaciones = []
-        this.catalogos.carrerasGenericas = []
-        this.catalogos.areasEstudioFiltradas = []
-      } catch (e) {
-        console.error('Error inesperado cargando catálogos', e)
-      }
-    },
+    // reset dependientes
+    this.catalogos.coordinaciones = []
+    this.catalogos.carrerasGenericas = []
+    this.catalogos.areasEstudioFiltradas = []
+  } catch (e) {
+    console.error('Error inesperado cargando catálogos', e)
+  }
+}
+,
 
     syncPaisTexto() {
       const id = this.form.estudios.id_pais
