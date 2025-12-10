@@ -5,13 +5,13 @@
       <header class="cv-header">
         <div class="cv-logo-block">
           <div class="cv-logo-circle">
-<img
-  :src="`${BASE_URL}/img/imss-logo.png`"
-  alt="IMSS"
-  class="cv-logo-img"
-  onerror="this.style.display='none'"
-/>
-
+            <img
+              :src="`${BASE_URL}/img/imss-logo.png`
+              "
+              alt="IMSS"
+              class="cv-logo-img"
+              onerror="this.style.display='none'"
+            />
           </div>
           <div>
             <h1 class="cv-title">Proceso Curricular</h1>
@@ -244,7 +244,7 @@
               </select>
             </div>
 
-            <!-- Coordinación (cat_coordinaciones filtradas por rel_unidad_coordinacion) -->
+            <!-- Coordinación -->
             <div class="col-12">
               <label class="form-label">Coordinación</label>
               <select
@@ -413,7 +413,7 @@
               />
             </div>
 
-            <!-- País (combo) -->
+            <!-- País -->
             <div class="col-12">
               <label class="form-label">País</label>
               <select
@@ -432,7 +432,7 @@
               </select>
             </div>
 
-            <!-- Nivel de estudios (combo) -->
+            <!-- Nivel de estudios -->
             <div class="col-12">
               <label class="form-label">Nivel de estudios</label>
               <select
@@ -460,37 +460,60 @@
                 maxlength="50"
               />
             </div>
-            <div class="col-12">
-              <label class="form-label">Carrera genérica</label>
-              <input
-                v-model.trim="form.estudios.carrera_generica"
-                type="text"
-                class="form-control"
-                maxlength="150"
-              />
-            </div>
+
+            <!-- Carrera específica -->
             <div class="col-12">
               <label class="form-label">Carrera específica</label>
-              <input
-                v-model.trim="form.estudios.carrera_especifica"
-                type="text"
-                class="form-control"
-                maxlength="150"
-              />
+              <select
+                v-model="form.estudios.id_carrera_especifica"
+                class="form-select"
+                @change="onChangeCarreraEspecifica"
+              >
+                <option :value="null">Selecciona…</option>
+                <option
+                  v-for="car in catalogos.carrerasEspecificas"
+                  :key="car.id"
+                  :value="car.id"
+                >
+                  {{ car.nombre }}
+                </option>
+              </select>
             </div>
 
-            <!-- Área de estudios (combo) -->
+            <!-- Carrera genérica (depende de específica) -->
+            <div class="col-12">
+              <label class="form-label">Carrera genérica</label>
+              <select
+                v-model="form.estudios.id_carrera_generica"
+                class="form-select"
+                :disabled="!catalogos.carrerasGenericas.length"
+                @change="onChangeCarreraGenerica"
+              >
+                <option :value="null">Selecciona…</option>
+                <option
+                  v-for="car in catalogos.carrerasGenericas"
+                  :key="car.id"
+                  :value="car.id"
+                >
+                  {{ car.nombre }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Área de estudios (depende de genérica) -->
             <div class="col-12">
               <label class="form-label">Área de estudios</label>
               <select
-                v-model="form.estudios.area_estudios"
+                v-model="form.estudios.id_area_estudios"
                 class="form-select"
+                :disabled="!catalogos.areasEstudioFiltradas.length"
+                @change="onChangeAreaEstudios"
               >
-                <option value="">Selecciona…</option>
+                <option :value="null">Selecciona…</option>
                 <option
-                  v-for="area in catalogos.areasEstudio"
+                  v-for="area in catalogos.areasEstudioFiltradas"
                   :key="area.id"
-                  :value="area.nombre"
+                  :value="area.id"
                 >
                   {{ area.nombre }}
                 </option>
@@ -620,11 +643,13 @@
 
 <script>
 import axios from '../../components/axios'
+import { BASE_URL } from '../../components/url'
 
 export default {
   name: 'RegistroWizard',
   data() {
     return {
+      BASE_URL,
       pasoActual: 1,
       totalPasos: 6,
       loading: false,
@@ -632,11 +657,14 @@ export default {
       catalogos: {
         paises: [],
         nivelesEstudio: [],
-        areasEstudio: [],
+        areasEstudio: [],          // se mantiene por compatibilidad
         puestos: [],
         puestosEspecificos: [],
         unidades: [],
         coordinaciones: [],
+        carrerasEspecificas: [],   // NUEVO
+        carrerasGenericas: [],     // NUEVO
+        areasEstudioFiltradas: [], // NUEVO
       },
       form: {
         curp: '',
@@ -672,8 +700,11 @@ export default {
           id_nivel_estudios: null,
           nivel: '',
           numero_cedula: '',
-          carrera_generica: '',
+          id_carrera_especifica: null,
           carrera_especifica: '',
+          id_carrera_generica: null,
+          carrera_generica: '',
+          id_area_estudios: null,
           area_estudios: '',
         },
         // cursos
@@ -701,6 +732,16 @@ export default {
     // ---------- Catálogos ----------
     async cargarCatalogos() {
       try {
+        const results = await Promise.allSettled([
+          axios.get('/api/cv/catalogos/paises'),
+          axios.get('/api/cv/catalogos/niveles-estudio'),
+          axios.get('/api/cv/catalogos/areas-estudio'),
+          axios.get('/api/cv/catalogos/puestos'),
+          axios.get('/api/cv/catalogos/puestos-especificos'),
+          axios.get('/api/cv/catalogos/unidades'),
+          axios.get('/api/cv/catalogos/carreras-especificas'),
+        ])
+
         const [
           paisesRes,
           nivelesRes,
@@ -708,24 +749,57 @@ export default {
           puestosRes,
           puestosEspRes,
           unidadesRes,
-        ] = await Promise.all([
-          axios.get('/api/cv/catalogos/paises'),
-          axios.get('/api/cv/catalogos/niveles-estudio'),
-          axios.get('/api/cv/catalogos/areas-estudio'),
-          axios.get('/api/cv/catalogos/puestos'),
-          axios.get('/api/cv/catalogos/puestos-especificos'),
-          axios.get('/api/cv/catalogos/unidades'),
-        ])
+          carrerasEspRes,
+        ] = results
 
-        this.catalogos.paises = paisesRes.data || []
-        this.catalogos.nivelesEstudio = nivelesRes.data || []
-        this.catalogos.areasEstudio = areasRes.data || []
-        this.catalogos.puestos = puestosRes.data || []
-        this.catalogos.puestosEspecificos = puestosEspRes.data || []
-        this.catalogos.unidades = unidadesRes.data || []
+        if (paisesRes.status === 'fulfilled') {
+          this.catalogos.paises = paisesRes.value.data || []
+        } else {
+          console.error('Error catálogos: paises', paisesRes.reason)
+        }
+
+        if (nivelesRes.status === 'fulfilled') {
+          this.catalogos.nivelesEstudio = nivelesRes.value.data || []
+        } else {
+          console.error('Error catálogos: niveles-estudio', nivelesRes.reason)
+        }
+
+        if (areasRes.status === 'fulfilled') {
+          this.catalogos.areasEstudio = areasRes.value.data || []
+        } else {
+          console.error('Error catálogos: areas-estudio', areasRes.reason)
+        }
+
+        if (puestosRes.status === 'fulfilled') {
+          this.catalogos.puestos = puestosRes.value.data || []
+        } else {
+          console.error('Error catálogos: puestos', puestosRes.reason)
+        }
+
+        if (puestosEspRes.status === 'fulfilled') {
+          this.catalogos.puestosEspecificos = puestosEspRes.value.data || []
+        } else {
+          console.error('Error catálogos: puestos-especificos', puestosEspRes.reason)
+        }
+
+        if (unidadesRes.status === 'fulfilled') {
+          this.catalogos.unidades = unidadesRes.value.data || []
+        } else {
+          console.error('Error catálogos: unidades', unidadesRes.reason)
+        }
+
+        if (carrerasEspRes.status === 'fulfilled') {
+          this.catalogos.carrerasEspecificas = carrerasEspRes.value.data || []
+        } else {
+          console.error('Error catálogos: carreras-especificas', carrerasEspRes.reason)
+        }
+
+        // reset dependientes
         this.catalogos.coordinaciones = []
+        this.catalogos.carrerasGenericas = []
+        this.catalogos.areasEstudioFiltradas = []
       } catch (e) {
-        console.error('Error cargando catálogos', e)
+        console.error('Error inesperado cargando catálogos', e)
       }
     },
 
@@ -787,6 +861,69 @@ export default {
       } else {
         this.form.area_adscripcion = ''
       }
+    },
+
+    // --- Carreras (específica → genérica → área) ---
+    async onChangeCarreraEspecifica() {
+      const idEspecifica = this.form.estudios.id_carrera_especifica
+
+      // limpiar dependientes
+      this.form.estudios.carrera_especifica = ''
+      this.form.estudios.id_carrera_generica = null
+      this.form.estudios.carrera_generica = ''
+      this.form.estudios.id_area_estudios = null
+      this.form.estudios.area_estudios = ''
+      this.catalogos.carrerasGenericas = []
+      this.catalogos.areasEstudioFiltradas = []
+
+      if (!idEspecifica) return
+
+      const item = this.catalogos.carrerasEspecificas.find(
+        (c) => c.id === idEspecifica
+      )
+      this.form.estudios.carrera_especifica = item ? item.nombre : ''
+
+      try {
+        const { data } = await axios.get(
+          `/api/cv/catalogos/carreras-genericas/${idEspecifica}`
+        )
+        this.catalogos.carrerasGenericas = data || []
+      } catch (e) {
+        console.error('Error cargando carreras genéricas', e)
+      }
+    },
+
+    async onChangeCarreraGenerica() {
+      const idEspecifica = this.form.estudios.id_carrera_especifica
+      const idGenerica = this.form.estudios.id_carrera_generica
+
+      this.form.estudios.carrera_generica = ''
+      this.form.estudios.id_area_estudios = null
+      this.form.estudios.area_estudios = ''
+      this.catalogos.areasEstudioFiltradas = []
+
+      const item = this.catalogos.carrerasGenericas.find(
+        (c) => c.id === idGenerica
+      )
+      this.form.estudios.carrera_generica = item ? item.nombre : ''
+
+      if (!idEspecifica || !idGenerica) return
+
+      try {
+        const { data } = await axios.get(
+          `/api/cv/catalogos/areas-estudio-por-carrera/${idEspecifica}/${idGenerica}`
+        )
+        this.catalogos.areasEstudioFiltradas = data || []
+      } catch (e) {
+        console.error('Error cargando áreas de estudio', e)
+      }
+    },
+
+    onChangeAreaEstudios() {
+      const item = this.catalogos.areasEstudioFiltradas.find(
+        (a) => a.id === this.form.estudios.id_area_estudios
+      )
+      this.form.estudios.area_estudios = item ? item.nombre : ''
     },
 
     // ---------- Utilidades generales ----------
@@ -966,6 +1103,35 @@ export default {
         this.loading = false
       }
     },
+
+    // helpers bloques repetibles
+    agregarExperiencia() {
+      if (this.form.experiencias.length >= 3) return
+      this.form.experiencias.push({
+        fecha_inicio: '',
+        fecha_termino: '',
+        sector: '',
+        puesto: '',
+        institucion: '',
+        campo: '',
+      })
+    },
+    eliminarExperiencia(index) {
+      if (this.form.experiencias.length <= 1) return
+      this.form.experiencias.splice(index, 1)
+    },
+    agregarCurso() {
+      if (this.form.cursos.length >= 3) return
+      this.form.cursos.push({
+        periodo: '',
+        nombre: '',
+        institucion: '',
+      })
+    },
+    eliminarCurso(index) {
+      if (this.form.cursos.length <= 1) return
+      this.form.cursos.splice(index, 1)
+    },
   },
   mounted() {
     this.cargarCatalogos()
@@ -974,7 +1140,6 @@ export default {
 </script>
 
 <style scoped>
-/* (TODO: estilos idénticos, no modifiqué nada) */
 .cv-wrapper {
   min-height: 100vh;
   display: flex;

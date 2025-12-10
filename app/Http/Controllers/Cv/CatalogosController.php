@@ -8,8 +8,13 @@ use App\Models\Cv\CatNivelEstudios;
 use App\Models\Cv\CatAreaEstudio;
 use App\Models\Cv\CatPuesto;
 use App\Models\Cv\CatPuestoEspecifico;
-use App\Models\Cv\CatUnidad;              // 👈 ESTE es el que usamos
+use App\Models\Cv\CatUnidad;      
+use App\Models\Cv\CatCarreraEspecifica; 
+use App\Models\Catalogos\RelCarrera;       // 👈 ESTE es el que usamos
 use Illuminate\Support\Facades\DB;
+
+
+
 
 class CatalogosController extends Controller
 {
@@ -90,4 +95,59 @@ class CatalogosController extends Controller
                 'c.nombre_coordinacion as nombre',
             ]);
     }
+
+ public function carrerasEspecificas()
+    {
+        $rows = CatCarreraEspecifica::where('activo', true)
+            ->orderBy('nombre_especifico')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'id'     => $row->id_carrera_especifica,
+                    'nombre' => $row->nombre_especifico,
+                ];
+            });
+
+        return response()->json($rows);
+    }
+
+    public function carrerasGenericasPorEspecifica($idEspecifica)
+    {
+        $rows = RelCarrera::with('carreraGenerica')
+            ->where('id_carrera_especifica', $idEspecifica)
+            ->get()
+            ->pluck('carreraGenerica')
+            ->unique('id_carrera_generica')
+            ->sortBy('nombre_generico')
+            ->values()
+            ->map(function ($row) {
+                return [
+                    'id'     => $row->id_carrera_generica,
+                    'nombre' => $row->nombre_generico,
+                ];
+            });
+
+        return response()->json($rows);
+    }
+
+    public function areasEstudioPorCarrera($idEspecifica, $idGenerica)
+    {
+        $rows = RelCarrera::with('area')
+            ->where('id_carrera_especifica', $idEspecifica)
+            ->where('id_carrera_generica', $idGenerica)
+            ->get()
+            ->pluck('area')
+            ->unique('id_area')
+            ->sortBy('nombre_area')
+            ->values()
+            ->map(function ($row) {
+                return [
+                    'id'     => $row->id_area,
+                    'nombre' => $row->nombre_area,
+                ];
+            });
+
+        return response()->json($rows);
+    }
 }
+

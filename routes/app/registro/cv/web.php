@@ -44,4 +44,11 @@ Route::prefix('cv/catalogos')->group(function () {
     // unidades / coordinaciones
     Route::get('/unidades',                        [CatalogosController::class, 'unidades']);
     Route::get('/coordinaciones-por-unidad/{id}',  [CatalogosController::class, 'coordinacionesPorUnidad']);
+
+     Route::get('/catalogos/carreras-especificas', [CatalogosController::class, 'carrerasEspecificas']);
+    Route::get('/catalogos/carrera-info/{id_carrera_especifica}', [CatalogosController::class, 'carreraInfoPorEspecifica']);
+       Route::get(
+        '/areas-estudio-por-carrera/{idEspecifica}/{idGenerica}',
+        [CatalogosController::class, 'areasEstudioPorCarrera']
+    );
 });
