@@ -140,9 +140,9 @@
                 </x-menu.menu-dropdown>
             @endhasrole
 
-            @hasrole(1, 3, 4, 5, 6)
+           <!-- @hasrole(1, 3, 4, 5, 6)
                 <x-menu.menu-only title="Profesionalización" icon="ti ti-briefcase" href="{{ route('employee') }}" />
-            @endhasrole
+            @endhasrole-->
 
             @hasrole(1, 2, 3, 4, 5)
                 <x-menu.menu-only title="Acerca de" icon="ti ti-info-circle" href="{{ route('about') }}" />

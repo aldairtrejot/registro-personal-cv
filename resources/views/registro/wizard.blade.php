@@ -7,3 +7,4 @@
         window.CV_FINISH_URL = "{{ url('/registro-personal-cv/public/login') }}";
     </script>
 </x-pages.page-auth>
+

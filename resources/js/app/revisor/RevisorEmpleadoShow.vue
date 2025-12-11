@@ -72,7 +72,7 @@
 
         <!-- Bloque principal -->
         <div class="row row-cards" v-if="empleado">
-          <!-- Datos personales / resumen -->
+          <!-- Columna izquierda -->
           <div class="col-md-5">
             <!-- Datos personales -->
             <div class="card mb-3 shadow-sm border-0">
@@ -128,7 +128,7 @@
             </div>
           </div>
 
-          <!-- Detalle de CV -->
+          <!-- Columna derecha -->
           <div class="col-md-7">
             <!-- Experiencia laboral -->
             <div class="card shadow-sm border-0 mb-3">
@@ -203,7 +203,7 @@
               </div>
             </div>
 
-            <!-- Cursos y capacitaciones -->
+            <!-- Cursos -->
             <div class="card shadow-sm border-0">
               <div class="card-header">
                 <h3 class="card-title mb-0">Cursos y capacitaciones</h3>
@@ -237,7 +237,7 @@
 
         <!-- Botón volver -->
         <div class="mt-3">
-          <a href="/registro-personal-cv/public/revisor/empleados" class="btn btn-outline-secondary">
+          <a :href="`${BASE_URL}/revisor/empleados`" class="btn btn-outline-secondary">
             ← Volver al listado
           </a>
         </div>
@@ -247,12 +247,14 @@
 </template>
 
 <script>
-import axios from '../../components/axios'
+import axios from '@axios'
+import { BASE_URL } from '@/components/url.js'
 
 export default {
   name: 'RevisorEmpleadoShow',
   data() {
     return {
+      BASE_URL,
       mensaje: null,
       empleado: null,
       statusLocal: 'edicion',
@@ -311,46 +313,45 @@ export default {
           return 'sin_cv'
       }
     },
-async cargarDetalle(id) {
-  try {
-    const { data } = await axios.get(`api/revisor/empleados/${id}`)
-    this.empleado = data.empleado
-    this.experiencias = data.experiencias || []
-    this.estudios = data.estudios || null
-    this.cursos = data.cursos || []
-    this.statusLocal = this.mapStatusFromInt(this.empleado.estatus_cv)
-  } catch (e) {
-    this.mensaje = {
-      tipo: 'error',
-      texto: 'No se pudo cargar la información del empleado.',
-    }
-  }
-},
-async cambiarStatus(nuevo) {
-  try {
-    const id = this.empleado.id_tbl_empleados
-    await axios.post(`api/revisor/empleados/${id}/estatus`, {
-      status: nuevo,
-    })
-    this.statusLocal = nuevo
-    this.mensaje = {
-      tipo: 'ok',
-      texto:
-        nuevo === 'aprobado'
-          ? 'CV marcado como Aprobado.'
-          : 'CV marcado como Rechazado.',
-    }
-    setTimeout(() => {
-      this.mensaje = null
-    }, 4000)
-  } catch (e) {
-    this.mensaje = {
-      tipo: 'error',
-      texto: 'No se pudo actualizar el estatus del CV.',
-    }
-  }
-},
-
+    async cargarDetalle(id) {
+      try {
+        const { data } = await axios.get(`api/revisor/empleados/${id}`)
+        this.empleado     = data.empleado
+        this.experiencias = data.experiencias || []
+        this.estudios     = data.estudios || null
+        this.cursos       = data.cursos || []
+        this.statusLocal  = this.mapStatusFromInt(this.empleado.estatus_cv)
+      } catch (e) {
+        this.mensaje = {
+          tipo: 'error',
+          texto: 'No se pudo cargar la información del empleado.',
+        }
+      }
+    },
+    async cambiarStatus(nuevo) {
+      try {
+        const id = this.empleado.id_tbl_empleados
+        await axios.post(`api/revisor/empleados/${id}/estatus`, {
+          status: nuevo,
+        })
+        this.statusLocal = nuevo
+        this.mensaje = {
+          tipo: 'ok',
+          texto:
+            nuevo === 'aprobado'
+              ? 'CV marcado como Aprobado.'
+              : 'CV marcado como Rechazado.',
+        }
+        setTimeout(() => {
+          this.mensaje = null
+        }, 4000)
+      } catch (e) {
+        this.mensaje = {
+          tipo: 'error',
+          texto: 'No se pudo actualizar el estatus del CV.',
+        }
+      }
+    },
   },
   mounted() {
     const el = document.getElementById('blade_revisor_empleado_show')

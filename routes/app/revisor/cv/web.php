@@ -72,3 +72,17 @@ Route::middleware(['auth', 'role:3'])->group(function () {
         Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
     });
 });
+
+// Revisor (protegido con auth + role:1 → ADMIN)
+Route::middleware(['auth', 'role:1,3'])->group(function () {
+    Route::prefix('revisor')->group(function () {
+        Route::view('/empleados', 'revisor.empleados')->name('revisor.empleados');
+        Route::view('/empleados/{id}', 'revisor.empleado-show')->name('revisor.empleados.show');
+    });
+
+    Route::prefix('api/revisor')->group(function () {
+        Route::get('/empleados',              [RevisorController::class, 'index']);
+        Route::get('/empleados/{id}',         [RevisorController::class, 'show']);
+        Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
+    });
+});

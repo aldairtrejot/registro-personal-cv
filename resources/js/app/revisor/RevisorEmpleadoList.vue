@@ -97,12 +97,14 @@
 </template>
 
 <script>
-import axios from '../../components/axios'
+import axios from '@axios'
+import { BASE_URL } from '@/components/url.js'
 
 export default {
   name: 'RevisorEmpleadoList',
   data() {
     return {
+      BASE_URL,
       filtros: {
         busqueda: '',
         status: '',
@@ -158,23 +160,22 @@ export default {
       }
     },
     detalleUrl(id) {
-      // Ruta que definimos en /revisor/empleados/{id}
-      return `/registro-personal-cv/public/revisor/empleados/${id}`
+      return `${this.BASE_URL}/revisor/empleados/${id}`
     },
-async cargarEmpleados() {
-  try {
-    const { data } = await axios.get('api/revisor/empleados', {
-      params: {
-        q: this.filtros.busqueda || undefined,
-        status: this.filtros.status || undefined,
-      },
-    })
-    this.empleados = data
-  } catch (e) {
-    console.error('Error al cargar empleados:', e)
-  }
-},
-
+    async cargarEmpleados() {
+      try {
+        const { data } = await axios.get('api/revisor/empleados', {
+          params: {
+            q: this.filtros.busqueda || undefined,
+            status: this.filtros.status || undefined,
+          },
+        })
+        // Espera un array de empleados
+        this.empleados = data
+      } catch (e) {
+        console.error('Error al cargar empleados:', e)
+      }
+    },
   },
   watch: {
     filtros: {
