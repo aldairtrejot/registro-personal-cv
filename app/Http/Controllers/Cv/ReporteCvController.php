@@ -119,20 +119,20 @@ class ReporteCvController extends Controller
         foreach ($empleados as $e) {
             // Separar UNIDAD y COORDINACIÓN desde area_adscripcion
             $unidad = '';
-            $coord  = '';
+            $coord = '';
 
             if (!empty($e->area_adscripcion)) {
-                $parts  = array_map('trim', explode('-', $e->area_adscripcion, 2));
+                $parts = array_map('trim', explode('-', $e->area_adscripcion, 2));
                 $unidad = $parts[0] ?? '';
-                $coord  = $parts[1] ?? '';
+                $coord = $parts[1] ?? '';
             }
 
             /** @var \App\Models\Cv\CvEstudiosAcademicos|null $est */
             $est = $estudios->get($e->id_tbl_empleados);
 
             // experiencia principal para "sector"
-            $expCollection   = $experienciasPorEmpleado->get($e->id_tbl_empleados);
-            $expPrincipal    = $expCollection ? $expCollection->first() : null;
+            $expCollection = $experienciasPorEmpleado->get($e->id_tbl_empleados);
+            $expPrincipal = $expCollection ? $expCollection->first() : null;
             $sectorPrincipal = $expPrincipal ? $expPrincipal->sector : '';
 
             $estatusLabel = $statusMap[(int) $e->estatus_cv] ?? '';
@@ -181,12 +181,12 @@ class ReporteCvController extends Controller
 
         foreach ($empleados as $e) {
             $unidad = '';
-            $coord  = '';
+            $coord = '';
 
             if (!empty($e->area_adscripcion)) {
-                $parts  = array_map('trim', explode('-', $e->area_adscripcion, 2));
+                $parts = array_map('trim', explode('-', $e->area_adscripcion, 2));
                 $unidad = $parts[0] ?? '';
-                $coord  = $parts[1] ?? '';
+                $coord = $parts[1] ?? '';
             }
 
             $hoja2[] = [
@@ -340,7 +340,7 @@ class ReporteCvController extends Controller
     private function estilizarEncabezadoYWrap($sheet): void
     {
         $highestColumn = $sheet->getHighestColumn();
-        $highestRow    = $sheet->getHighestRow();
+        $highestRow = $sheet->getHighestRow();
 
         if ($highestRow < 1) {
             return;
@@ -351,17 +351,17 @@ class ReporteCvController extends Controller
 
         $sheet->getStyle($headerRange)->applyFromArray([
             'font' => [
-                'bold'  => true,
+                'bold' => true,
                 'color' => ['rgb' => 'FFFFFF'],
             ],
             'fill' => [
-                'fillType'   => Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '10312B'],
             ],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_CENTER,
-                'vertical'   => Alignment::VERTICAL_CENTER,
-                'wrapText'   => true,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
             ],
         ]);
 
@@ -386,7 +386,7 @@ class ReporteCvController extends Controller
     private function ajustarHoja($sheet): void
     {
         $highestColumn = $sheet->getHighestColumn();
-        $highestRow    = $sheet->getHighestRow();
+        $highestRow = $sheet->getHighestRow();
 
         $sheet
             ->getStyle('A1:' . $highestColumn . $highestRow)

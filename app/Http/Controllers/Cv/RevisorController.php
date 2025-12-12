@@ -19,9 +19,9 @@ class RevisorController extends Controller
 
         if ($request->filled('status')) {
             $map = [
-                'edicion'   => 1,
-                'enviado'   => 2,
-                'aprobado'  => 3,
+                'edicion' => 1,
+                'enviado' => 2,
+                'aprobado' => 3,
                 'rechazado' => 4,
             ];
             if (isset($map[$request->status])) {
@@ -45,13 +45,13 @@ class RevisorController extends Controller
             ->get()
             ->map(function (Empleado $e) {
                 return [
-                    'id'                 => $e->id_tbl_empleados,
-                    'nombre'             => trim("{$e->nombre} {$e->primer_apellido} {$e->segundo_apellido}"),
-                    'curp'               => $e->curp,
-                    'area'               => $e->area_adscripcion,
+                    'id' => $e->id_tbl_empleados,
+                    'nombre' => trim("{$e->nombre} {$e->primer_apellido} {$e->segundo_apellido}"),
+                    'curp' => $e->curp,
+                    'area' => $e->area_adscripcion,
                     // Usamos updated_at como "fecha de captura / última actualización"
                     'fechaActualizacion' => optional($e->updated_at)->format('d/m/Y H:i'),
-                    'status'             => $this->cvStatusLabel($e->estatus_cv),
+                    'status' => $this->cvStatusLabel($e->estatus_cv),
                 ];
             });
 
@@ -73,10 +73,10 @@ class RevisorController extends Controller
             ->get();
 
         return response()->json([
-            'empleado'     => $empleado,
+            'empleado' => $empleado,
             'experiencias' => $experiencias,
-            'estudios'     => $estudios,
-            'cursos'       => $cursos,
+            'estudios' => $estudios,
+            'cursos' => $cursos,
         ]);
     }
 
@@ -89,9 +89,9 @@ class RevisorController extends Controller
         $empleado = Empleado::findOrFail($id);
 
         $map = [
-            'edicion'   => 1,
-            'enviado'   => 2,
-            'aprobado'  => 3,
+            'edicion' => 1,
+            'enviado' => 2,
+            'aprobado' => 3,
             'rechazado' => 4,
         ];
 
@@ -111,10 +111,10 @@ class RevisorController extends Controller
     private function cvStatusLabel($estatus_cv)
     {
         return match ((int) $estatus_cv) {
-            1       => 'edicion',
-            2       => 'enviado',
-            3       => 'aprobado',
-            4       => 'rechazado',
+            1 => 'edicion',
+            2 => 'enviado',
+            3 => 'aprobado',
+            4 => 'rechazado',
             default => 'sin_cv',
         };
     }
@@ -152,8 +152,8 @@ class RevisorController extends Controller
         ";
 
         $mailData = [
-            'affair'  => 'Tu registro de CV requiere correcciones',
-            'mail'    => $correo,
+            'affair' => 'Tu registro de CV requiere correcciones',
+            'mail' => $correo,
             'content' => $html,
         ];
 

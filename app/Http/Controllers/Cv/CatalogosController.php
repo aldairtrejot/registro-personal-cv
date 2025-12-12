@@ -102,7 +102,7 @@ class CatalogosController extends Controller
             ->get()
             ->map(function ($row) {
                 return [
-                    'id'     => $row->id_carrera_especifica,
+                    'id' => $row->id_carrera_especifica,
                     'nombre' => $row->nombre_especifico,
                 ];
             });
