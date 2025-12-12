@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Cv;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Helpers\MailController as MailHelper;
 use App\Models\Cv\Empleado;
 use App\Models\Cv\CvExperienciaLaboral;
 use App\Models\Cv\CvEstudiosAcademicos;
 use App\Models\Cv\CvCursosCapacitaciones;
+use App\Models\Cv\CvTokenAcceso;
 use Illuminate\Http\Request;
 
 class RevisorController extends Controller
@@ -47,7 +49,8 @@ class RevisorController extends Controller
                     'nombre'             => trim("{$e->nombre} {$e->primer_apellido} {$e->segundo_apellido}"),
                     'curp'               => $e->curp,
                     'area'               => $e->area_adscripcion,
-                    'fechaActualizacion' => $e->fecha_inicio_puesto,
+                    // Usamos updated_at como "fecha de captura / última actualización"
+                    'fechaActualizacion' => optional($e->updated_at)->format('d/m/Y H:i'),
                     'status'             => $this->cvStatusLabel($e->estatus_cv),
                 ];
             });
@@ -64,7 +67,8 @@ class RevisorController extends Controller
             ->get();
 
         $estudios = CvEstudiosAcademicos::where('id_tbl_empleados', $id)->first();
-        $cursos   = CvCursosCapacitaciones::where('id_tbl_empleados', $id)
+
+        $cursos = CvCursosCapacitaciones::where('id_tbl_empleados', $id)
             ->orderBy('orden')
             ->get();
 
@@ -91,8 +95,15 @@ class RevisorController extends Controller
             'rechazado' => 4,
         ];
 
-        $empleado->estatus_cv = $map[$data['status']];
+        $status = $data['status'];
+
+        $empleado->estatus_cv = $map[$status];
         $empleado->save();
+
+        // 📧 Si se rechaza el CV, enviamos correo al empleado para que corrija datos
+        if ($status === 'rechazado') {
+            $this->enviarCorreoRechazo($empleado);
+        }
 
         return response()->json(['ok' => true]);
     }
@@ -106,5 +117,47 @@ class RevisorController extends Controller
             4       => 'rechazado',
             default => 'sin_cv',
         };
+    }
+
+    /**
+     * Enviar correo al empleado cuando su CV es rechazado
+     */
+    private function enviarCorreoRechazo(Empleado $empleado): void
+    {
+        // Buscamos el último correo usado para el proceso de CV
+        $ultimoToken = CvTokenAcceso::where('curp', $empleado->curp)
+            ->orderByDesc('creado_en')
+            ->first();
+
+        if (!$ultimoToken || !$ultimoToken->correo) {
+            // No hay correo registrado en tokens; no hacemos nada.
+            return;
+        }
+
+        $correo = $ultimoToken->correo;
+
+        $nombreCompleto = trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}");
+
+        $html = "
+            <p>Hola <strong>{$nombreCompleto}</strong>,</p>
+            <p>Tu registro de CV fue <strong>rechazado</strong> durante el proceso de revisión.</p>
+            <p>Por favor, ingresa nuevamente al sistema para corregir tu información y volver a enviarla.</p>
+            <p>Para continuar con la corrección, ingresa al siguiente enlace y solicita un nuevo código de acceso con tu CURP:</p>
+            <p>
+                <a href=\"" . route('registro.wizard') . "\" target=\"_blank\">
+                    Ir al registro de CV
+                </a>
+            </p>
+            <p>Una vez que hayas corregido tus datos, recuerda finalizar y enviar el CV para que pueda ser revisado nuevamente.</p>
+        ";
+
+        $mailData = [
+            'affair'  => 'Tu registro de CV requiere correcciones',
+            'mail'    => $correo,
+            'content' => $html,
+        ];
+
+        $mailer = new MailHelper();
+        $mailer->sendMail($mailData); // Si falla, no tronamos el flujo
     }
 }

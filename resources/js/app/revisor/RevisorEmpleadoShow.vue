@@ -2,31 +2,34 @@
   <div class="container-xl py-4">
     <div class="row row-cards">
       <div class="col-12">
-
         <!-- Mensaje -->
         <div
           v-if="mensaje"
           :class="[
             'alert',
             mensaje.tipo === 'ok' ? 'alert-success' : 'alert-danger',
-            'mb-3'
+            'mb-3',
+            'revisor-alert',
           ]"
         >
           {{ mensaje.texto }}
         </div>
 
         <!-- Encabezado -->
-        <div v-if="empleado" class="card shadow-sm border-0 mb-3">
-          <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-            <div class="mb-3 mb-md-0">
-              <div class="text-uppercase text-muted small mb-1">
+        <div v-if="empleado" class="card shadow-sm border-0 mb-3 revisor-card-header-main">
+          <div
+            class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3"
+          >
+            <div class="revisor-main-info">
+              <div class="text-uppercase text-muted small mb-1 revisor-pill-title">
                 Expediente de CV
               </div>
-              <h3 class="card-title mb-1">
+              <h3 class="card-title mb-1 revisor-title">
                 {{ nombreCompleto }}
               </h3>
               <div class="text-muted small mb-1">
-                CURP: <code>{{ empleado.curp }}</code>
+                CURP:
+                <code class="revisor-curp-code">{{ empleado.curp }}</code>
               </div>
               <div class="text-muted small">
                 Área:
@@ -40,27 +43,29 @@
               </div>
               <div class="text-muted small mt-1">
                 Última actualización:
-                {{ empleado.fecha_inicio_puesto || 'N/D' }}
+                <span class="fw-semibold">
+                  {{ empleado.fecha_inicio_puesto || 'N/D' }}
+                </span>
               </div>
             </div>
 
-            <div class="text-md-end">
+            <div class="text-md-end revisor-actions-header">
               <div class="mb-2">
-                <span :class="badgeClass(statusLocal)">
+                <span :class="badgeClass(statusLocal)" class="revisor-status-badge">
                   {{ statusLabel(statusLocal) }}
                 </span>
               </div>
-              <div class="btn-group">
+              <div class="btn-group revisor-btn-group">
                 <button
                   type="button"
-                  class="btn btn-success btn-sm"
+                  class="btn btn-secondary w-100"
                   @click="cambiarStatus('aprobado')"
                 >
                   Aprobar CV
                 </button>
                 <button
                   type="button"
-                  class="btn btn-danger btn-sm"
+                  class="btn btn-imss-danger btn-sm"
                   @click="cambiarStatus('rechazado')"
                 >
                   Rechazar
@@ -75,12 +80,12 @@
           <!-- Columna izquierda -->
           <div class="col-md-5">
             <!-- Datos personales -->
-            <div class="card mb-3 shadow-sm border-0">
-              <div class="card-header">
+            <div class="card mb-3 shadow-sm border-0 revisor-card-section">
+              <div class="card-header revisor-card-section-header">
                 <h3 class="card-title">Datos personales</h3>
               </div>
               <div class="card-body">
-                <dl class="row mb-0">
+                <dl class="row mb-0 revisor-dl">
                   <dt class="col-5 text-muted">Nombre(s)</dt>
                   <dd class="col-7">{{ empleado.nombre }}</dd>
 
@@ -100,8 +105,8 @@
             </div>
 
             <!-- Resumen -->
-            <div class="card shadow-sm border-0">
-              <div class="card-header">
+            <div class="card shadow-sm border-0 revisor-card-section">
+              <div class="card-header revisor-card-section-header">
                 <h3 class="card-title">Resumen de CV</h3>
               </div>
               <div class="card-body">
@@ -131,8 +136,8 @@
           <!-- Columna derecha -->
           <div class="col-md-7">
             <!-- Experiencia laboral -->
-            <div class="card shadow-sm border-0 mb-3">
-              <div class="card-header">
+            <div class="card shadow-sm border-0 mb-3 revisor-card-section">
+              <div class="card-header revisor-card-section-header">
                 <h3 class="card-title mb-0">Experiencia laboral</h3>
               </div>
               <div class="card-body">
@@ -142,7 +147,7 @@
                 <div
                   v-for="(exp, i) in experiencias"
                   :key="exp.id_tbl_cv_experiencia_laboral || i"
-                  class="mb-3 pb-3 border-bottom"
+                  class="mb-3 pb-3 border-bottom revisor-exp-item"
                   :class="{ 'border-0': i === experiencias.length - 1 }"
                 >
                   <div class="d-flex justify-content-between">
@@ -170,15 +175,15 @@
             </div>
 
             <!-- Estudios académicos -->
-            <div class="card shadow-sm border-0 mb-3">
-              <div class="card-header">
+            <div class="card shadow-sm border-0 mb-3 revisor-card-section">
+              <div class="card-header revisor-card-section-header">
                 <h3 class="card-title mb-0">Estudios académicos</h3>
               </div>
               <div class="card-body">
                 <div v-if="!estudios" class="text-muted">
                   Sin registros.
                 </div>
-                <dl v-else class="row mb-0">
+                <dl v-else class="row mb-0 revisor-dl">
                   <dt class="col-sm-4 text-muted">Institución</dt>
                   <dd class="col-sm-8">{{ estudios.institucion }}</dd>
 
@@ -204,8 +209,8 @@
             </div>
 
             <!-- Cursos -->
-            <div class="card shadow-sm border-0">
-              <div class="card-header">
+            <div class="card shadow-sm border-0 revisor-card-section">
+              <div class="card-header revisor-card-section-header">
                 <h3 class="card-title mb-0">Cursos y capacitaciones</h3>
               </div>
               <div class="card-body">
@@ -237,7 +242,10 @@
 
         <!-- Botón volver -->
         <div class="mt-3">
-          <a :href="`${BASE_URL}/revisor/empleados`" class="btn btn-outline-secondary">
+          <a
+            :href="`${BASE_URL}/revisor/empleados`"
+            class="btn btn-secondary w-100"
+          >
             ← Volver al listado
           </a>
         </div>
@@ -316,11 +324,11 @@ export default {
     async cargarDetalle(id) {
       try {
         const { data } = await axios.get(`api/revisor/empleados/${id}`)
-        this.empleado     = data.empleado
+        this.empleado = data.empleado
         this.experiencias = data.experiencias || []
-        this.estudios     = data.estudios || null
-        this.cursos       = data.cursos || []
-        this.statusLocal  = this.mapStatusFromInt(this.empleado.estatus_cv)
+        this.estudios = data.estudios || null
+        this.cursos = data.cursos || []
+        this.statusLocal = this.mapStatusFromInt(this.empleado.estatus_cv)
       } catch (e) {
         this.mensaje = {
           tipo: 'error',
@@ -362,3 +370,163 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+:root {
+  --imss-green: #006341;
+  --imss-green-dark: #004b2e;
+  --imss-green-soft: #e6f2ee;
+  --imss-dark: #10312b;
+}
+
+/* Mensajes */
+.revisor-alert {
+  border-radius: 10px;
+  border-left-width: 4px;
+}
+
+/* Encabezado principal */
+.revisor-card-header-main {
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f9fafb 0%, #e6f2ee 100%);
+}
+
+.revisor-title {
+  color: var(--imss-dark);
+  font-weight: 600;
+}
+
+.revisor-main-info {
+  max-width: 420px;
+}
+
+.revisor-pill-title {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4b5563;
+}
+
+.revisor-curp-code {
+  background: #0b1120;
+  color: #e5e7eb;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Acciones de cabecera */
+.revisor-actions-header {
+  min-width: 220px;
+}
+
+.revisor-btn-group .btn {
+  min-width: 110px;
+}
+
+/* Botones institucionales */
+.btn-imss-success {
+  background: var(--imss-green);
+  border-color: var(--imss-green);
+  color: #ffffff;
+  font-size: 0.8rem;
+  border-radius: 999px 0 0 999px;
+  font-weight: 500;
+}
+
+.btn-imss-success:hover {
+  background: var(--imss-green-dark);
+  border-color: var(--imss-green-dark);
+  color: #ffffff;
+}
+
+.btn-imss-danger {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #ffffff;
+  font-size: 0.8rem;
+  border-radius: 0 999px 999px 0;
+  font-weight: 500;
+}
+
+.btn-imss-danger:hover {
+  background: #991b1b;
+  border-color: #991b1b;
+  color: #ffffff;
+}
+
+.btn-imss-outline {
+  border-color: var(--imss-green);
+  color: var(--imss-green);
+  font-size: 0.8rem;
+  border-radius: 999px;
+  padding-inline: 1rem;
+  font-weight: 500;
+}
+
+.btn-imss-outline:hover {
+  background: var(--imss-green);
+  border-color: var(--imss-green);
+  color: #ffffff;
+}
+
+.revisor-btn-back {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+/* Badge de estatus */
+.revisor-status-badge {
+  border-radius: 999px;
+  padding-inline: 0.9rem;
+  font-size: 0.75rem;
+}
+
+/* Secciones */
+.revisor-card-section {
+  border-radius: 12px;
+}
+
+.revisor-card-section-header {
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Listas tipo detalle */
+.revisor-dl dt {
+  font-size: 0.8rem;
+}
+
+.revisor-dl dd {
+  font-size: 0.9rem;
+}
+
+/* Experiencia */
+.revisor-exp-item {
+  border-color: #e5e7eb !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .revisor-main-info {
+    max-width: 100%;
+  }
+
+  .revisor-actions-header {
+    text-align: left !important;
+  }
+
+  .revisor-btn-group {
+    width: 100%;
+  }
+
+  .revisor-btn-group .btn {
+    flex: 1;
+    border-radius: 999px !important;
+  }
+
+  .btn-imss-success {
+    margin-bottom: 4px;
+  }
+}
+</style>

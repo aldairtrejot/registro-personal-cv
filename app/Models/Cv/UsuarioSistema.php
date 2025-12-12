@@ -36,7 +36,7 @@ class UsuarioSistema extends Authenticatable
     public function roles()
     {
         return $this->belongsToMany(
-            \App\Models\Cv\Rol::class,
+            Rol::class,
             'profesionalizacion.rel_usuario_rol',
             'id_usuario',
             'id_rol'

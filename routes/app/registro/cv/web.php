@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Cv\WizardController;
 use App\Http\Controllers\Cv\RevisorController;
 use App\Http\Controllers\Cv\CatalogosController;
+use App\Http\Controllers\Cv\ReporteCvController;
 
 // ================== WIZARD ==================
 Route::get('/registro-cv', fn () => view('registro.wizard'))
@@ -11,6 +12,7 @@ Route::get('/registro-cv', fn () => view('registro.wizard'))
 
 // ================== API WIZARD ==================
 Route::prefix('api/cv')->group(function () {
+    Route::post('/check-correo', [WizardController::class, 'checkCorreo']);
     Route::post('/send-token',       [WizardController::class, 'sendToken']);
     Route::post('/validate-token',   [WizardController::class, 'validateToken']);
     Route::post('/datos-personales', [WizardController::class, 'saveDatosPersonales']);
@@ -47,4 +49,13 @@ Route::prefix('api/cv/catalogos')->group(function () {
     Route::get('/areas-estudio-por-carrera/{idEspecifica}/{idGenerica}',
         [CatalogosController::class, 'areasEstudioPorCarrera']
     );
+});
+
+// Ajusta los middlewares a los que ya uses en tu proyecto
+Route::middleware(['auth', 'role:1,3'])->group(function () {
+    Route::get(
+        '/cv/reportes/empleados-terminados',
+        [ReporteCvController::class, 'exportTerminados']
+    )->name('cv.reportes.empleados_terminados');
+
 });

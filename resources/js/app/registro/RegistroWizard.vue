@@ -6,8 +6,7 @@
         <div class="cv-logo-block">
           <div class="cv-logo-circle">
             <img
-              :src="`${BASE_URL}/assets/images/imss_logo.png`
-              "
+              :src="`${BASE_URL}/assets/images/imss_logo.png`"
               alt="IMSS"
               class="cv-logo-img"
               onerror="this.style.display='none'"
@@ -546,7 +545,8 @@
         <div v-else-if="pasoActual === 6">
           <h3 class="cv-section-title">6. Cursos y capacitaciones</h3>
           <p class="cv-section-subtitle">
-            Agrega de 1 a 3 cursos recientes que apoyen tu perfil profesional.
+            <!-- 🔥 Cambiado a 5 cursos -->
+            Agrega de 1 a 5 cursos recientes que apoyen tu perfil profesional.
           </p>
 
           <div
@@ -601,10 +601,10 @@
           <button
             type="button"
             class="btn btn-link p-0 mt-2 cv-link-add"
-            :disabled="form.cursos.length >= 3"
+            :disabled="form.cursos.length >= 5"
             @click="agregarCurso"
           >
-            + Agregar otro curso (máx. 3)
+            + Agregar otro curso (máx. 5)
           </button>
 
           <div class="cv-actions cv-actions-three">
@@ -657,14 +657,14 @@ export default {
       catalogos: {
         paises: [],
         nivelesEstudio: [],
-        areasEstudio: [],          // se mantiene por compatibilidad
+        areasEstudio: [], // compatibilidad
         puestos: [],
         puestosEspecificos: [],
         unidades: [],
         coordinaciones: [],
-        carrerasEspecificas: [],   // NUEVO
-        carrerasGenericas: [],     // NUEVO
-        areasEstudioFiltradas: [], // NUEVO
+        carrerasEspecificas: [],
+        carrerasGenericas: [],
+        areasEstudioFiltradas: [],
       },
       form: {
         curp: '',
@@ -730,79 +730,84 @@ export default {
   },
   methods: {
     // ---------- Catálogos ----------
- async cargarCatalogos() {
-  try {
-    const results = await Promise.allSettled([
-      axios.get('/api/cv/catalogos/paises'),
-      axios.get('/api/cv/catalogos/niveles-estudio'),
-      axios.get('/api/cv/catalogos/areas-estudio'),
-      axios.get('/api/cv/catalogos/puestos'),
-      axios.get('/api/cv/catalogos/puestos-especificos'),
-      axios.get('/api/cv/catalogos/unidades'),
-      axios.get('/api/cv/catalogos/carreras-especificas'),
-    ])
+    async cargarCatalogos() {
+      try {
+        const results = await Promise.allSettled([
+          axios.get('/api/cv/catalogos/paises'),
+          axios.get('/api/cv/catalogos/niveles-estudio'),
+          axios.get('/api/cv/catalogos/areas-estudio'),
+          axios.get('/api/cv/catalogos/puestos'),
+          axios.get('/api/cv/catalogos/puestos-especificos'),
+          axios.get('/api/cv/catalogos/unidades'),
+          axios.get('/api/cv/catalogos/carreras-especificas'),
+        ])
 
-    const [
-      paisesRes,
-      nivelesRes,
-      areasRes,
-      puestosRes,
-      puestosEspRes,
-      unidadesRes,
-      carrerasEspRes,
-    ] = results
+        const [
+          paisesRes,
+          nivelesRes,
+          areasRes,
+          puestosRes,
+          puestosEspRes,
+          unidadesRes,
+          carrerasEspRes,
+        ] = results
 
-    if (paisesRes.status === 'fulfilled') {
-      this.catalogos.paises = paisesRes.value.data || []
-    } else {
-      console.error('Error catálogos: paises', paisesRes.reason)
-    }
+        if (paisesRes.status === 'fulfilled') {
+          this.catalogos.paises = paisesRes.value.data || []
+        } else {
+          console.error('Error catálogos: paises', paisesRes.reason)
+        }
 
-    if (nivelesRes.status === 'fulfilled') {
-      this.catalogos.nivelesEstudio = nivelesRes.value.data || []
-    } else {
-      console.error('Error catálogos: niveles-estudio', nivelesRes.reason)
-    }
+        if (nivelesRes.status === 'fulfilled') {
+          this.catalogos.nivelesEstudio = nivelesRes.value.data || []
+        } else {
+          console.error('Error catálogos: niveles-estudio', nivelesRes.reason)
+        }
 
-    if (areasRes.status === 'fulfilled') {
-      this.catalogos.areasEstudio = areasRes.value.data || []
-    } else {
-      console.error('Error catálogos: areas-estudio', areasRes.reason)
-    }
+        if (areasRes.status === 'fulfilled') {
+          this.catalogos.areasEstudio = areasRes.value.data || []
+        } else {
+          console.error('Error catálogos: areas-estudio', areasRes.reason)
+        }
 
-    if (puestosRes.status === 'fulfilled') {
-      this.catalogos.puestos = puestosRes.value.data || []
-    } else {
-      console.error('Error catálogos: puestos', puestosRes.reason)
-    }
+        if (puestosRes.status === 'fulfilled') {
+          this.catalogos.puestos = puestosRes.value.data || []
+        } else {
+          console.error('Error catálogos: puestos', puestosRes.reason)
+        }
 
-    if (puestosEspRes.status === 'fulfilled') {
-      this.catalogos.puestosEspecificos = puestosEspRes.value.data || []
-    } else {
-      console.error('Error catálogos: puestos-especificos', puestosEspRes.reason)
-    }
+        if (puestosEspRes.status === 'fulfilled') {
+          this.catalogos.puestosEspecificos = puestosEspRes.value.data || []
+        } else {
+          console.error(
+            'Error catálogos: puestos-especificos',
+            puestosEspRes.reason
+          )
+        }
 
-    if (unidadesRes.status === 'fulfilled') {
-      this.catalogos.unidades = unidadesRes.value.data || []
-    } else {
-      console.error('Error catálogos: unidades', unidadesRes.reason)
-    }
+        if (unidadesRes.status === 'fulfilled') {
+          this.catalogos.unidades = unidadesRes.value.data || []
+        } else {
+          console.error('Error catálogos: unidades', unidadesRes.reason)
+        }
 
-    if (carrerasEspRes.status === 'fulfilled') {
-      this.catalogos.carrerasEspecificas = carrerasEspRes.value.data || []
-    } else {
-      console.error('Error catálogos: carreras-especificas', carrerasEspRes.reason)
-    }
+        if (carrerasEspRes.status === 'fulfilled') {
+          this.catalogos.carrerasEspecificas = carrerasEspRes.value.data || []
+        } else {
+          console.error(
+            'Error catálogos: carreras-especificas',
+            carrerasEspRes.reason
+          )
+        }
 
-    // reset dependientes
-    this.catalogos.coordinaciones = []
-    this.catalogos.carrerasGenericas = []
-    this.catalogos.areasEstudioFiltradas = []
-  } catch (e) {
-    console.error('Error inesperado cargando catálogos', e)
-  }
-}
-,
+        // reset dependientes
+        this.catalogos.coordinaciones = []
+        this.catalogos.carrerasGenericas = []
+        this.catalogos.areasEstudioFiltradas = []
+      } catch (e) {
+        console.error('Error inesperado cargando catálogos', e)
+      }
+    },
 
     syncPaisTexto() {
       const id = this.form.estudios.id_pais
@@ -942,26 +947,36 @@ export default {
     },
 
     // --- Paso 1 ---
-    async enviarToken() {
-      this.loading = true
-      try {
-        const payload = {
-          curp: this.form.curp,
-          correo: this.form.correo,
-        }
-        const { data } = await axios.post('/api/cv/send-token', payload)
-        this.mostrarMensaje('ok', data.message || 'Se envió el código a tu correo.')
-        console.log('TOKEN DEMO (solo local):', data.token_demo)
-        this.irPaso(2)
-      } catch (error) {
-        const msg =
-          error?.response?.data?.message ||
-          'No se pudo enviar el código. Verifica los datos e inténtalo de nuevo.'
-        this.mostrarMensaje('error', msg)
-      } finally {
-        this.loading = false
-      }
-    },
+async enviarToken() {
+  this.loading = true
+  try {
+    const payload = {
+      curp: this.form.curp,
+      correo: this.form.correo,
+    }
+
+    // 1) Validación en el momento de captura
+    await axios.post('/api/cv/check-correo', payload)
+
+    // 2) Si pasa, ahora sí se genera y envía el token
+    const { data } = await axios.post('/api/cv/send-token', payload)
+
+    this.mostrarMensaje(
+      'ok',
+      data.message || 'Se envió el código a tu correo.'
+    )
+   // console.log('TOKEN DEMO (solo local):', data.token_demo)
+    this.irPaso(2)
+  } catch (error) {
+    const msg =
+      error?.response?.data?.message ||
+      'No se pudo enviar el código. Verifica los datos e inténtalo de nuevo.'
+    this.mostrarMensaje('error', msg)
+  } finally {
+    this.loading = false
+  }
+},
+
 
     // --- Paso 2 ---
     async validarToken() {
@@ -1084,13 +1099,15 @@ export default {
         await axios.post('/api/cv/cursos', payload)
 
         if (enviar) {
+          // 🔥 Nuevo flujo: no redirige al login
           this.mostrarMensaje(
             'ok',
-            'Tu CV fue enviado para revisión. Serás redirigido a la pantalla principal.'
+            'Has concluido con el registro de todos los datos.'
           )
 
+          // Refresca la pantalla sin cambiar de vista ni cerrar sesión
           setTimeout(() => {
-            window.location.href = './login'
+            window.location.reload()
           }, 2500)
         } else {
           this.mostrarMensaje('ok', 'Cursos guardados como borrador.')
@@ -1122,7 +1139,7 @@ export default {
       this.form.experiencias.splice(index, 1)
     },
     agregarCurso() {
-      if (this.form.cursos.length >= 3) return
+      if (this.form.cursos.length >= 5) return // <- ahora 5
       this.form.cursos.push({
         periodo: '',
         nombre: '',
@@ -1342,7 +1359,7 @@ export default {
 }
 
 .cv-actions-two,
-cv-actions-three {
+.cv-actions-three {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
