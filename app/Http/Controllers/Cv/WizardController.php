@@ -12,17 +12,19 @@ use App\Models\Cv\CvCursosCapacitaciones;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class WizardController extends Controller
 {
     public function sendToken(Request $request)
     {
         $data = $request->validate([
-            'curp' => 'required|string|max:18',
+            'curp'   => 'required|string|max:18',
             'correo' => 'required|email|max:150',
         ]);
 
-        $curp = strtoupper(trim($data['curp']));
+        $curp   = strtoupper(trim($data['curp']));
         $correo = strtolower(trim($data['correo']));
 
         // 1) Buscar al empleado por CURP
@@ -51,11 +53,11 @@ class WizardController extends Controller
 
             // Registrar token en tbl_cv_tokens_acceso
             CvTokenAcceso::create([
-                'curp' => $curp,
-                'correo' => $correo,
-                'token' => $token,
-                'creado_en' => Carbon::now(),
-                'expira_en' => Carbon::now()->addMinutes(15),
+                'curp'     => $curp,
+                'correo'   => $correo,
+                'token'    => $token,
+                'creado_en'=> Carbon::now(),
+                'expira_en'=> Carbon::now()->addMinutes(15),
             ]);
         });
 
@@ -63,27 +65,50 @@ class WizardController extends Controller
         $nombreCompleto = trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}");
 
         $html = "
-        <p>Hola <strong>{$nombreCompleto}</strong>,</p>
-        <p>Tu código de acceso para continuar con el registro de tu CV es:</p>
-        <p style=\"font-size:24px;font-weight:bold;\">{$token}</p>
-        <p>Este código es válido por 15 minutos.</p>
-        <p>Para continuar con tu registro, entra al siguiente enlace:</p>
-        <p>
-            <a href=\"" . route('registro.wizard') . "\" target=\"_blank\">
-                Ir al registro de CV
-            </a>
-        </p>
-        <p>Si tú no solicitaste este código, puedes ignorar este mensaje.</p>
-    ";
+            <p>Hola <strong>{$nombreCompleto}</strong>,</p>
+            <p>Tu código de acceso para continuar con el registro de tu CV es:</p>
+            <p style=\"font-size:24px;font-weight:bold;\">{$token}</p>
+            <p>Este código es válido por 15 minutos.</p>
+            <p>Para continuar con tu registro, entra al siguiente enlace:</p>
+            <p>
+                <a href=\"" . route('registro.wizard') . "\" target=\"_blank\">
+                    Ir al registro de CV
+                </a>
+            </p>
+            <p>Si tú no solicitaste este código, puedes ignorar este mensaje.</p>
+        ";
+
+        // ✅ Si estás probando en LAN y no quieres SMTP todavía:
+        // MAIL_MAILER=log → no intentamos enviar, solo registramos el token
+        if (config('mail.default') === 'log' || env('MAIL_MAILER') === 'log') {
+            Log::info('CV TOKEN (MAIL_MAILER=log)', [
+                'curp' => $curp,
+                'correo' => $correo,
+                'token' => $token,
+                'expira_en' => Carbon::now()->addMinutes(15)->toDateTimeString(),
+            ]);
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Se generó el código (modo log). Revisa storage/logs/laravel.log',
+                'token_demo' => app()->environment('local') ? $token : null,
+            ]);
+        }
 
         $mailData = [
-            'affair' => 'Código de acceso para registro de CV',
-            'mail' => $correo, // ya normalizado
+            'affair'  => 'Código de acceso para registro de CV',
+            'mail'    => $correo,
             'content' => $html,
         ];
 
         $mailer = new MailHelper();
-        $enviado = $mailer->sendMail($mailData);
+
+        try {
+            $enviado = $mailer->sendMail($mailData);
+        } catch (\Throwable $e) {
+            report($e);
+            $enviado = false;
+        }
 
         if (!$enviado) {
             return response()->json([
@@ -105,16 +130,21 @@ class WizardController extends Controller
     public function validateToken(Request $request)
     {
         $data = $request->validate([
-            'curp' => 'required|string|max:18',
+            'curp'   => 'required|string|max:18',
             'correo' => 'required|email|max:150',
-            'token' => 'required|string|max:10',
+            'token'  => 'required|string|max:10',
         ]);
+
+        // ✅ Normalizar igual que en sendToken
+        $curp   = strtoupper(trim($data['curp']));
+        $correo = strtolower(trim($data['correo']));
+        $token  = trim($data['token']);
 
         $now = Carbon::now();
 
-        $registro = CvTokenAcceso::where('curp', $data['curp'])
-            ->where('correo', $data['correo'])
-            ->where('token', $data['token'])
+        $registro = CvTokenAcceso::whereRaw('UPPER(curp) = ?', [$curp])
+            ->whereRaw('LOWER(correo) = ?', [$correo])
+            ->where('token', $token)
             ->whereNull('usado_en')
             ->where('expira_en', '>=', $now)
             ->latest('creado_en')
@@ -130,7 +160,7 @@ class WizardController extends Controller
         $registro->usado_en = $now;
         $registro->save();
 
-        $empleado = Empleado::where('curp', $data['curp'])->first();
+        $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->first();
 
         return response()->json([
             'ok' => true,
@@ -155,7 +185,8 @@ class WizardController extends Controller
             'id_unidad_adscripcion' => 'nullable|integer',
         ]);
 
-        $empleado = Empleado::where('curp', $data['curp'])->firstOrFail();
+        $curp = strtoupper(trim($data['curp']));
+        $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
 
         $empleado->nombre = $data['nombres'];
         $empleado->primer_apellido = $data['primer_apellido'];
@@ -187,7 +218,8 @@ class WizardController extends Controller
             'experiencias.*.campo' => 'nullable|string|max:100',
         ]);
 
-        $empleado = Empleado::where('curp', $data['curp'])->firstOrFail();
+        $curp = strtoupper(trim($data['curp']));
+        $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
 
         CvExperienciaLaboral::where('id_tbl_empleados', $empleado->id_tbl_empleados)->delete();
 
@@ -225,7 +257,8 @@ class WizardController extends Controller
             'area_estudios' => 'nullable|string|max:150',
         ]);
 
-        $empleado = Empleado::where('curp', $data['curp'])->firstOrFail();
+        $curp = strtoupper(trim($data['curp']));
+        $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
 
         $estudios = CvEstudiosAcademicos::firstOrNew([
             'id_tbl_empleados' => $empleado->id_tbl_empleados,
@@ -242,20 +275,20 @@ class WizardController extends Controller
 
     /**
      * Paso 6: cursos y capacitaciones
-     *  🔥 Ahora permite hasta 5 cursos.
      */
     public function saveCursos(Request $request)
     {
         $data = $request->validate([
             'curp' => 'required|string|max:18',
-            'cursos' => 'required|array|min:1|max:5', // <- antes max:3
+            'cursos' => 'required|array|min:1|max:5',
             'cursos.*.periodo' => 'nullable|string|max:100',
             'cursos.*.nombre' => 'nullable|string|max:200',
             'cursos.*.institucion' => 'nullable|string|max:200',
             'enviar' => 'nullable|boolean',
         ]);
 
-        $empleado = Empleado::where('curp', $data['curp'])->firstOrFail();
+        $curp = strtoupper(trim($data['curp']));
+        $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
 
         CvCursosCapacitaciones::where('id_tbl_empleados', $empleado->id_tbl_empleados)->delete();
 
@@ -276,6 +309,7 @@ class WizardController extends Controller
 
         return response()->json(['ok' => true]);
     }
+
     /**
      * Valida que el correo NO esté ya utilizado por otro CURP
      * en tbl_empleados o en tbl_cv_tokens_acceso.
@@ -285,26 +319,25 @@ class WizardController extends Controller
         $curp = strtoupper(trim($curp));
         $correo = strtolower(trim($correo));
 
-        // ¿El correo ya está en empleados con otra CURP?
         $existeEnEmpleados = Empleado::whereRaw('LOWER(correo) = ?', [$correo])
             ->whereRaw('UPPER(curp) <> ?', [$curp])
             ->exists();
 
-        // ¿El correo ya está en tokens con otra CURP?
         $existeEnTokens = CvTokenAcceso::whereRaw('LOWER(correo) = ?', [$correo])
             ->whereRaw('UPPER(curp) <> ?', [$curp])
             ->exists();
 
         if ($existeEnEmpleados || $existeEnTokens) {
-            abort(response()->json([
+            // ✅ Correcto: 422 sin provocar 500
+            throw new HttpResponseException(response()->json([
                 'ok' => false,
                 'message' => 'El correo ingresado ya está en uso por otro registro. Por favor, utiliza un correo diferente.',
             ], 422));
         }
     }
+
     /**
      * Endpoint para validar en caliente que el correo esté disponible.
-     * (Se puede usar desde el paso 1 del wizard antes de enviar el token)
      */
     public function checkCorreo(Request $request)
     {
@@ -313,13 +346,14 @@ class WizardController extends Controller
             'correo' => 'required|email|max:150',
         ]);
 
-        // Si algo está mal, el método lanza 422
-        $this->validarCorreoUnico($data['curp'], $data['correo']);
+        $curp = strtoupper(trim($data['curp']));
+        $correo = strtolower(trim($data['correo']));
+
+        $this->validarCorreoUnico($curp, $correo);
 
         return response()->json([
             'ok' => true,
             'message' => 'El correo está disponible.',
         ]);
     }
-
 }
