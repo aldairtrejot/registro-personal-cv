@@ -16,7 +16,10 @@
         </div>
 
         <!-- Encabezado -->
-        <div v-if="empleado" class="card shadow-sm border-0 mb-3 revisor-card-header-main">
+        <div
+          v-if="empleado"
+          class="card shadow-sm border-0 mb-3 revisor-card-header-main"
+        >
           <div
             class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3"
           >
@@ -55,18 +58,24 @@
                   {{ statusLabel(statusLocal) }}
                 </span>
               </div>
+
               <div class="btn-group revisor-btn-group">
                 <button
                   type="button"
                   class="btn btn-secondary w-100"
                   @click="cambiarStatus('aprobado')"
+                  :disabled="loading"
                 >
-                  Aprobar CV
+                  <span v-if="!loading">Aprobar CV</span>
+                  <span v-else>Procesando…</span>
                 </button>
+
+                <!-- Rechazar abre modal -->
                 <button
                   type="button"
                   class="btn btn-imss-danger btn-sm"
-                  @click="cambiarStatus('rechazado')"
+                  @click="abrirModalRechazo"
+                  :disabled="loading"
                 >
                   Rechazar
                 </button>
@@ -77,9 +86,7 @@
 
         <!-- Bloque principal -->
         <div class="row row-cards" v-if="empleado">
-          <!-- Columna izquierda -->
           <div class="col-md-5">
-            <!-- Datos personales -->
             <div class="card mb-3 shadow-sm border-0 revisor-card-section">
               <div class="card-header revisor-card-section-header">
                 <h3 class="card-title">Datos personales</h3>
@@ -104,7 +111,6 @@
               </div>
             </div>
 
-            <!-- Resumen -->
             <div class="card shadow-sm border-0 revisor-card-section">
               <div class="card-header revisor-card-section-header">
                 <h3 class="card-title">Resumen de CV</h3>
@@ -133,9 +139,7 @@
             </div>
           </div>
 
-          <!-- Columna derecha -->
           <div class="col-md-7">
-            <!-- Experiencia laboral -->
             <div class="card shadow-sm border-0 mb-3 revisor-card-section">
               <div class="card-header revisor-card-section-header">
                 <h3 class="card-title mb-0">Experiencia laboral</h3>
@@ -174,7 +178,6 @@
               </div>
             </div>
 
-            <!-- Estudios académicos -->
             <div class="card shadow-sm border-0 mb-3 revisor-card-section">
               <div class="card-header revisor-card-section-header">
                 <h3 class="card-title mb-0">Estudios académicos</h3>
@@ -208,7 +211,6 @@
               </div>
             </div>
 
-            <!-- Cursos -->
             <div class="card shadow-sm border-0 revisor-card-section">
               <div class="card-header revisor-card-section-header">
                 <h3 class="card-title mb-0">Cursos y capacitaciones</h3>
@@ -240,7 +242,6 @@
           </div>
         </div>
 
-        <!-- Botón volver -->
         <div class="mt-3">
           <a
             :href="`${BASE_URL}/revisor/empleados`"
@@ -251,6 +252,99 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL RECHAZO -->
+    <div
+      v-if="showRechazoModal"
+      class="imss-modal-backdrop"
+      @click.self="cerrarModalRechazo"
+    >
+      <div class="imss-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="imss-modal-header">
+          <div class="imss-modal-title">
+            <div class="imss-modal-chip">Rechazo de CV</div>
+            <h4 id="modal-title" class="mb-0">Motivo de rechazo</h4>
+          </div>
+          <button
+            type="button"
+            class="imss-modal-close"
+            @click="cerrarModalRechazo"
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="imss-modal-body">
+          <p class="text-muted small mb-2">
+            Selecciona una plantilla o escribe el motivo. Este texto se enviará al empleado por correo.
+            <span class="ms-1"><strong>(ESC</strong> para cerrar)</span>
+          </p>
+
+          <!-- ✅ Plantillas -->
+          <label class="form-label">Plantilla (opcional)</label>
+          <select
+            v-model="plantillaSeleccionada"
+            class="form-select"
+            @change="aplicarPlantilla"
+          >
+            <option value="">Selecciona una plantilla…</option>
+            <option
+              v-for="(tpl, idx) in rechazoTemplates"
+              :key="idx"
+              :value="tpl.texto"
+            >
+              {{ tpl.titulo }}
+            </option>
+          </select>
+          <div class="form-text">
+            Al elegir una plantilla, se copiará al campo “Motivo” (puedes editarlo).
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label">Motivo <span class="text-danger">*</span></label>
+            <textarea
+              v-model.trim="motivoRechazo"
+              class="form-control"
+              rows="4"
+              maxlength="500"
+              placeholder="Ej. Falta completar estudios académicos, corregir fechas, etc."
+            ></textarea>
+
+            <div class="d-flex justify-content-between mt-2">
+              <div v-if="motivoError" class="text-danger small">
+                {{ motivoError }}
+              </div>
+              <div class="text-muted small ms-auto">
+                {{ (motivoRechazo || '').length }}/500
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="imss-modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            @click="cerrarModalRechazo"
+            :disabled="loading"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-imss-danger-solid"
+            @click="confirmarRechazo"
+            :disabled="loading"
+          >
+            <span v-if="!loading">Confirmar rechazo</span>
+            <span v-else>Enviando…</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- /MODAL -->
   </div>
 </template>
 
@@ -269,6 +363,38 @@ export default {
       experiencias: [],
       estudios: null,
       cursos: [],
+
+      // modal rechazo
+      showRechazoModal: false,
+      motivoRechazo: '',
+      motivoError: null,
+
+      // ✅ plantillas
+      plantillaSeleccionada: '',
+      rechazoTemplates: [
+        {
+          titulo: 'Falta información en Estudios Académicos',
+          texto: 'Falta completar el apartado de Estudios académicos (institución, nivel, carrera y área).',
+        },
+        {
+          titulo: 'Fechas inconsistentes',
+          texto: 'Se detectaron fechas inconsistentes. Favor de revisar fechas de inicio y término (experiencia/puesto/cursos).',
+        },
+        {
+          titulo: 'Información incompleta en Experiencia Laboral',
+          texto: 'La experiencia laboral está incompleta. Favor de capturar puesto, institución y campo de experiencia.',
+        },
+        {
+          titulo: 'Datos personales por corregir',
+          texto: 'Favor de revisar/corregir datos personales (nombre/apellidos/puesto/unidad/coordinación).',
+        },
+        {
+          titulo: 'Cursos sin periodo o institución',
+          texto: 'Se requiere completar los cursos/capacitaciones incluyendo período e institución.',
+        },
+      ],
+
+      loading: false,
     }
   },
   computed: {
@@ -281,46 +407,32 @@ export default {
   methods: {
     statusLabel(status) {
       switch (status) {
-        case 'edicion':
-          return 'En edición'
-        case 'enviado':
-          return 'Enviado'
-        case 'aprobado':
-          return 'Aprobado'
-        case 'rechazado':
-          return 'Rechazado'
-        default:
-          return 'Sin CV'
+        case 'edicion': return 'En edición'
+        case 'enviado': return 'Enviado'
+        case 'aprobado': return 'Aprobado'
+        case 'rechazado': return 'Rechazado'
+        default: return 'Sin CV'
       }
     },
     badgeClass(status) {
       switch (status) {
-        case 'edicion':
-          return 'badge bg-secondary'
-        case 'enviado':
-          return 'badge bg-warning'
-        case 'aprobado':
-          return 'badge bg-success'
-        case 'rechazado':
-          return 'badge bg-danger'
-        default:
-          return 'badge bg-secondary'
+        case 'edicion': return 'badge bg-secondary'
+        case 'enviado': return 'badge bg-warning'
+        case 'aprobado': return 'badge bg-success'
+        case 'rechazado': return 'badge bg-danger'
+        default: return 'badge bg-secondary'
       }
     },
     mapStatusFromInt(estatus_cv) {
       switch (Number(estatus_cv)) {
-        case 1:
-          return 'edicion'
-        case 2:
-          return 'enviado'
-        case 3:
-          return 'aprobado'
-        case 4:
-          return 'rechazado'
-        default:
-          return 'sin_cv'
+        case 1: return 'edicion'
+        case 2: return 'enviado'
+        case 3: return 'aprobado'
+        case 4: return 'rechazado'
+        default: return 'sin_cv'
       }
     },
+
     async cargarDetalle(id) {
       try {
         const { data } = await axios.get(`api/revisor/empleados/${id}`)
@@ -330,43 +442,101 @@ export default {
         this.cursos = data.cursos || []
         this.statusLocal = this.mapStatusFromInt(this.empleado.estatus_cv)
       } catch (e) {
-        this.mensaje = {
-          tipo: 'error',
-          texto: 'No se pudo cargar la información del empleado.',
-        }
+        this.mensaje = { tipo: 'error', texto: 'No se pudo cargar la información del empleado.' }
       }
     },
-    async cambiarStatus(nuevo) {
-      try {
-        const id = this.empleado.id_tbl_empleados
-        await axios.post(`api/revisor/empleados/${id}/estatus`, {
-          status: nuevo,
+
+    // ✅ Modal rechazo
+    abrirModalRechazo() {
+      this.plantillaSeleccionada = ''
+      this.motivoRechazo = ''
+      this.motivoError = null
+      this.showRechazoModal = true
+      this.$nextTick(() => {
+        const el = document.querySelector('.imss-modal textarea')
+        if (el) el.focus()
+      })
+    },
+    cerrarModalRechazo() {
+      if (this.loading) return
+      this.showRechazoModal = false
+      this.motivoError = null
+    },
+    aplicarPlantilla() {
+      // Copia el texto de plantilla, pero deja editable el textarea
+      if (this.plantillaSeleccionada) {
+        this.motivoRechazo = this.plantillaSeleccionada
+        this.motivoError = null
+        this.$nextTick(() => {
+          const el = document.querySelector('.imss-modal textarea')
+          if (el) el.focus()
         })
+      }
+    },
+    async confirmarRechazo() {
+      const motivo = (this.motivoRechazo || '').trim()
+      if (!motivo) {
+        this.motivoError = 'El motivo es obligatorio.'
+        return
+      }
+      if (motivo.length > 500) {
+        this.motivoError = 'El motivo excede el máximo de 500 caracteres.'
+        return
+      }
+
+      this.motivoError = null
+      await this.cambiarStatus('rechazado', motivo)
+    },
+
+    async cambiarStatus(nuevo, motivo = null) {
+      try {
+        if (!this.empleado) return
+        const id = this.empleado.id_tbl_empleados
+
+        this.loading = true
+
+        const payload = { status: nuevo }
+        if (nuevo === 'rechazado') payload.motivo = motivo
+
+        await axios.post(`api/revisor/empleados/${id}/estatus`, payload)
+
         this.statusLocal = nuevo
         this.mensaje = {
           tipo: 'ok',
           texto:
             nuevo === 'aprobado'
               ? 'CV marcado como Aprobado.'
-              : 'CV marcado como Rechazado.',
+              : 'CV marcado como Rechazado. Se envió el motivo al empleado.',
         }
-        setTimeout(() => {
-          this.mensaje = null
-        }, 4000)
+
+        if (nuevo === 'rechazado') this.showRechazoModal = false
+
+        setTimeout(() => { this.mensaje = null }, 4000)
       } catch (e) {
-        this.mensaje = {
-          tipo: 'error',
-          texto: 'No se pudo actualizar el estatus del CV.',
-        }
+        const msg = e?.response?.data?.message || 'No se pudo actualizar el estatus del CV.'
+        this.mensaje = { tipo: 'error', texto: msg }
+        if (nuevo === 'rechazado') this.motivoError = msg
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // ✅ ESC para cerrar modal
+    handleKeydown(e) {
+      if (e.key === 'Escape' && this.showRechazoModal) {
+        this.cerrarModalRechazo()
       }
     },
   },
   mounted() {
+    window.addEventListener('keydown', this.handleKeydown)
+
     const el = document.getElementById('blade_revisor_empleado_show')
     const id = el?.dataset?.empleadoId
-    if (id) {
-      this.cargarDetalle(id)
-    }
+    if (id) this.cargarDetalle(id)
+  },
+  beforeUnmount() {
+    window.removeEventListener('keydown', this.handleKeydown)
   },
 }
 </script>
@@ -379,26 +549,15 @@ export default {
   --imss-dark: #10312b;
 }
 
-/* Mensajes */
-.revisor-alert {
-  border-radius: 10px;
-  border-left-width: 4px;
-}
+.revisor-alert { border-radius: 10px; border-left-width: 4px; }
 
-/* Encabezado principal */
 .revisor-card-header-main {
   border-radius: 14px;
   background: linear-gradient(135deg, #f9fafb 0%, #e6f2ee 100%);
 }
 
-.revisor-title {
-  color: var(--imss-dark);
-  font-weight: 600;
-}
-
-.revisor-main-info {
-  max-width: 420px;
-}
+.revisor-title { color: var(--imss-dark); font-weight: 600; }
+.revisor-main-info { max-width: 420px; }
 
 .revisor-pill-title {
   display: inline-flex;
@@ -416,30 +575,8 @@ export default {
   border-radius: 4px;
 }
 
-/* Acciones de cabecera */
-.revisor-actions-header {
-  min-width: 220px;
-}
-
-.revisor-btn-group .btn {
-  min-width: 110px;
-}
-
-/* Botones institucionales */
-.btn-imss-success {
-  background: var(--imss-green);
-  border-color: var(--imss-green);
-  color: #ffffff;
-  font-size: 0.8rem;
-  border-radius: 999px 0 0 999px;
-  font-weight: 500;
-}
-
-.btn-imss-success:hover {
-  background: var(--imss-green-dark);
-  border-color: var(--imss-green-dark);
-  color: #ffffff;
-}
+.revisor-actions-header { min-width: 220px; }
+.revisor-btn-group .btn { min-width: 110px; }
 
 .btn-imss-danger {
   background: #b91c1c;
@@ -449,84 +586,94 @@ export default {
   border-radius: 0 999px 999px 0;
   font-weight: 500;
 }
+.btn-imss-danger:hover { background: #991b1b; border-color: #991b1b; color: #ffffff; }
 
-.btn-imss-danger:hover {
-  background: #991b1b;
-  border-color: #991b1b;
+.btn-imss-danger-solid {
+  background: #b91c1c;
+  border-color: #b91c1c;
   color: #ffffff;
+  font-weight: 600;
 }
+.btn-imss-danger-solid:hover { background: #991b1b; border-color: #991b1b; color: #ffffff; }
 
-.btn-imss-outline {
-  border-color: var(--imss-green);
-  color: var(--imss-green);
-  font-size: 0.8rem;
-  border-radius: 999px;
-  padding-inline: 1rem;
-  font-weight: 500;
-}
-
-.btn-imss-outline:hover {
-  background: var(--imss-green);
-  border-color: var(--imss-green);
-  color: #ffffff;
-}
-
-.revisor-btn-back {
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
-}
-
-/* Badge de estatus */
 .revisor-status-badge {
   border-radius: 999px;
   padding-inline: 0.9rem;
   font-size: 0.75rem;
 }
 
-/* Secciones */
-.revisor-card-section {
-  border-radius: 12px;
-}
+.revisor-card-section { border-radius: 12px; }
+.revisor-card-section-header { background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+.revisor-dl dt { font-size: 0.8rem; }
+.revisor-dl dd { font-size: 0.9rem; }
+.revisor-exp-item { border-color: #e5e7eb !important; }
 
-.revisor-card-section-header {
-  background: #f8fafc;
+/* MODAL */
+.imss-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 9999;
+}
+.imss-modal {
+  width: 100%;
+  max-width: 560px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  border: 1px solid rgba(16, 49, 43, 0.12);
+}
+.imss-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f9fafb 0%, #e6f2ee 100%);
   border-bottom: 1px solid #e5e7eb;
 }
+.imss-modal-title h4 { color: var(--imss-dark); font-weight: 700; }
+.imss-modal-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #7f1d1d;
+  background: #fee2e2;
+  margin-bottom: 6px;
+}
+.imss-modal-close {
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  color: #334155;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.imss-modal-close:hover { background: rgba(0, 0, 0, 0.06); }
 
-/* Listas tipo detalle */
-.revisor-dl dt {
-  font-size: 0.8rem;
+.imss-modal-body { padding: 16px; }
+.imss-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
 }
 
-.revisor-dl dd {
-  font-size: 0.9rem;
-}
-
-/* Experiencia */
-.revisor-exp-item {
-  border-color: #e5e7eb !important;
-}
-
-/* Responsive */
 @media (max-width: 768px) {
-  .revisor-main-info {
-    max-width: 100%;
-  }
-
-  .revisor-actions-header {
-    text-align: left !important;
-  }
-
-  .revisor-btn-group {
-    width: 100%;
-  }
-
-  .revisor-btn-group .btn {
-    flex: 1;
-    border-radius: 999px !important;
-  }
-
-  .btn-imss-success {
-    margin-bottom: 4px;
-  }
+  .revisor-main-info { max-width: 100%; }
+  .revisor-actions-header { text-align: left !important; }
+  .revisor-btn-group { width: 100%; }
+  .revisor-btn-group .btn { flex: 1; border-radius: 999px !important; }
 }
 </style>

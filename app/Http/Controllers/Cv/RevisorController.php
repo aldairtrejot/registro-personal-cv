@@ -49,7 +49,6 @@ class RevisorController extends Controller
                     'nombre' => trim("{$e->nombre} {$e->primer_apellido} {$e->segundo_apellido}"),
                     'curp' => $e->curp,
                     'area' => $e->area_adscripcion,
-                    // Usamos updated_at como "fecha de captura / última actualización"
                     'fechaActualizacion' => optional($e->updated_at)->format('d/m/Y H:i'),
                     'status' => $this->cvStatusLabel($e->estatus_cv),
                 ];
@@ -84,6 +83,7 @@ class RevisorController extends Controller
     {
         $data = $request->validate([
             'status' => 'required|in:edicion,enviado,aprobado,rechazado',
+            'motivo' => 'required_if:status,rechazado|nullable|string|max:500',
         ]);
 
         $empleado = Empleado::findOrFail($id);
@@ -96,13 +96,13 @@ class RevisorController extends Controller
         ];
 
         $status = $data['status'];
+        $motivo = trim((string)($data['motivo'] ?? ''));
 
         $empleado->estatus_cv = $map[$status];
         $empleado->save();
 
-        // 📧 Si se rechaza el CV, enviamos correo al empleado para que corrija datos
         if ($status === 'rechazado') {
-            $this->enviarCorreoRechazo($empleado);
+            $this->enviarCorreoRechazo($empleado, $motivo);
         }
 
         return response()->json(['ok' => true]);
@@ -119,28 +119,24 @@ class RevisorController extends Controller
         };
     }
 
-    /**
-     * Enviar correo al empleado cuando su CV es rechazado
-     */
-    private function enviarCorreoRechazo(Empleado $empleado): void
+    private function enviarCorreoRechazo(Empleado $empleado, string $motivo): void
     {
-        // Buscamos el último correo usado para el proceso de CV
         $ultimoToken = CvTokenAcceso::where('curp', $empleado->curp)
             ->orderByDesc('creado_en')
             ->first();
 
         if (!$ultimoToken || !$ultimoToken->correo) {
-            // No hay correo registrado en tokens; no hacemos nada.
             return;
         }
 
         $correo = $ultimoToken->correo;
-
         $nombreCompleto = trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}");
+        $motivoSafe = e($motivo);
 
         $html = "
             <p>Hola <strong>{$nombreCompleto}</strong>,</p>
             <p>Tu registro de CV fue <strong>rechazado</strong> durante el proceso de revisión.</p>
+            <p><strong>Motivo:</strong><br>{$motivoSafe}</p>
             <p>Por favor, ingresa nuevamente al sistema para corregir tu información y volver a enviarla.</p>
             <p>Para continuar con la corrección, ingresa al siguiente enlace y solicita un nuevo código de acceso con tu CURP:</p>
             <p>
@@ -158,6 +154,6 @@ class RevisorController extends Controller
         ];
 
         $mailer = new MailHelper();
-        $mailer->sendMail($mailData); // Si falla, no tronamos el flujo
+        $mailer->sendMail($mailData);
     }
 }

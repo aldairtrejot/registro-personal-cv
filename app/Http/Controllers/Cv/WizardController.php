@@ -14,9 +14,41 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class WizardController extends Controller
 {
+    private const CURP_REGEX = '/^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]{2}$/';
+
+    private function normalizeCurp(string $curp): string
+    {
+        return strtoupper(trim($curp));
+    }
+
+    private function normalizeMail(string $correo): string
+    {
+        return strtolower(trim($correo));
+    }
+
+    private function upper(?string $v): ?string
+    {
+        if ($v === null) return null;
+        $v = trim((string) $v);
+        return $v === '' ? null : Str::upper($v);
+    }
+
+    private function assertCurpFormato(string $curp): void
+    {
+        if (!preg_match(self::CURP_REGEX, $curp)) {
+            throw new HttpResponseException(response()->json([
+                'ok' => false,
+                'message' => 'La CURP no tiene un formato válido.',
+            ], 422));
+        }
+    }
+
     public function sendToken(Request $request)
     {
         $data = $request->validate([
@@ -24,10 +56,11 @@ class WizardController extends Controller
             'correo' => 'required|email|max:150',
         ]);
 
-        $curp   = strtoupper(trim($data['curp']));
-        $correo = strtolower(trim($data['correo']));
+        $curp   = $this->normalizeCurp($data['curp']);
+        $correo = $this->normalizeMail($data['correo']);
 
-        // 1) Buscar al empleado por CURP
+        $this->assertCurpFormato($curp);
+
         $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->first();
 
         if (!$empleado) {
@@ -37,31 +70,25 @@ class WizardController extends Controller
             ], 404);
         }
 
-        // 2) Validar que el correo NO esté usado por otro CURP
         $this->validarCorreoUnico($curp, $correo);
 
-        // 3) Generar token
         $token = (string) random_int(100000, 999999);
 
-        // 4) Guardar correo en ambas tablas en una sola transacción
         DB::transaction(function () use ($curp, $correo, $empleado, $token) {
-            // Actualizar correo en tbl_empleados si está vacío o diferente
-            if (empty($empleado->correo) || strtolower($empleado->correo) !== $correo) {
+            if (empty($empleado->correo) || strtolower((string)$empleado->correo) !== $correo) {
                 $empleado->correo = $correo;
                 $empleado->save();
             }
 
-            // Registrar token en tbl_cv_tokens_acceso
             CvTokenAcceso::create([
-                'curp'     => $curp,
-                'correo'   => $correo,
-                'token'    => $token,
-                'creado_en'=> Carbon::now(),
-                'expira_en'=> Carbon::now()->addMinutes(15),
+                'curp'      => $curp,
+                'correo'    => $correo,
+                'token'     => $token,
+                'creado_en' => Carbon::now(),
+                'expira_en' => Carbon::now()->addMinutes(15),
             ]);
         });
 
-        // 5) Enviar el correo (esto ya no afecta la transacción)
         $nombreCompleto = trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}");
 
         $html = "
@@ -78,8 +105,6 @@ class WizardController extends Controller
             <p>Si tú no solicitaste este código, puedes ignorar este mensaje.</p>
         ";
 
-        // ✅ Si estás probando en LAN y no quieres SMTP todavía:
-        // MAIL_MAILER=log → no intentamos enviar, solo registramos el token
         if (config('mail.default') === 'log' || env('MAIL_MAILER') === 'log') {
             Log::info('CV TOKEN (MAIL_MAILER=log)', [
                 'curp' => $curp,
@@ -90,7 +115,7 @@ class WizardController extends Controller
 
             return response()->json([
                 'ok' => true,
-                'message' => 'Se generó el código (modo log). Revisa storage/logs/laravel.log',
+                'message' => 'Se generó el código (modo log).',
                 'token_demo' => app()->environment('local') ? $token : null,
             ]);
         }
@@ -124,9 +149,6 @@ class WizardController extends Controller
         ]);
     }
 
-    /**
-     * Paso 2: validar token
-     */
     public function validateToken(Request $request)
     {
         $data = $request->validate([
@@ -135,10 +157,11 @@ class WizardController extends Controller
             'token'  => 'required|string|max:10',
         ]);
 
-        // ✅ Normalizar igual que en sendToken
-        $curp   = strtoupper(trim($data['curp']));
-        $correo = strtolower(trim($data['correo']));
+        $curp   = $this->normalizeCurp($data['curp']);
+        $correo = $this->normalizeMail($data['correo']);
         $token  = trim($data['token']);
+
+        $this->assertCurpFormato($curp);
 
         $now = Carbon::now();
 
@@ -168,9 +191,6 @@ class WizardController extends Controller
         ]);
     }
 
-    /**
-     * Paso 3: datos personales
-     */
     public function saveDatosPersonales(Request $request)
     {
         $data = $request->validate([
@@ -178,33 +198,50 @@ class WizardController extends Controller
             'nombres' => 'required|string|max:150',
             'primer_apellido' => 'required|string|max:150',
             'segundo_apellido' => 'nullable|string|max:150',
+
             'puesto_actual' => 'nullable|string|max:150',
-            'fecha_inicio' => 'nullable|date',
-            'area_adscripcion' => 'nullable|string|max:150',
+            'fecha_inicio' => 'nullable|date|before_or_equal:today',
+            'area_adscripcion' => 'nullable|string|max:250',
+
             'id_puesto' => 'nullable|integer',
             'id_unidad_adscripcion' => 'nullable|integer',
+
+            // ✅ Nacionalidad SOLO NACIONAL / EXTRANJERO
+            'nacionalidad' => 'required|in:NACIONAL,EXTRANJERO',
+        ], [
+            'nacionalidad.required' => 'Selecciona tu nacionalidad.',
+            'nacionalidad.in' => 'Nacionalidad inválida.',
         ]);
 
-        $curp = strtoupper(trim($data['curp']));
+        $curp = $this->normalizeCurp($data['curp']);
+        $this->assertCurpFormato($curp);
+
         $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
 
-        $empleado->nombre = $data['nombres'];
-        $empleado->primer_apellido = $data['primer_apellido'];
-        $empleado->segundo_apellido = $data['segundo_apellido'] ?? null;
-        $empleado->puesto_actual = $data['puesto_actual'] ?? null;
+        // ✅ A MAYÚSCULAS
+        $empleado->nombre = $this->upper($data['nombres']);
+        $empleado->primer_apellido = $this->upper($data['primer_apellido']);
+        $empleado->segundo_apellido = $this->upper($data['segundo_apellido'] ?? null);
+
+        $empleado->puesto_actual = $this->upper($data['puesto_actual'] ?? null);
         $empleado->fecha_inicio_puesto = $data['fecha_inicio'] ?? null;
-        $empleado->area_adscripcion = $data['area_adscripcion'] ?? null;
+        $empleado->area_adscripcion = $this->upper($data['area_adscripcion'] ?? null);
+
         $empleado->id_puesto = $data['id_puesto'] ?? null;
         $empleado->id_unidad_adscripcion = $data['id_unidad_adscripcion'] ?? null;
-        $empleado->estatus_cv = 1; // En edición
+
+        // ✅ Guardar nacionalidad SOLO si existe la columna (para no romper)
+        $table = $empleado->getTable();
+        if (Schema::hasColumn($table, 'nacionalidad')) {
+            $empleado->nacionalidad = $data['nacionalidad']; // ya viene NACIONAL/EXTRANJERO
+        }
+
+        $empleado->estatus_cv = 1;
         $empleado->save();
 
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Paso 4: experiencias laborales
-     */
     public function saveExperiencias(Request $request)
     {
         $data = $request->validate([
@@ -212,13 +249,17 @@ class WizardController extends Controller
             'experiencias' => 'required|array|min:1|max:3',
             'experiencias.*.fecha_inicio' => 'nullable|date',
             'experiencias.*.fecha_termino' => 'nullable|date',
-            'experiencias.*.sector' => 'nullable|string|max:20',
+            'experiencias.*.sector' => 'nullable|in:publico,privado',
             'experiencias.*.puesto' => 'nullable|string|max:150',
             'experiencias.*.institucion' => 'nullable|string|max:200',
+
+            // ✅ CAMPO EXPERIENCIA MAX 100
             'experiencias.*.campo' => 'nullable|string|max:100',
         ]);
 
-        $curp = strtoupper(trim($data['curp']));
+        $curp = $this->normalizeCurp($data['curp']);
+        $this->assertCurpFormato($curp);
+
         $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
 
         CvExperienciaLaboral::where('id_tbl_empleados', $empleado->id_tbl_empleados)->delete();
@@ -229,9 +270,9 @@ class WizardController extends Controller
                 'fecha_inicio' => $exp['fecha_inicio'] ?? null,
                 'fecha_termino' => $exp['fecha_termino'] ?? null,
                 'sector' => $exp['sector'] ?? null,
-                'puesto' => $exp['puesto'] ?? null,
-                'institucion' => $exp['institucion'] ?? null,
-                'campo_experiencia' => $exp['campo'] ?? null,
+                'puesto' => $this->upper($exp['puesto'] ?? null),
+                'institucion' => $this->upper($exp['institucion'] ?? null),
+                'campo_experiencia' => $this->upper($exp['campo'] ?? null),
                 'orden' => $i + 1,
             ]);
         }
@@ -239,32 +280,53 @@ class WizardController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Paso 5: estudios académicos
-     */
     public function saveEstudios(Request $request)
     {
+        // ✅ NO SE PUEDE GUARDAR EN BLANCO
         $data = $request->validate([
             'curp' => 'required|string|max:18',
-            'institucion' => 'nullable|string|max:200',
-            'id_pais' => 'nullable|integer',
-            'pais' => 'nullable|string|max:100',
-            'id_nivel_estudios' => 'nullable|integer',
-            'nivel' => 'nullable|string|max:100',
+
+            'institucion' => 'required|string|max:200',
+            'id_pais' => 'required|integer',
+            'pais' => 'required|string|max:100',
+            'id_nivel_estudios' => 'required|integer',
+            'nivel' => 'required|string|max:100',
+
             'numero_cedula' => 'nullable|string|max:50',
-            'carrera_generica' => 'nullable|string|max:150',
-            'carrera_especifica' => 'nullable|string|max:150',
-            'area_estudios' => 'nullable|string|max:150',
+
+            'carrera_generica' => 'required|string|max:150',
+            'carrera_especifica' => 'required|string|max:150',
+            'area_estudios' => 'required|string|max:150',
+        ], [
+            'institucion.required' => 'Debes capturar la institución.',
+            'id_pais.required' => 'Debes seleccionar un país.',
+            'id_nivel_estudios.required' => 'Debes seleccionar un nivel de estudios.',
+            'carrera_generica.required' => 'Debes seleccionar la carrera genérica.',
+            'carrera_especifica.required' => 'Debes seleccionar la carrera específica.',
+            'area_estudios.required' => 'Debes seleccionar el área de estudios.',
         ]);
 
-        $curp = strtoupper(trim($data['curp']));
+        $curp = $this->normalizeCurp($data['curp']);
+        $this->assertCurpFormato($curp);
+
         $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
 
         $estudios = CvEstudiosAcademicos::firstOrNew([
             'id_tbl_empleados' => $empleado->id_tbl_empleados,
         ]);
 
-        $payload = collect($data)->except(['curp'])->toArray();
+        // ✅ A MAYÚSCULAS
+        $payload = [
+            'institucion' => $this->upper($data['institucion']),
+            'id_pais' => $data['id_pais'],
+            'pais' => $this->upper($data['pais']),
+            'id_nivel_estudios' => $data['id_nivel_estudios'],
+            'nivel' => $this->upper($data['nivel']),
+            'numero_cedula' => $this->upper($data['numero_cedula'] ?? null),
+            'carrera_generica' => $this->upper($data['carrera_generica']),
+            'carrera_especifica' => $this->upper($data['carrera_especifica']),
+            'area_estudios' => $this->upper($data['area_estudios']),
+        ];
 
         $estudios->fill($payload);
         $estudios->id_tbl_empleados = $empleado->id_tbl_empleados;
@@ -273,9 +335,6 @@ class WizardController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Paso 6: cursos y capacitaciones
-     */
     public function saveCursos(Request $request)
     {
         $data = $request->validate([
@@ -287,7 +346,9 @@ class WizardController extends Controller
             'enviar' => 'nullable|boolean',
         ]);
 
-        $curp = strtoupper(trim($data['curp']));
+        $curp = $this->normalizeCurp($data['curp']);
+        $this->assertCurpFormato($curp);
+
         $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
 
         CvCursosCapacitaciones::where('id_tbl_empleados', $empleado->id_tbl_empleados)->delete();
@@ -295,29 +356,25 @@ class WizardController extends Controller
         foreach ($data['cursos'] as $i => $curso) {
             CvCursosCapacitaciones::create([
                 'id_tbl_empleados' => $empleado->id_tbl_empleados,
-                'periodo' => $curso['periodo'] ?? null,
-                'nombre_curso' => $curso['nombre'] ?? null,
-                'institucion' => $curso['institucion'] ?? null,
+                'periodo' => $this->upper($curso['periodo'] ?? null),
+                'nombre_curso' => $this->upper($curso['nombre'] ?? null),
+                'institucion' => $this->upper($curso['institucion'] ?? null),
                 'orden' => $i + 1,
             ]);
         }
 
         if (!empty($data['enviar'])) {
-            $empleado->estatus_cv = 2; // Enviado para revisión
+            $empleado->estatus_cv = 2;
             $empleado->save();
         }
 
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Valida que el correo NO esté ya utilizado por otro CURP
-     * en tbl_empleados o en tbl_cv_tokens_acceso.
-     */
     protected function validarCorreoUnico(string $curp, string $correo): void
     {
-        $curp = strtoupper(trim($curp));
-        $correo = strtolower(trim($correo));
+        $curp = $this->normalizeCurp($curp);
+        $correo = $this->normalizeMail($correo);
 
         $existeEnEmpleados = Empleado::whereRaw('LOWER(correo) = ?', [$correo])
             ->whereRaw('UPPER(curp) <> ?', [$curp])
@@ -328,7 +385,6 @@ class WizardController extends Controller
             ->exists();
 
         if ($existeEnEmpleados || $existeEnTokens) {
-            // ✅ Correcto: 422 sin provocar 500
             throw new HttpResponseException(response()->json([
                 'ok' => false,
                 'message' => 'El correo ingresado ya está en uso por otro registro. Por favor, utiliza un correo diferente.',
@@ -336,9 +392,6 @@ class WizardController extends Controller
         }
     }
 
-    /**
-     * Endpoint para validar en caliente que el correo esté disponible.
-     */
     public function checkCorreo(Request $request)
     {
         $data = $request->validate([
@@ -346,9 +399,10 @@ class WizardController extends Controller
             'correo' => 'required|email|max:150',
         ]);
 
-        $curp = strtoupper(trim($data['curp']));
-        $correo = strtolower(trim($data['correo']));
+        $curp = $this->normalizeCurp($data['curp']);
+        $correo = $this->normalizeMail($data['correo']);
 
+        $this->assertCurpFormato($curp);
         $this->validarCorreoUnico($curp, $correo);
 
         return response()->json([

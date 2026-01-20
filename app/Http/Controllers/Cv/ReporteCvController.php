@@ -135,7 +135,7 @@ class ReporteCvController extends Controller
         // ==========================
         //   AUTO FILTER igual al template
         // ==========================
-        $sheetFicha->setAutoFilter('A1:I1');
+        $sheetFicha->setAutoFilter('A1:H1');
         $sheetExp->setAutoFilter('A1:G400');
         $sheetEst->setAutoFilter('A1:H1');
         // CURSOS: el template NO tiene autofilter
@@ -258,7 +258,7 @@ class ReporteCvController extends Controller
     // ==========================
     private function applyLayoutFicha(Worksheet $s): void
     {
-        $this->styleHeader($s, 'A1:I1', 16.5);
+        $this->styleHeader($s, 'A1:H1', 16.5);
 
         $widths = [
             'A' => 27.5703125,
@@ -269,7 +269,6 @@ class ReporteCvController extends Controller
             'F' => 58.85546875,
             'G' => 19.28515625,
             'H' => 107.28515625,
-            'I' => 11.42578125,
         ];
         foreach ($widths as $col => $w) {
             $s->getColumnDimension($col)->setWidth($w);
