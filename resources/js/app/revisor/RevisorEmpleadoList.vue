@@ -12,6 +12,37 @@
               <div class="text-muted small">
                 Consulta y revisa los CV capturados por el personal.
               </div>
+
+              <!-- ✅ Acciones rápidas -->
+              <div class="mt-3 d-flex flex-column flex-sm-row gap-2 revisor-actions">
+                <a
+                  class="btn btn-success btn-sm"
+                  :href="`${BASE_URL}/revisor/pdf/aprobados.zip`"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Descargar ZIP de aprobados
+                </a>
+
+                <!-- PDF por CURP -->
+                <div class="d-flex gap-2 align-items-center revisor-curp-box">
+                  <input
+                    v-model.trim="curpPdf"
+                    type="text"
+                    class="form-control form-control-sm revisor-curp-input"
+                    maxlength="18"
+                    placeholder="CURP para PDF"
+                  />
+                  <button
+                    class="btn btn-outline-primary btn-sm"
+                    type="button"
+                    :disabled="!curpPdf || curpPdf.length < 10"
+                    @click="descargarPdfPorCurp"
+                  >
+                    PDF por CURP
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Filtros -->
@@ -60,7 +91,7 @@
                   <th>Nombre</th>
                   <th>CURP</th>
                   <th>Área</th>
-                  <!-- <th>Fecha de captura</th>-->
+                  <!-- <th>Fecha de captura</th> -->
                   <th>Estatus</th>
                   <th class="w-1 text-center">Acciones</th>
                 </tr>
@@ -71,6 +102,7 @@
                     No hay empleados que coincidan con los filtros.
                   </td>
                 </tr>
+
                 <tr
                   v-for="(emp, index) in empleadosFiltrados"
                   :key="emp.id"
@@ -80,7 +112,7 @@
                   <td class="fw-semibold">{{ emp.nombre }}</td>
                   <td><code>{{ emp.curp }}</code></td>
                   <td>{{ emp.area || 'N/D' }}</td>
-                  <!-- <td>{{ emp.fechaCaptura || 'N/D' }}</td>-->
+                  <!-- <td>{{ emp.fechaCaptura || 'N/D' }}</td> -->
                   <td>
                     <span :class="badgeClass(emp.status)" class="revisor-status-badge">
                       {{ statusLabel(emp.status) }}
@@ -126,6 +158,7 @@ export default {
   data() {
     return {
       BASE_URL,
+      curpPdf: '',
       filtros: {
         busqueda: '',
         status: '',
@@ -183,6 +216,12 @@ export default {
     detalleUrl(id) {
       return `${this.BASE_URL}/revisor/empleados/${id}`
     },
+    descargarPdfPorCurp() {
+      const curp = (this.curpPdf || '').trim().toUpperCase()
+      if (!curp) return
+      const url = `${this.BASE_URL}/revisor/pdf/curp/${encodeURIComponent(curp)}`
+      window.open(url, '_blank', 'noopener')
+    },
     async cargarEmpleados() {
       try {
         const { data } = await axios.get('api/revisor/empleados', {
@@ -237,7 +276,21 @@ export default {
 }
 
 .revisor-header-text {
-  max-width: 360px;
+  max-width: 460px;
+}
+
+/* ✅ Acciones rápidas */
+.revisor-actions {
+  flex-wrap: wrap;
+}
+
+.revisor-curp-box {
+  width: 100%;
+}
+
+.revisor-curp-input {
+  min-width: 200px;
+  border-radius: 999px;
 }
 
 /* Filtros */
@@ -364,6 +417,15 @@ export default {
 
   .revisor-filter-input,
   .revisor-filter-select {
+    width: 100%;
+  }
+
+  .revisor-curp-box {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .revisor-curp-input {
     width: 100%;
   }
 }

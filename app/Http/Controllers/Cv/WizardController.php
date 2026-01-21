@@ -27,9 +27,12 @@ class WizardController extends Controller
         return strtoupper(trim($curp));
     }
 
-    private function normalizeMail(string $correo): string
+    // ✅ Permitir null cuando CV_REQUIRE_TOKEN=false (solo CURP)
+    private function normalizeMail(?string $correo): ?string
     {
-        return strtolower(trim($correo));
+        if ($correo === null) return null;
+        $correo = strtolower(trim($correo));
+        return $correo === '' ? null : $correo;
     }
 
     private function upper(?string $v): ?string
@@ -51,13 +54,15 @@ class WizardController extends Controller
 
     public function sendToken(Request $request)
     {
+        $requireToken = filter_var(env('CV_REQUIRE_TOKEN', 'true'), FILTER_VALIDATE_BOOLEAN);
+
         $data = $request->validate([
             'curp'   => 'required|string|max:18',
-            'correo' => 'required|email|max:150',
+            'correo' => $requireToken ? 'required|email|max:150' : 'nullable|email|max:150',
         ]);
 
         $curp   = $this->normalizeCurp($data['curp']);
-        $correo = $this->normalizeMail($data['correo']);
+        $correo = $this->normalizeMail($data['correo'] ?? null);
 
         $this->assertCurpFormato($curp);
 
@@ -70,12 +75,26 @@ class WizardController extends Controller
             ], 404);
         }
 
-        $this->validarCorreoUnico($curp, $correo);
+        // ✅ ============================
+        // ✅ MODO SIN TOKEN (SOLO CURP)
+        // ✅ ============================
+        if (!$requireToken) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'CURP validada correctamente (modo sin token).',
+                'empleado' => $empleado,
+            ]);
+        }
+
+        // ✅ ============================
+        // ✅ FLUJO ORIGINAL CON TOKEN
+        // ✅ ============================
+        $this->validarCorreoUnico($curp, (string)$correo);
 
         $token = (string) random_int(100000, 999999);
 
         DB::transaction(function () use ($curp, $correo, $empleado, $token) {
-            if (empty($empleado->correo) || strtolower((string)$empleado->correo) !== $correo) {
+            if (!empty($correo) && (empty($empleado->correo) || strtolower((string)$empleado->correo) !== $correo)) {
                 $empleado->correo = $correo;
                 $empleado->save();
             }
@@ -151,22 +170,46 @@ class WizardController extends Controller
 
     public function validateToken(Request $request)
     {
+        $requireToken = filter_var(env('CV_REQUIRE_TOKEN', 'true'), FILTER_VALIDATE_BOOLEAN);
+
         $data = $request->validate([
             'curp'   => 'required|string|max:18',
-            'correo' => 'required|email|max:150',
-            'token'  => 'required|string|max:10',
+            'correo' => $requireToken ? 'required|email|max:150' : 'nullable|email|max:150',
+            'token'  => $requireToken ? 'required|string|max:10' : 'nullable|string|max:10',
         ]);
 
         $curp   = $this->normalizeCurp($data['curp']);
-        $correo = $this->normalizeMail($data['correo']);
-        $token  = trim($data['token']);
+        $correo = $this->normalizeMail($data['correo'] ?? null);
+        $token  = trim((string)($data['token'] ?? ''));
 
         $this->assertCurpFormato($curp);
 
+        // ✅ ============================
+        // ✅ MODO SIN TOKEN (SOLO CURP)
+        // ✅ ============================
+        if (!$requireToken) {
+            $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->first();
+
+            if (!$empleado) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'No se encontró un empleado con esa CURP.',
+                ], 404);
+            }
+
+            return response()->json([
+                'ok' => true,
+                'empleado' => $empleado,
+            ]);
+        }
+
+        // ✅ ============================
+        // ✅ FLUJO ORIGINAL CON TOKEN
+        // ✅ ============================
         $now = Carbon::now();
 
         $registro = CvTokenAcceso::whereRaw('UPPER(curp) = ?', [$curp])
-            ->whereRaw('LOWER(correo) = ?', [$correo])
+            ->whereRaw('LOWER(correo) = ?', [strtolower((string)$correo)])
             ->where('token', $token)
             ->whereNull('usado_en')
             ->where('expira_en', '>=', $now)
@@ -374,7 +417,7 @@ class WizardController extends Controller
     protected function validarCorreoUnico(string $curp, string $correo): void
     {
         $curp = $this->normalizeCurp($curp);
-        $correo = $this->normalizeMail($correo);
+        $correo = strtolower(trim($correo));
 
         $existeEnEmpleados = Empleado::whereRaw('LOWER(correo) = ?', [$correo])
             ->whereRaw('UPPER(curp) <> ?', [$curp])
@@ -394,13 +437,23 @@ class WizardController extends Controller
 
     public function checkCorreo(Request $request)
     {
+        $requireToken = filter_var(env('CV_REQUIRE_TOKEN', 'true'), FILTER_VALIDATE_BOOLEAN);
+
+        // ✅ Si NO hay token, no tiene sentido bloquear por correo
+        if (!$requireToken) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Modo sin token: se omite validación de correo.',
+            ]);
+        }
+
         $data = $request->validate([
             'curp' => 'required|string|max:18',
             'correo' => 'required|email|max:150',
         ]);
 
         $curp = $this->normalizeCurp($data['curp']);
-        $correo = $this->normalizeMail($data['correo']);
+        $correo = strtolower(trim($data['correo']));
 
         $this->assertCurpFormato($curp);
         $this->validarCorreoUnico($curp, $correo);

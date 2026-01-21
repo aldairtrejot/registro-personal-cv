@@ -27,13 +27,16 @@
               <div class="text-uppercase text-muted small mb-1 revisor-pill-title">
                 Expediente de CV
               </div>
+
               <h3 class="card-title mb-1 revisor-title">
                 {{ nombreCompleto }}
               </h3>
+
               <div class="text-muted small mb-1">
                 CURP:
                 <code class="revisor-curp-code">{{ empleado.curp }}</code>
               </div>
+
               <div class="text-muted small">
                 Área:
                 <span class="fw-semibold">
@@ -44,6 +47,7 @@
                   {{ empleado.puesto_actual || 'N/D' }}
                 </span>
               </div>
+
               <div class="text-muted small mt-1">
                 Última actualización:
                 <span class="fw-semibold">
@@ -60,6 +64,17 @@
               </div>
 
               <div class="btn-group revisor-btn-group">
+                <!-- ✅ Descargar PDF -->
+                <a
+                  v-if="empleado"
+                  class="btn btn-outline-primary w-100"
+                  :href="`${BASE_URL}/revisor/empleados/${empleado.id_tbl_empleados}/pdf`"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Descargar PDF
+                </a>
+
                 <button
                   type="button"
                   class="btn btn-secondary w-100"
@@ -148,6 +163,7 @@
                 <div v-if="experiencias.length === 0" class="text-muted">
                   Sin registros.
                 </div>
+
                 <div
                   v-for="(exp, i) in experiencias"
                   :key="exp.id_tbl_cv_experiencia_laboral || i"
@@ -164,12 +180,14 @@
                       {{ exp.fecha_termino || 'Actual' }}
                     </div>
                   </div>
+
                   <div class="text-muted small mb-1">
                     Sector:
                     <span v-if="exp.sector === 'publico'">Público</span>
                     <span v-else-if="exp.sector === 'privado'">Privado</span>
                     <span v-else>Sin especificar</span>
                   </div>
+
                   <div class="small">
                     <span class="text-muted">Campo de experiencia: </span>
                     {{ exp.campo_experiencia || 'N/D' }}
@@ -186,6 +204,7 @@
                 <div v-if="!estudios" class="text-muted">
                   Sin registros.
                 </div>
+
                 <dl v-else class="row mb-0 revisor-dl">
                   <dt class="col-sm-4 text-muted">Institución</dt>
                   <dd class="col-sm-8">{{ estudios.institucion }}</dd>
@@ -219,6 +238,7 @@
                 <div v-if="cursos.length === 0" class="text-muted">
                   Sin registros.
                 </div>
+
                 <div
                   v-for="(curso, i) in cursos"
                   :key="curso.id_tbl_cv_cursos_capacitaciones || i"
@@ -233,6 +253,7 @@
                       {{ curso.periodo || 'Sin periodo' }}
                     </div>
                   </div>
+
                   <div class="text-muted small">
                     {{ curso.institucion || 'Sin institución' }}
                   </div>
@@ -575,7 +596,7 @@ export default {
   border-radius: 4px;
 }
 
-.revisor-actions-header { min-width: 220px; }
+.revisor-actions-header { min-width: 260px; }
 .revisor-btn-group .btn { min-width: 110px; }
 
 .btn-imss-danger {

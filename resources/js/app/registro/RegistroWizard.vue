@@ -23,18 +23,19 @@
       <section class="cv-stepper">
         <div class="cv-stepper-left">
           <span class="cv-stepper-label">
-            PASO {{ pasoActual }} DE {{ totalPasos }}
+            PASO {{ pasoVisual }} DE {{ totalVisual }}
           </span>
           <div class="cv-stepper-track">
             <div class="cv-stepper-bar" :style="{ width: porcentajeProgreso + '%' }"></div>
           </div>
         </div>
+
         <div class="cv-stepper-dots">
           <div
-            v-for="n in totalPasos"
+            v-for="n in totalVisual"
             :key="n"
             class="cv-dot"
-            :class="{ 'is-active': n === pasoActual, 'is-done': n < pasoActual }"
+            :class="{ 'is-active': n === pasoVisual, 'is-done': n < pasoVisual }"
           >
             {{ n }}
           </div>
@@ -51,9 +52,14 @@
         <!-- PASO 1 -->
         <div v-if="pasoActual === 1">
           <h3 class="cv-section-title">1. Verificación de identidad</h3>
-          <p class="cv-section-subtitle">
+
+          <p class="cv-section-subtitle" v-if="requireToken">
             Ingresa tu CURP y un correo electrónico donde recibirás un código de
             verificación para continuar con el registro de tu CV.
+          </p>
+
+          <p class="cv-section-subtitle" v-else>
+            Ingresa tu CURP para continuar con el registro de tu CV.
           </p>
 
           <div class="row g-3 mt-1">
@@ -67,7 +73,9 @@
                 placeholder="Ej. TICS950101HDFABC01"
               />
             </div>
-            <div class="col-12">
+
+            <!-- ✅ Correo solo si requireToken -->
+            <div class="col-12" v-if="requireToken">
               <label class="form-label">Correo electrónico</label>
               <input
                 v-model.trim="form.correo"
@@ -79,7 +87,7 @@
           </div>
 
           <ul class="cv-helper-list">
-            <li>Verifica que el correo esté escrito correctamente.</li>
+            <li v-if="requireToken">Verifica que el correo esté escrito correctamente.</li>
             <li>La CURP debe coincidir con la registrada en Recursos Humanos.</li>
           </ul>
 
@@ -90,14 +98,18 @@
               :disabled="loading"
               @click="enviarToken"
             >
-              <span v-if="!loading">Enviar código</span>
-              <span v-else>Enviando...</span>
+              <span v-if="!loading">
+                {{ requireToken ? 'Enviar código' : 'Continuar' }}
+              </span>
+              <span v-else>
+                {{ requireToken ? 'Enviando...' : 'Validando...' }}
+              </span>
             </button>
           </div>
         </div>
 
-        <!-- PASO 2 -->
-        <div v-else-if="pasoActual === 2">
+        <!-- PASO 2 (solo cuando requireToken=true) -->
+        <div v-else-if="pasoActual === 2 && requireToken">
           <h3 class="cv-section-title">2. Código de verificación</h3>
           <p class="cv-section-subtitle">
             Ingresa el código que enviamos a tu correo. Si no lo encuentras,
@@ -204,9 +216,16 @@
           </div>
 
           <div class="cv-actions cv-actions-two">
-            <button type="button" class="btn btn-outline-secondary" :disabled="loading" @click="irPaso(2)">
+            <!-- ✅ Si no hay token, el paso anterior real es el 1 -->
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading"
+              @click="irPaso(requireToken ? 2 : 1)"
+            >
               ← Volver
             </button>
+
             <button type="button" class="btn btn-primary" :disabled="loading" @click="guardarDatosPersonales">
               <span v-if="!loading">Guardar y continuar</span>
               <span v-else>Guardando...</span>
@@ -468,6 +487,10 @@ export default {
   data() {
     return {
       BASE_URL,
+
+      // ✅ Bandera: si VITE_CV_REQUIRE_TOKEN=false entonces no pedimos token
+      requireToken: (import.meta.env.VITE_CV_REQUIRE_TOKEN !== 'false'),
+
       pasoActual: 1,
       totalPasos: 6,
       loading: false,
@@ -520,9 +543,18 @@ export default {
     }
   },
   computed: {
+    // ✅ Paso visual para que no se vea el “paso 2” cuando no hay token
+    pasoVisual() {
+      if (this.requireToken) return this.pasoActual
+      // si token está OFF: el paso 2 no existe visualmente
+      return this.pasoActual >= 3 ? this.pasoActual - 1 : this.pasoActual
+    },
+    totalVisual() {
+      return this.requireToken ? this.totalPasos : (this.totalPasos - 1)
+    },
     porcentajeProgreso() {
-      if (this.totalPasos <= 1) return 0
-      return ((this.pasoActual - 1) / (this.totalPasos - 1)) * 100
+      if (this.totalVisual <= 1) return 0
+      return ((this.pasoVisual - 1) / (this.totalVisual - 1)) * 100
     },
     mensajeClase() {
       if (!this.mensaje) return ''
@@ -683,15 +715,45 @@ export default {
     async enviarToken() {
       this.loading = true
       try {
-        const payload = { curp: this.form.curp, correo: this.form.correo }
+        // ✅ payload dinámico
+        const payload = this.requireToken
+          ? { curp: this.form.curp, correo: this.form.correo }
+          : { curp: this.form.curp }
 
-        await axios.post('/api/cv/check-correo', payload)
+        // ✅ Solo validar correo único cuando SÍ hay token
+        if (this.requireToken) {
+          await axios.post('/api/cv/check-correo', payload)
+        } else {
+          // await axios.post('/api/cv/check-correo', payload) // ⛔ bypass (solo CURP)
+        }
+
         const { data } = await axios.post('/api/cv/send-token', payload)
 
+        // ✅ MODO SIN TOKEN: el backend regresa empleado y brincamos a paso 3
+        if (!this.requireToken) {
+          if (data.empleado) {
+            this.form.nombres = data.empleado.nombre || ''
+            this.form.primer_apellido = data.empleado.primer_apellido || ''
+            this.form.segundo_apellido = data.empleado.segundo_apellido || ''
+            this.form.puesto_actual = data.empleado.puesto_actual || ''
+            this.form.fecha_inicio = data.empleado.fecha_inicio_puesto || ''
+            this.form.area_adscripcion = data.empleado.area_adscripcion || ''
+            this.form.id_puesto = data.empleado.id_puesto || null
+            this.form.id_unidad = data.empleado.id_unidad_adscripcion || null
+            if (this.form.id_unidad) await this.cargarCoordinacionesUnidad()
+          }
+
+          this.mostrarMensaje('ok', data.message || 'CURP validada correctamente.')
+          this.irPaso(3)
+          return
+        }
+
+        // ✅ MODO CON TOKEN (tu flujo original)
         this.mostrarMensaje('ok', data.message || 'Se envió el código a tu correo.')
         this.irPaso(2)
+
       } catch (error) {
-        const msg = error?.response?.data?.message || 'No se pudo enviar el código. Verifica los datos e inténtalo de nuevo.'
+        const msg = error?.response?.data?.message || 'No se pudo continuar. Verifica los datos e inténtalo de nuevo.'
         this.mostrarMensaje('error', msg)
       } finally {
         this.loading = false
@@ -699,6 +761,12 @@ export default {
     },
 
     async validarToken() {
+      // ✅ seguridad extra: si por algo lo llaman sin token, brinca
+      if (!this.requireToken) {
+        this.irPaso(3)
+        return
+      }
+
       this.loading = true
       try {
         const payload = { curp: this.form.curp, correo: this.form.correo, token: this.form.token }

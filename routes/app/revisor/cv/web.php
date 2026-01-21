@@ -6,6 +6,8 @@ use App\Http\Controllers\Cv\RevisorController;
 use App\Http\Controllers\Cv\CatalogosController;
 use App\Http\Controllers\Auth\Login\AuthLoginController;
 use App\Http\Controllers\Auth\Login\ViewLoginController;
+use App\Http\Controllers\Cv\RevisorPdfController;
+use App\Http\Controllers\Cv\CvPdfController;
 
 /*
 |--------------------------------------------------------------------------
@@ -85,4 +87,21 @@ Route::middleware(['auth', 'role:1,3'])->group(function () {
         Route::get('/empleados/{id}',         [RevisorController::class, 'show']);
         Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
     });
+
+    Route::prefix('revisor')->group(function () {
+    Route::get('empleados/{id}/pdf', [RevisorPdfController::class, 'pdfPorEmpleadoId']);
+    Route::get('empleados/pdf/{curp}', [RevisorPdfController::class, 'pdfPorCurp']);
+    Route::get('empleados/aprobados/zip', [RevisorPdfController::class, 'zipAprobados']);
+});
+    // nuevos (PDF/ZIP)
+    Route::get('empleados/{id}/pdf', [RevisorPdfController::class, 'pdfPorEmpleadoId']);
+    Route::get('empleados/pdf/{curp}', [RevisorPdfController::class, 'pdfPorCurp']);
+    Route::get('empleados/aprobados/zip', [RevisorPdfController::class, 'zipAprobados']);
+
+    Route::prefix('revisor')->group(function () {
+    Route::get('empleados/{id}/pdf', [CvPdfController::class, 'pdfPorEmpleado']);
+    Route::get('pdf/curp/{curp}', [CvPdfController::class, 'pdfPorCurp']);
+    Route::get('pdf/aprobados.zip', [CvPdfController::class, 'zipAprobados']);
+});
+
 });

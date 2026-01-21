@@ -10,6 +10,7 @@ use App\Models\Cv\CvEstudiosAcademicos;
 use App\Models\Cv\CvCursosCapacitaciones;
 use App\Models\Cv\CvTokenAcceso;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class RevisorController extends Controller
 {
@@ -99,6 +100,13 @@ class RevisorController extends Controller
         $motivo = trim((string)($data['motivo'] ?? ''));
 
         $empleado->estatus_cv = $map[$status];
+
+        // ✅ si aprueba y no tiene folio, generarlo una sola vez
+        if ($status === 'aprobado' && empty($empleado->folio_cv)) {
+            $empleado->folio_cv = $this->generarFolio($empleado);
+            $empleado->folio_generado_en = Carbon::now();
+        }
+
         $empleado->save();
 
         if ($status === 'rechazado') {
@@ -106,6 +114,13 @@ class RevisorController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    private function generarFolio(Empleado $empleado): string
+    {
+        $anio = Carbon::now()->format('Y');
+        $id = (int)$empleado->id_tbl_empleados;
+        return 'CV-' . $anio . '-' . str_pad((string)$id, 6, '0', STR_PAD_LEFT);
     }
 
     private function cvStatusLabel($estatus_cv)
