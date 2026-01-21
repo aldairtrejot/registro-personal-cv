@@ -8,6 +8,7 @@ use App\Models\Cv\CvEstudiosAcademicos;
 use App\Models\Cv\CvCursosCapacitaciones;
 use Carbon\Carbon;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 
 class CvFichaPdfService
 {
@@ -127,30 +128,116 @@ class CvFichaPdfService
         return $r;
     }
 
+    /**
+     * ✅ Conversión robusta Windows:
+     * - autodetecta soffice si config/env no existe
+     * - evita problemas de comillas usando Process con argumentos
+     * - usa perfil aislado para evitar locks
+     */
     private function convertToPdfWindows(string $soffice, string $inputDoc, string $outDir): void
     {
-        $soffice = trim($soffice, "\"");
-        $cmd = "\"{$soffice}\" --headless --nologo --nofirststartwizard --convert-to pdf --outdir \"{$outDir}\" \"{$inputDoc}\"";
+        $inputDoc = $this->normalizeWinPath($inputDoc);
+        $outDir   = $this->normalizeWinPath($outDir);
 
-        $descriptorspec = [
-            1 => ["pipe", "w"], // stdout
-            2 => ["pipe", "w"], // stderr
+        if (!is_file($inputDoc)) {
+            throw new RuntimeException("No existe el archivo a convertir: {$inputDoc}");
+        }
+
+        if (!is_dir($outDir) && !mkdir($outDir, 0775, true) && !is_dir($outDir)) {
+            throw new RuntimeException("No se pudo crear outDir: {$outDir}");
+        }
+
+        $bin = $this->resolveSofficeBinary($soffice);
+
+        // Perfil aislado (evita “profile locked”)
+        $profileDir = $outDir . DIRECTORY_SEPARATOR . ".lo-profile";
+        if (!is_dir($profileDir)) {
+            @mkdir($profileDir, 0775, true);
+        }
+        $profileUri = $this->toFileUri($profileDir); // file:///C:/...
+
+        $args = [
+            $bin,
+            "--headless",
+            "--nologo",
+            "--nofirststartwizard",
+            "--invisible",
+            "-env:UserInstallation={$profileUri}",
+            "--convert-to", "pdf",
+            "--outdir", $outDir,
+            $inputDoc,
         ];
 
-        $process = proc_open($cmd, $descriptorspec, $pipes);
-        if (!is_resource($process)) {
-            throw new RuntimeException("No se pudo ejecutar LibreOffice.");
+        $process = new Process($args);
+        $process->setTimeout(120);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            throw new RuntimeException(
+                "LibreOffice falló ({$process->getExitCode()}). STDERR: "
+                . $process->getErrorOutput()
+                . " STDOUT: "
+                . $process->getOutput()
+                . " BIN: {$bin}"
+            );
+        }
+    }
+
+    /**
+     * Resuelve el binario soffice:
+     * 1) Usa config/env si existe y el archivo existe
+     * 2) Busca por `where` (si está en PATH)
+     * 3) Prueba rutas típicas
+     */
+    private function resolveSofficeBinary(?string $soffice): string
+    {
+        $soffice = trim((string)$soffice, "\"' ");
+
+        if ($soffice !== '' && is_file($soffice)) {
+            return $soffice;
         }
 
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        $exitCode = proc_close($process);
-        if ($exitCode !== 0) {
-            throw new RuntimeException("LibreOffice falló ({$exitCode}). STDERR: {$stderr} STDOUT: {$stdout}");
+        // 1) donde esté en PATH
+        foreach (['soffice.com', 'soffice.exe'] as $cmd) {
+            $found = @shell_exec("where {$cmd} 2>NUL");
+            if ($found) {
+                $lines = preg_split("/\r\n|\n|\r/", trim($found));
+                if (!empty($lines[0]) && is_file($lines[0])) {
+                    return trim($lines[0]);
+                }
+            }
         }
+
+        // 2) rutas típicas
+        $candidates = [
+            'C:\Program Files\LibreOffice\program\soffice.com',
+            'C:\Program Files\LibreOffice\program\soffice.exe',
+            'C:\Program Files (x86)\LibreOffice\program\soffice.com',
+            'C:\Program Files (x86)\LibreOffice\program\soffice.exe',
+        ];
+
+        foreach ($candidates as $p) {
+            if (is_file($p)) return $p;
+        }
+
+        throw new RuntimeException(
+            "No se encontró LibreOffice (soffice). " .
+            "Instálalo o configura SOFFICE_PATH con la ruta REAL a soffice.com/soffice.exe."
+        );
+    }
+
+    private function toFileUri(string $path): string
+    {
+        // C:\algo -> file:///C:/algo
+        $p = str_replace('\\', '/', $path);
+        $p = preg_replace('/^([A-Za-z]):\//', '$1:/', $p);
+        return "file:///" . ltrim($p, '/');
+    }
+
+    private function normalizeWinPath(string $path): string
+    {
+        $path = trim($path, "\"' ");
+        return $path;
     }
 
     private function fmtDate($value): string

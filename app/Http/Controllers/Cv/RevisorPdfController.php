@@ -12,15 +12,9 @@ class RevisorPdfController extends Controller
 {
     public function __construct(private CvFichaPdfService $service) {}
 
-    /**
-     * PDF individual por ID (revisor)
-     */
     public function pdfPorEmpleadoId($id)
     {
         $empleado = Empleado::findOrFail($id);
-
-        // Si quieres restringir solo aprobados:
-        // if ((int)$empleado->estatus_cv !== 3) abort(403, 'Solo CV aprobados generan PDF');
 
         $pdfPath = $this->service->generarPdfPorEmpleado($empleado);
 
@@ -29,9 +23,6 @@ class RevisorPdfController extends Controller
             ->deleteFileAfterSend(true);
     }
 
-    /**
-     * PDF individual por CURP (revisor)
-     */
     public function pdfPorCurp(string $curp)
     {
         $curp = strtoupper(trim($curp));
@@ -46,36 +37,71 @@ class RevisorPdfController extends Controller
             ->deleteFileAfterSend(true);
     }
 
-    /**
-     * ZIP masivo de aprobados
-     */
     public function zipAprobados()
     {
+        @set_time_limit(0);
+        @ini_set('memory_limit', '1024M');
+
         $empleados = Empleado::query()
             ->where('estatus_cv', 3)
             ->orderBy('id_tbl_empleados')
             ->get();
 
-        $tmpDir = config('cvpdf.tmp_dir');
-        if (!is_dir($tmpDir)) @mkdir($tmpDir, 0775, true);
-
-        $stamp = Carbon::now()->format('Ymd_His');
-        $zipPath = $tmpDir . DIRECTORY_SEPARATOR . "APROBADOS_{$stamp}.zip";
-
-        $zip = new ZipArchive();
-        $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-
-        foreach ($empleados as $e) {
-            $pdfPath = $this->service->generarPdfPorEmpleado($e);
-
-            $curp = strtoupper(trim((string)$e->curp));
-            $zip->addFile($pdfPath, "FICHA_CURRICULAR_{$curp}.pdf");
-
-            @unlink($pdfPath);
+        if ($empleados->isEmpty()) {
+            return response()->json(['message' => 'No hay empleados aprobados.'], 404);
         }
 
-        $zip->close();
+        $tmpDir = config('cvpdf.tmp_dir');
 
-        return response()->download($zipPath)->deleteFileAfterSend(true);
+        if (!is_dir($tmpDir) && !mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
+            return response()->json(['message' => "No se pudo crear tmp_dir: {$tmpDir}"], 500);
+        }
+
+        $stamp = Carbon::now()->format('Ymd_His');
+        $zipName = "CV_APROBADOS_{$stamp}.zip";
+        $zipPath = $tmpDir . DIRECTORY_SEPARATOR . $zipName;
+
+        $zip = new ZipArchive();
+
+        $openResult = $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        if ($openResult !== true) {
+            return response()->json([
+                'message' => 'No se pudo crear el ZIP. Revisa que PHP tenga habilitado ZipArchive (ext-zip).',
+                'zipPath' => $zipPath,
+                'openResult' => $openResult,
+            ], 500);
+        }
+
+        try {
+            foreach ($empleados as $e) {
+                try {
+                    $pdfPath = $this->service->generarPdfPorEmpleado($e);
+
+                    $curp = strtoupper(trim((string)$e->curp));
+                    $curpSafe = preg_replace('/[^A-Z0-9]/', '', $curp) ?: (string)$e->id_tbl_empleados;
+
+                    $insideName = "FICHA_CURRICULAR_{$curpSafe}.pdf";
+
+                    if (is_file($pdfPath)) {
+                        $zip->addFile($pdfPath, $insideName);
+                        @unlink($pdfPath); // limpiamos PDF temporal
+                    }
+                } catch (\Throwable $ex) {
+                    // si uno falla, seguimos con los demás
+                    continue;
+                }
+            }
+        } finally {
+            $zip->close();
+        }
+
+        if (!is_file($zipPath)) {
+            return response()->json([
+                'message' => 'El ZIP no se generó en disco. Revisa permisos y ext-zip.',
+                'zipPath' => $zipPath,
+            ], 500);
+        }
+
+        return response()->download($zipPath, $zipName)->deleteFileAfterSend(true);
     }
 }

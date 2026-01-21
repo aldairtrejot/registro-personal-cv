@@ -1,20 +1,21 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Cv\WizardController;
-use App\Http\Controllers\Cv\RevisorController;
-use App\Http\Controllers\Cv\CatalogosController;
+
 use App\Http\Controllers\Auth\Login\AuthLoginController;
 use App\Http\Controllers\Auth\Login\ViewLoginController;
+
+use App\Http\Controllers\Cv\WizardController;
+use App\Http\Controllers\Cv\CatalogosController;
+use App\Http\Controllers\Cv\RevisorController;
+use App\Http\Controllers\Cv\ReporteCvController;
 use App\Http\Controllers\Cv\RevisorPdfController;
-use App\Http\Controllers\Cv\CvPdfController;
 
 /*
 |--------------------------------------------------------------------------
-| Rutas de autenticación
+| Auth
 |--------------------------------------------------------------------------
 */
-
 Route::get('/login', [ViewLoginController::class, 'login'])->name('login');
 
 Route::post('/auth/authentication', [AuthLoginController::class, 'authentication'])
@@ -22,15 +23,17 @@ Route::post('/auth/authentication', [AuthLoginController::class, 'authentication
 
 /*
 |--------------------------------------------------------------------------
-| Registro de CV (empleado)
+| Registro CV (Empleado)
 |--------------------------------------------------------------------------
 */
-
-// Vista del wizard
 Route::get('/registro-cv', fn () => view('registro.wizard'))
     ->name('registro.wizard');
 
-// API Wizard + Catálogos (prefijo /api/cv)
+/*
+|--------------------------------------------------------------------------
+| API Wizard + Catálogos
+|--------------------------------------------------------------------------
+*/
 Route::prefix('api/cv')->group(function () {
     // Wizard
     Route::post('/send-token',       [WizardController::class, 'sendToken']);
@@ -52,56 +55,30 @@ Route::prefix('api/cv')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Revisor (protegido con auth + role:3)
+| Revisor (roles 1 y 3)
 |--------------------------------------------------------------------------
 */
-
-Route::middleware(['auth', 'role:3'])->group(function () {
-
-    // Vistas
-    Route::prefix('revisor')->group(function () {
-        Route::view('/empleados', 'revisor.empleados')
-            ->name('revisor.empleados');
-
-        Route::view('/empleados/{id}', 'revisor.empleado-show')
-            ->name('revisor.empleados.show');
-    });
-
-    // API
-    Route::prefix('api/revisor')->group(function () {
-        Route::get('/empleados',              [RevisorController::class, 'index']);
-        Route::get('/empleados/{id}',         [RevisorController::class, 'show']);
-        Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
-    });
-});
-
-// Revisor (protegido con auth + role:1 → ADMIN)
 Route::middleware(['auth', 'role:1,3'])->group(function () {
+
+    // Vistas revisor
     Route::prefix('revisor')->group(function () {
         Route::view('/empleados', 'revisor.empleados')->name('revisor.empleados');
         Route::view('/empleados/{id}', 'revisor.empleado-show')->name('revisor.empleados.show');
+
+        // ✅ Descargas PDF/ZIP (UNIFICADAS)
+        Route::get('/empleados/{id}/pdf', [RevisorPdfController::class, 'pdfPorEmpleadoId']);
+        Route::get('/pdf/curp/{curp}', [RevisorPdfController::class, 'pdfPorCurp']);
+        Route::get('/pdf/aprobados.zip', [RevisorPdfController::class, 'zipAprobados']);
     });
 
+    // API revisor
     Route::prefix('api/revisor')->group(function () {
         Route::get('/empleados',              [RevisorController::class, 'index']);
         Route::get('/empleados/{id}',         [RevisorController::class, 'show']);
         Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
     });
 
-    Route::prefix('revisor')->group(function () {
-    Route::get('empleados/{id}/pdf', [RevisorPdfController::class, 'pdfPorEmpleadoId']);
-    Route::get('empleados/pdf/{curp}', [RevisorPdfController::class, 'pdfPorCurp']);
-    Route::get('empleados/aprobados/zip', [RevisorPdfController::class, 'zipAprobados']);
-});
-    // nuevos (PDF/ZIP)
-    Route::get('empleados/{id}/pdf', [RevisorPdfController::class, 'pdfPorEmpleadoId']);
-    Route::get('empleados/pdf/{curp}', [RevisorPdfController::class, 'pdfPorCurp']);
-    Route::get('empleados/aprobados/zip', [RevisorPdfController::class, 'zipAprobados']);
-
-    Route::prefix('revisor')->group(function () {
-    Route::get('empleados/{id}/pdf', [CvPdfController::class, 'pdfPorEmpleado']);
-    Route::get('pdf/curp/{curp}', [CvPdfController::class, 'pdfPorCurp']);
-    Route::get('pdf/aprobados.zip', [CvPdfController::class, 'zipAprobados']);
-});
-
+    // Excel aprobados
+    Route::get('/cv/reportes/empleados-terminados', [ReporteCvController::class, 'exportTerminados'])
+        ->name('cv.reportes.empleados_terminados');
 });
