@@ -1,5 +1,9 @@
 // resources/js/app.js
 import { createApp } from 'vue'
+import axiosInstance from '@axios'
+
+// Exponer axios instance global (por compatibilidad con código viejo)
+window.axios = axiosInstance
 
 // --- Auth ---
 import vue_form_login from './app/auth/login.vue'
@@ -36,13 +40,10 @@ import vue_follow_dashboard from './app/follow/follow.vue'
 import vue_modal_follow_history from './app/follow/followHistory.vue'
 import vue_data_employee from './app/follow/data.vue'
 
+// --- CV ---
 import RegistroWizard from './app/registro/RegistroWizard.vue'
-
-
 import RevisorEmpleadoList from './app/revisor/RevisorEmpleadoList.vue'
 import RevisorEmpleadoShow from './app/revisor/RevisorEmpleadoShow.vue'
-
-
 
 // Lista de componentes a montar (selector -> componente)
 const components = [
@@ -69,10 +70,11 @@ const components = [
   { selector: '#blade_zone_list', component: vue_zone_list },
   { selector: '#blade_zone_form', component: vue_zone_form },
 
-  //follow
+  // Follow
   { selector: '#blade_form_update_follow', component: vue_form_update_follow },
   { selector: '#blade_follow_dashboard', component: vue_follow_dashboard },
   { selector: '#blade_modal_follow_history', component: vue_modal_follow_history },
+  { selector: '#blade_data_employee', component: vue_data_employee },
 
   // Employee
   { selector: '#blade_employee_list', component: vue_employee_list },
@@ -84,18 +86,10 @@ const components = [
   { selector: '#blade_Branch_list', component: vue_Branch_list },
   { selector: '#blade_Branch_form', component: vue_Branch_form },
 
-  // Follow
-  { selector: '#blade_form_update_follow', component: vue_form_update_follow },
-  { selector: '#blade_follow_dashboard', component: vue_follow_dashboard },
-  { selector: '#blade_data_employee', component: vue_data_employee },
-
-    // Registro CV (empleado)
+  // CV
   { selector: '#blade_registro_wizard', component: RegistroWizard },
   { selector: '#blade_revisor_empleados', component: RevisorEmpleadoList },
   { selector: '#blade_revisor_empleado_show', component: RevisorEmpleadoShow },
-
-
-
 ]
 
 // Monta cada componente si existe su contenedor en el DOM
@@ -118,4 +112,3 @@ document.addEventListener('DOMContentLoaded', () => {
     el.__vue_app__ = app // evita doble montaje (HMR)
   })
 })
-

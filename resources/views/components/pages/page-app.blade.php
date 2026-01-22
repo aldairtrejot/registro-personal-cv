@@ -5,9 +5,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="app-base-url" content="{{ url('') }}">
+
+    <script>
+        window.BASE_URL = "{{ url('') }}";
+    </script>
+
     <link rel="shortcut icon" href="{{ asset('assets/images/favicon.png') }}" />
     <title>CVPROIB</title>
+
     <link rel="stylesheet" href="{{ asset('assets/css/tabler.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/icons/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/icons/tabler-icons.min.css') }}">
@@ -83,6 +91,9 @@
 
                     {{-- USUARIO --}}
                     @php($user = Auth::user())
+                    @php($displayName = $user?->nombre_completo ?? $user?->name ?? $user?->username ?? 'USUARIO')
+                    @php($displayEmail = $user?->email ?? '')
+
                     <div class="nav-item dropdown">
                         <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown"
                            aria-label="Open user menu">
@@ -90,14 +101,14 @@
                             <div class="d-none d-xl-block ps-2">
                                 <div style="color:white">
                                     @if($user)
-                                        {{ strtoupper(collect(explode(' ', $user->name))->take(2)->implode(' ')) }}
+                                        {{ strtoupper(collect(explode(' ', (string)$displayName))->take(2)->implode(' ')) }}
                                     @else
                                         INVITADO
                                     @endif
                                 </div>
                                 <div class="mt-1 small text-secondary" style="color: white !important">
                                     @if($user)
-                                        {{ $user->email }}
+                                        {{ $displayEmail }}
                                     @else
                                         Sin sesión iniciada
                                     @endif
@@ -117,7 +128,7 @@
             </div><!-- container-xl -->
         </header>
 
-        {{-- MENÚ LATERAL (si sigues usando roles) --}}
+        {{-- MENÚ LATERAL --}}
         <x-menu.menu-app>
             @hasrole(1, 2, 3, 4, 5)
                 <x-menu.menu-only title="Dashboard" icon="ti ti-home" href="{{ route('dashboard') }}" />
@@ -139,10 +150,6 @@
                     </x-menu.menu-item-2x>
                 </x-menu.menu-dropdown>
             @endhasrole
-
-           <!-- @hasrole(1, 3, 4, 5, 6)
-                <x-menu.menu-only title="Profesionalización" icon="ti ti-briefcase" href="{{ route('employee') }}" />
-            @endhasrole-->
 
             @hasrole(1, 2, 3, 4, 5)
                 <x-menu.menu-only title="Acerca de" icon="ti ti-info-circle" href="{{ route('about') }}" />

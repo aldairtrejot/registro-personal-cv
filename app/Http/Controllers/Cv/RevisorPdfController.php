@@ -5,25 +5,19 @@ namespace App\Http\Controllers\Cv;
 use App\Http\Controllers\Controller;
 use App\Models\Cv\Empleado;
 use App\Services\Cv\CvFichaPdfService;
-use Illuminate\Support\Carbon;
+use Illuminate\Http\Response;
+use RuntimeException;
 use ZipArchive;
 
 class RevisorPdfController extends Controller
 {
-    public function __construct(private CvFichaPdfService $service) {}
-
-    public function pdfPorEmpleadoId($id)
+    public function pdfPorEmpleadoId(int $id, CvFichaPdfService $svc)
     {
-        $empleado = Empleado::findOrFail($id);
-
-        $pdfPath = $this->service->generarPdfPorEmpleado($empleado);
-
-        $curp = strtoupper(trim((string)$empleado->curp));
-        return response()->download($pdfPath, "FICHA_CURRICULAR_{$curp}.pdf")
-            ->deleteFileAfterSend(true);
+        $empleado = Empleado::query()->findOrFail($id);
+        return $this->downloadPdf($empleado, $svc);
     }
 
-    public function pdfPorCurp(string $curp)
+    public function pdfPorCurp(string $curp, CvFichaPdfService $svc)
     {
         $curp = strtoupper(trim($curp));
 
@@ -31,77 +25,70 @@ class RevisorPdfController extends Controller
             ->whereRaw('UPPER(curp) = ?', [$curp])
             ->firstOrFail();
 
-        $pdfPath = $this->service->generarPdfPorEmpleado($empleado);
-
-        return response()->download($pdfPath, "FICHA_CURRICULAR_{$curp}.pdf")
-            ->deleteFileAfterSend(true);
+        return $this->downloadPdf($empleado, $svc);
     }
 
-    public function zipAprobados()
+    public function zipAprobados(CvFichaPdfService $svc)
     {
-        @set_time_limit(0);
-        @ini_set('memory_limit', '1024M');
-
+        // En tu mapeo: 3 = aprobado
         $empleados = Empleado::query()
             ->where('estatus_cv', 3)
             ->orderBy('id_tbl_empleados')
-            ->get();
+            ->get(['id_tbl_empleados', 'curp', 'nombre', 'primer_apellido', 'segundo_apellido']);
 
         if ($empleados->isEmpty()) {
-            return response()->json(['message' => 'No hay empleados aprobados.'], 404);
+            abort(404, 'No hay CV aprobados para descargar.');
         }
 
-        $tmpDir = config('cvpdf.tmp_dir');
-
+        $tmpDir = config('cvpdf.tmp_dir', storage_path('app/tmp'));
         if (!is_dir($tmpDir) && !mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
-            return response()->json(['message' => "No se pudo crear tmp_dir: {$tmpDir}"], 500);
+            throw new RuntimeException("No se pudo crear tmp_dir: {$tmpDir}");
         }
 
-        $stamp = Carbon::now()->format('Ymd_His');
-        $zipName = "CV_APROBADOS_{$stamp}.zip";
-        $zipPath = $tmpDir . DIRECTORY_SEPARATOR . $zipName;
+        $zipPath = $tmpDir . DIRECTORY_SEPARATOR . 'CV_APROBADOS_' . date('Ymd_His') . '.zip';
 
         $zip = new ZipArchive();
-
-        $openResult = $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-        if ($openResult !== true) {
-            return response()->json([
-                'message' => 'No se pudo crear el ZIP. Revisa que PHP tenga habilitado ZipArchive (ext-zip).',
-                'zipPath' => $zipPath,
-                'openResult' => $openResult,
-            ], 500);
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException("No se pudo crear ZIP: {$zipPath}");
         }
 
-        try {
-            foreach ($empleados as $e) {
-                try {
-                    $pdfPath = $this->service->generarPdfPorEmpleado($e);
+        $pdfGenerados = [];
 
-                    $curp = strtoupper(trim((string)$e->curp));
-                    $curpSafe = preg_replace('/[^A-Z0-9]/', '', $curp) ?: (string)$e->id_tbl_empleados;
+        foreach ($empleados as $emp) {
+            $pdfPath = $svc->generarPdfPorEmpleado($emp);
+            $pdfGenerados[] = $pdfPath;
 
-                    $insideName = "FICHA_CURRICULAR_{$curpSafe}.pdf";
+            $curp = strtoupper(trim((string) $emp->curp));
+            $nombre = trim(implode('_', array_filter([
+                $emp->nombre,
+                $emp->primer_apellido,
+                $emp->segundo_apellido,
+            ])));
 
-                    if (is_file($pdfPath)) {
-                        $zip->addFile($pdfPath, $insideName);
-                        @unlink($pdfPath); // limpiamos PDF temporal
-                    }
-                } catch (\Throwable $ex) {
-                    // si uno falla, seguimos con los demás
-                    continue;
-                }
-            }
-        } finally {
-            $zip->close();
+            $nombre = preg_replace('/[^A-Za-z0-9_\-]/', '', $nombre);
+            if ($nombre === '') $nombre = 'SIN_NOMBRE';
+
+            $zipName = "CV_{$curp}_{$nombre}.pdf";
+            $zip->addFile($pdfPath, $zipName);
         }
 
-        if (!is_file($zipPath)) {
-            return response()->json([
-                'message' => 'El ZIP no se generó en disco. Revisa permisos y ext-zip.',
-                'zipPath' => $zipPath,
-            ], 500);
+        $zip->close();
+
+        // Limpia PDFs temporales
+        foreach ($pdfGenerados as $p) {
+            if (is_file($p)) @unlink($p);
         }
 
-        return response()->download($zipPath, $zipName)->deleteFileAfterSend(true);
+        return response()->download($zipPath, basename($zipPath))->deleteFileAfterSend(true);
+    }
+
+    private function downloadPdf(Empleado $empleado, CvFichaPdfService $svc)
+    {
+        $pdfPath = $svc->generarPdfPorEmpleado($empleado);
+
+        $curp = strtoupper(trim((string) $empleado->curp));
+        $filename = "CV_{$curp}.pdf";
+
+        return response()->download($pdfPath, $filename)->deleteFileAfterSend(true);
     }
 }

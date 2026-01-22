@@ -1,4 +1,9 @@
-import axios from 'axios';
-window.axios = axios;
+import axios from 'axios'
 
-window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest'
+
+// Si tu auth es por sesión y estás en el mismo dominio, normalmente NO necesitas esto.
+// Si estás en dominios/subdominios diferentes, entonces sí:
+// axios.defaults.withCredentials = true
+
+export default axios

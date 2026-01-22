@@ -391,7 +391,8 @@ export default {
 
     async cargarDetalle(id) {
       try {
-        const { data } = await axios.get(`api/revisor/empleados/${id}`)
+        // ✅ CAMBIO: agregar "/" para no volverse ruta relativa
+        const { data } = await axios.get(`/api/revisor/empleados/${id}`)
         this.empleado = data.empleado
         this.experiencias = data.experiencias || []
         this.estudios = data.estudios || null
@@ -452,7 +453,8 @@ export default {
         const payload = { status: nuevo }
         if (nuevo === 'rechazado') payload.motivo = motivo
 
-        await axios.post(`api/revisor/empleados/${id}/estatus`, payload)
+        // ✅ CAMBIO: agregar "/" para no volverse ruta relativa
+        await axios.post(`/api/revisor/empleados/${id}/estatus`, payload)
 
         this.statusLocal = nuevo
         this.mensaje = {

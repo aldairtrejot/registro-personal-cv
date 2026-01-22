@@ -12,9 +12,9 @@ use App\Http\Controllers\Cv\ReporteCvController;
 use App\Http\Controllers\Cv\RevisorPdfController;
 
 /*
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 | Auth
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 */
 Route::get('/login', [ViewLoginController::class, 'login'])->name('login');
 
@@ -22,20 +22,21 @@ Route::post('/auth/authentication', [AuthLoginController::class, 'authentication
     ->name('auth.authentication');
 
 /*
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 | Registro CV (Empleado)
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 */
 Route::get('/registro-cv', fn () => view('registro.wizard'))
     ->name('registro.wizard');
 
 /*
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 | API Wizard + Catálogos
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 */
 Route::prefix('api/cv')->group(function () {
     // Wizard
+    Route::post('/check-correo',     [WizardController::class, 'checkCorreo']); // ✅ lo usa tu Vue cuando requireToken=true
     Route::post('/send-token',       [WizardController::class, 'sendToken']);
     Route::post('/validate-token',   [WizardController::class, 'validateToken']);
     Route::post('/datos-personales', [WizardController::class, 'saveDatosPersonales']);
@@ -43,20 +44,27 @@ Route::prefix('api/cv')->group(function () {
     Route::post('/estudios',         [WizardController::class, 'saveEstudios']);
     Route::post('/cursos',           [WizardController::class, 'saveCursos']);
 
-    // Catálogos
+    // Catálogos (los consume tu Wizard)
     Route::get('/catalogos/paises',          [CatalogosController::class, 'paises']);
     Route::get('/catalogos/niveles-estudio', [CatalogosController::class, 'nivelesEstudio']);
     Route::get('/catalogos/areas-estudio',   [CatalogosController::class, 'areasEstudio']);
+
     Route::get('/catalogos/puestos',         [CatalogosController::class, 'puestos']);
     Route::get('/catalogos/puestos-especificos', [CatalogosController::class, 'puestosEspecificos']);
+
     Route::get('/catalogos/unidades',        [CatalogosController::class, 'unidades']);
-    Route::get('/catalogos/coordinaciones-por-unidad/{id_unidad}', [CatalogosController::class, 'coordinacionesPorUnidad']);
+    Route::get('/catalogos/coordinaciones-por-unidad/{id}', [CatalogosController::class, 'coordinacionesPorUnidad']);
+
+    // ✅ Carreras (3 combos en cascada)
+    Route::get('/catalogos/carreras-especificas', [CatalogosController::class, 'carrerasEspecificas']);
+    Route::get('/catalogos/carreras-genericas/{idEspecifica}', [CatalogosController::class, 'carrerasGenericasPorEspecifica']);
+    Route::get('/catalogos/areas-estudio-por-carrera/{idEspecifica}/{idGenerica}', [CatalogosController::class, 'areasEstudioPorCarrera']);
 });
 
 /*
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 | Revisor (roles 1 y 3)
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 */
 Route::middleware(['auth', 'role:1,3'])->group(function () {
 
@@ -65,7 +73,7 @@ Route::middleware(['auth', 'role:1,3'])->group(function () {
         Route::view('/empleados', 'revisor.empleados')->name('revisor.empleados');
         Route::view('/empleados/{id}', 'revisor.empleado-show')->name('revisor.empleados.show');
 
-        // ✅ Descargas PDF/ZIP (UNIFICADAS)
+        // ✅ Descargas PDF/ZIP
         Route::get('/empleados/{id}/pdf', [RevisorPdfController::class, 'pdfPorEmpleadoId']);
         Route::get('/pdf/curp/{curp}', [RevisorPdfController::class, 'pdfPorCurp']);
         Route::get('/pdf/aprobados.zip', [RevisorPdfController::class, 'zipAprobados']);
@@ -73,9 +81,9 @@ Route::middleware(['auth', 'role:1,3'])->group(function () {
 
     // API revisor
     Route::prefix('api/revisor')->group(function () {
-        Route::get('/empleados',              [RevisorController::class, 'index']);
-        Route::get('/empleados/{id}',         [RevisorController::class, 'show']);
-        Route::post('/empleados/{id}/estatus',[RevisorController::class, 'updateStatus']);
+        Route::get('/empleados',               [RevisorController::class, 'index']);
+        Route::get('/empleados/{id}',          [RevisorController::class, 'show']);
+        Route::post('/empleados/{id}/estatus', [RevisorController::class, 'updateStatus']);
     });
 
     // Excel aprobados

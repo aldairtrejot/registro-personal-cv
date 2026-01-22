@@ -216,7 +216,6 @@
           </div>
 
           <div class="cv-actions cv-actions-two">
-            <!-- ✅ Si no hay token, el paso anterior real es el 1 -->
             <button
               type="button"
               class="btn btn-outline-secondary"
@@ -488,7 +487,6 @@ export default {
     return {
       BASE_URL,
 
-      // ✅ Bandera: si VITE_CV_REQUIRE_TOKEN=false entonces no pedimos token
       requireToken: (import.meta.env.VITE_CV_REQUIRE_TOKEN !== 'false'),
 
       pasoActual: 1,
@@ -543,10 +541,8 @@ export default {
     }
   },
   computed: {
-    // ✅ Paso visual para que no se vea el “paso 2” cuando no hay token
     pasoVisual() {
       if (this.requireToken) return this.pasoActual
-      // si token está OFF: el paso 2 no existe visualmente
       return this.pasoActual >= 3 ? this.pasoActual - 1 : this.pasoActual
     },
     totalVisual() {
@@ -565,13 +561,13 @@ export default {
     async cargarCatalogos() {
       try {
         const results = await Promise.allSettled([
-          axios.get('/api/cv/catalogos/paises'),
-          axios.get('/api/cv/catalogos/niveles-estudio'),
-          axios.get('/api/cv/catalogos/areas-estudio'),
-          axios.get('/api/cv/catalogos/puestos'),
-          axios.get('/api/cv/catalogos/puestos-especificos'),
-          axios.get('/api/cv/catalogos/unidades'),
-          axios.get('/api/cv/catalogos/carreras-especificas'),
+          axios.get('api/cv/catalogos/paises'),
+          axios.get('api/cv/catalogos/niveles-estudio'),
+          axios.get('api/cv/catalogos/areas-estudio'),
+          axios.get('api/cv/catalogos/puestos'),
+          axios.get('api/cv/catalogos/puestos-especificos'),
+          axios.get('api/cv/catalogos/unidades'),
+          axios.get('api/cv/catalogos/carreras-especificas'),
         ])
 
         const [
@@ -631,7 +627,7 @@ export default {
       }
 
       try {
-        const { data } = await axios.get(`/api/cv/catalogos/coordinaciones-por-unidad/${id}`)
+        const { data } = await axios.get(`api/cv/catalogos/coordinaciones-por-unidad/${id}`)
         this.catalogos.coordinaciones = data || []
       } catch (e) {
         console.error('Error cargando coordinaciones', e)
@@ -666,7 +662,7 @@ export default {
       this.form.estudios.carrera_especifica = item ? item.nombre : ''
 
       try {
-        const { data } = await axios.get(`/api/cv/catalogos/carreras-genericas/${idEspecifica}`)
+        const { data } = await axios.get(`api/cv/catalogos/carreras-genericas/${idEspecifica}`)
         this.catalogos.carrerasGenericas = data || []
       } catch (e) {
         console.error('Error cargando carreras genéricas', e)
@@ -688,7 +684,7 @@ export default {
       if (!idEspecifica || !idGenerica) return
 
       try {
-        const { data } = await axios.get(`/api/cv/catalogos/areas-estudio-por-carrera/${idEspecifica}/${idGenerica}`)
+        const { data } = await axios.get(`api/cv/catalogos/areas-estudio-por-carrera/${idEspecifica}/${idGenerica}`)
         this.catalogos.areasEstudioFiltradas = data || []
       } catch (e) {
         console.error('Error cargando áreas de estudio', e)
@@ -715,21 +711,16 @@ export default {
     async enviarToken() {
       this.loading = true
       try {
-        // ✅ payload dinámico
         const payload = this.requireToken
           ? { curp: this.form.curp, correo: this.form.correo }
           : { curp: this.form.curp }
 
-        // ✅ Solo validar correo único cuando SÍ hay token
         if (this.requireToken) {
-          await axios.post('/api/cv/check-correo', payload)
-        } else {
-          // await axios.post('/api/cv/check-correo', payload) // ⛔ bypass (solo CURP)
+          await axios.post('api/cv/check-correo', payload)
         }
 
-        const { data } = await axios.post('/api/cv/send-token', payload)
+        const { data } = await axios.post('api/cv/send-token', payload)
 
-        // ✅ MODO SIN TOKEN: el backend regresa empleado y brincamos a paso 3
         if (!this.requireToken) {
           if (data.empleado) {
             this.form.nombres = data.empleado.nombre || ''
@@ -748,7 +739,6 @@ export default {
           return
         }
 
-        // ✅ MODO CON TOKEN (tu flujo original)
         this.mostrarMensaje('ok', data.message || 'Se envió el código a tu correo.')
         this.irPaso(2)
 
@@ -761,7 +751,6 @@ export default {
     },
 
     async validarToken() {
-      // ✅ seguridad extra: si por algo lo llaman sin token, brinca
       if (!this.requireToken) {
         this.irPaso(3)
         return
@@ -770,7 +759,7 @@ export default {
       this.loading = true
       try {
         const payload = { curp: this.form.curp, correo: this.form.correo, token: this.form.token }
-        const { data } = await axios.post('/api/cv/validate-token', payload)
+        const { data } = await axios.post('api/cv/validate-token', payload)
 
         if (data.empleado) {
           this.form.nombres = data.empleado.nombre || ''
@@ -808,7 +797,7 @@ export default {
           id_puesto: this.form.id_puesto,
           id_unidad_adscripcion: this.form.id_unidad,
         }
-        await axios.post('/api/cv/datos-personales', payload)
+        await axios.post('api/cv/datos-personales', payload)
         this.mostrarMensaje('ok', 'Datos personales guardados.')
         this.irPaso(4)
       } catch (error) {
@@ -823,7 +812,7 @@ export default {
       this.loading = true
       try {
         const payload = { curp: this.form.curp, experiencias: this.form.experiencias }
-        await axios.post('/api/cv/experiencias', payload)
+        await axios.post('api/cv/experiencias', payload)
         this.mostrarMensaje('ok', 'Experiencia laboral guardada.')
         this.irPaso(5)
       } catch (error) {
@@ -838,7 +827,7 @@ export default {
       this.loading = true
       try {
         const payload = { curp: this.form.curp, ...this.form.estudios }
-        await axios.post('/api/cv/estudios', payload)
+        await axios.post('api/cv/estudios', payload)
         this.mostrarMensaje('ok', 'Estudios académicos guardados.')
         this.irPaso(6)
       } catch (error) {
@@ -853,7 +842,7 @@ export default {
       this.loading = true
       try {
         const payload = { curp: this.form.curp, cursos: this.form.cursos, enviar: enviar ? 1 : 0 }
-        await axios.post('/api/cv/cursos', payload)
+        await axios.post('api/cv/cursos', payload)
 
         if (enviar) {
           this.mostrarMensaje('ok', 'Has concluido con el registro de todos los datos.')

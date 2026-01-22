@@ -251,7 +251,8 @@ export default {
 
     async cargarEmpleados() {
       try {
-        const { data } = await axios.get('api/revisor/empleados', {
+        // ✅ CAMBIO IMPORTANTE: agregar "/" para que no se vuelva ruta relativa y truene
+        const { data } = await axios.get('/api/revisor/empleados', {
           params: {
             q: this.filtros.busqueda || undefined,
             status: this.filtros.status || undefined,

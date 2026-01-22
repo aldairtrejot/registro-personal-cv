@@ -5,9 +5,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="app-base-url" content="{{ url('') }}">
+
+    <script>
+        window.BASE_URL = "{{ url('') }}";
+    </script>
+
     <link rel="shortcut icon" href="{{ asset('assets/images/favicon.png') }}" />
     <title>CVPROIB</title>
+
     <link rel="stylesheet" href="{{ asset('assets/css/tabler.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/icons/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/icons/tabler-icons.min.css') }}">
