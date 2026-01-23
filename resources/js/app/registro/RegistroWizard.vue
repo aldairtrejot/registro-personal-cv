@@ -53,13 +53,13 @@
         <div v-if="pasoActual === 1">
           <h3 class="cv-section-title">1. Verificación de identidad</h3>
 
-          <p class="cv-section-subtitle" v-if="requireToken">
+          <p class="cv-section-subtitle" v-if="useTokenFlow">
             Ingresa tu CURP y un correo electrónico donde recibirás un código de
             verificación para continuar con el registro de tu CV.
           </p>
 
           <p class="cv-section-subtitle" v-else>
-            Ingresa tu CURP para continuar con el registro de tu CV.
+            Ingresa tu CURP y tu correo electrónico para continuar con el registro de tu CV.
           </p>
 
           <div class="row g-3 mt-1">
@@ -67,6 +67,7 @@
               <label class="form-label">CURP</label>
               <input
                 v-model.trim="form.curp"
+                @input="form.curp = toUpperText(form.curp)"
                 type="text"
                 maxlength="18"
                 class="form-control"
@@ -74,8 +75,8 @@
               />
             </div>
 
-            <!-- ✅ Correo solo si requireToken -->
-            <div class="col-12" v-if="requireToken">
+            <!-- ✅ Correo SIEMPRE (NO se convierte a mayúscula) -->
+            <div class="col-12">
               <label class="form-label">Correo electrónico</label>
               <input
                 v-model.trim="form.correo"
@@ -83,11 +84,12 @@
                 class="form-control"
                 placeholder="Ej. nombre@correo.com"
               />
+              <div class="form-text">Este correo se registrará en tu CV.</div>
             </div>
           </div>
 
           <ul class="cv-helper-list">
-            <li v-if="requireToken">Verifica que el correo esté escrito correctamente.</li>
+            <li>Verifica que el correo esté escrito correctamente.</li>
             <li>La CURP debe coincidir con la registrada en Recursos Humanos.</li>
           </ul>
 
@@ -99,17 +101,17 @@
               @click="enviarToken"
             >
               <span v-if="!loading">
-                {{ requireToken ? 'Enviar código' : 'Continuar' }}
+                {{ useTokenFlow ? 'Enviar código' : 'Continuar' }}
               </span>
               <span v-else>
-                {{ requireToken ? 'Enviando...' : 'Validando...' }}
+                {{ useTokenFlow ? 'Enviando...' : 'Validando...' }}
               </span>
             </button>
           </div>
         </div>
 
-        <!-- PASO 2 (solo cuando requireToken=true) -->
-        <div v-else-if="pasoActual === 2 && requireToken">
+        <!-- PASO 2 (solo cuando useTokenFlow=true) -->
+        <div v-else-if="pasoActual === 2 && useTokenFlow">
           <h3 class="cv-section-title">2. Código de verificación</h3>
           <p class="cv-section-subtitle">
             Ingresa el código que enviamos a tu correo. Si no lo encuentras,
@@ -121,6 +123,7 @@
               <label class="form-label">Código de verificación</label>
               <input
                 v-model.trim="form.token"
+                @input="form.token = toUpperText(form.token)"
                 type="text"
                 class="form-control text-center"
                 maxlength="10"
@@ -130,10 +133,20 @@
           </div>
 
           <div class="cv-actions cv-actions-two">
-            <button type="button" class="btn btn-outline-secondary" :disabled="loading" @click="irPaso(1)">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              :disabled="loading"
+              @click="irPaso(1)"
+            >
               ← Volver
             </button>
-            <button type="button" class="btn btn-primary" :disabled="loading" @click="validarToken">
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="loading"
+              @click="validarToken"
+            >
               <span v-if="!loading">Validar código</span>
               <span v-else>Validando...</span>
             </button>
@@ -148,19 +161,54 @@
           </p>
 
           <div class="row g-3 mt-1">
+            <!-- ✅ correo editable (NO se convierte a mayúscula) -->
+            <div class="col-12">
+              <label class="form-label">Correo electrónico</label>
+              <input v-model.trim="form.correo" type="email" class="form-control" maxlength="254" />
+            </div>
+
+            <!-- ✅ Nacionalidad obligatoria -->
+            <div class="col-12">
+              <label class="form-label">Nacionalidad</label>
+              <select v-model="form.nacionalidad" class="form-select">
+                <option value="">Selecciona…</option>
+                <option value="NACIONAL">NACIONAL</option>
+                <option value="EXTRANJERO">EXTRANJERO</option>
+              </select>
+              <div class="form-text">Solo se permite: NACIONAL o EXTRANJERO.</div>
+            </div>
+
             <div class="col-12">
               <label class="form-label">Nombre(s)</label>
-              <input v-model.trim="form.nombres" type="text" class="form-control" maxlength="150" />
+              <input
+                v-model.trim="form.nombres"
+                @input="form.nombres = toUpperText(form.nombres)"
+                type="text"
+                class="form-control"
+                maxlength="150"
+              />
             </div>
 
             <div class="col-12">
               <label class="form-label">Primer apellido</label>
-              <input v-model.trim="form.primer_apellido" type="text" class="form-control" maxlength="150" />
+              <input
+                v-model.trim="form.primer_apellido"
+                @input="form.primer_apellido = toUpperText(form.primer_apellido)"
+                type="text"
+                class="form-control"
+                maxlength="150"
+              />
             </div>
 
             <div class="col-12">
               <label class="form-label">Segundo apellido</label>
-              <input v-model.trim="form.segundo_apellido" type="text" class="form-control" maxlength="150" />
+              <input
+                v-model.trim="form.segundo_apellido"
+                @input="form.segundo_apellido = toUpperText(form.segundo_apellido)"
+                type="text"
+                class="form-control"
+                maxlength="150"
+              />
             </div>
 
             <div class="col-12">
@@ -220,7 +268,7 @@
               type="button"
               class="btn btn-outline-secondary"
               :disabled="loading"
-              @click="irPaso(requireToken ? 2 : 1)"
+              @click="irPaso(useTokenFlow ? 2 : 1)"
             >
               ← Volver
             </button>
@@ -276,17 +324,35 @@
 
               <div class="col-12">
                 <label class="form-label">Puesto</label>
-                <input v-model.trim="exp.puesto" type="text" class="form-control" maxlength="150" />
+                <input
+                  v-model.trim="exp.puesto"
+                  @input="exp.puesto = toUpperText(exp.puesto)"
+                  type="text"
+                  class="form-control"
+                  maxlength="150"
+                />
               </div>
 
               <div class="col-12">
                 <label class="form-label">Institución</label>
-                <input v-model.trim="exp.institucion" type="text" class="form-control" maxlength="200" />
+                <input
+                  v-model.trim="exp.institucion"
+                  @input="exp.institucion = toUpperText(exp.institucion)"
+                  type="text"
+                  class="form-control"
+                  maxlength="200"
+                />
               </div>
 
               <div class="col-12">
                 <label class="form-label">Campo de experiencia</label>
-                <input v-model.trim="exp.campo" type="text" class="form-control" maxlength="100" />
+                <input
+                  v-model.trim="exp.campo"
+                  @input="exp.campo = toUpperText(exp.campo)"
+                  type="text"
+                  class="form-control"
+                  maxlength="100"
+                />
                 <div class="form-text">Máximo 100 caracteres.</div>
               </div>
             </div>
@@ -322,7 +388,13 @@
           <div class="row g-3 mt-1">
             <div class="col-12">
               <label class="form-label">Institución</label>
-              <input v-model.trim="form.estudios.institucion" type="text" class="form-control" maxlength="200" />
+              <input
+                v-model.trim="form.estudios.institucion"
+                @input="form.estudios.institucion = toUpperText(form.estudios.institucion)"
+                type="text"
+                class="form-control"
+                maxlength="200"
+              />
             </div>
 
             <div class="col-12">
@@ -347,12 +419,22 @@
 
             <div class="col-12">
               <label class="form-label">Número de cédula</label>
-              <input v-model.trim="form.estudios.numero_cedula" type="text" class="form-control" maxlength="50" />
+              <input
+                v-model.trim="form.estudios.numero_cedula"
+                @input="form.estudios.numero_cedula = toUpperText(form.estudios.numero_cedula)"
+                type="text"
+                class="form-control"
+                maxlength="50"
+              />
             </div>
 
             <div class="col-12">
               <label class="form-label">Carrera específica</label>
-              <select v-model="form.estudios.id_carrera_especifica" class="form-select" @change="onChangeCarreraEspecifica">
+              <select
+                v-model="form.estudios.id_carrera_especifica"
+                class="form-select"
+                @change="onChangeCarreraEspecifica"
+              >
                 <option :value="null">Selecciona…</option>
                 <option v-for="car in catalogos.carrerasEspecificas" :key="car.id" :value="car.id">
                   {{ car.nombre }}
@@ -423,28 +505,64 @@
             </div>
 
             <div class="row g-3">
+              <!-- ✅ FECHAS FORZADAS -->
               <div class="col-12">
-                <label class="form-label">Período</label>
+                <label class="form-label">Fecha inicio</label>
                 <input
-                  v-model.trim="curso.periodo"
+                  v-model="curso.fecha_inicio"
+                  type="date"
+                  class="form-control"
+                  @change="syncCursoPeriodo(curso)"
+                />
+                <div class="form-text">Formato: AAAA-MM-DD</div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Fecha fin</label>
+                <input
+                  v-model="curso.fecha_fin"
+                  type="date"
+                  class="form-control"
+                  @change="syncCursoPeriodo(curso)"
+                />
+                <div class="form-text">Formato: AAAA-MM-DD</div>
+              </div>
+
+              <!-- Período generado (forzado) -->
+              <div class="col-12">
+                <label class="form-label">Período (generado)</label>
+                <input
+                  v-model="curso.periodo"
                   type="text"
                   class="form-control"
+                  readonly
                   placeholder="DD/MM/AAAA - DD/MM/AAAA"
-                  maxlength="100"
                 />
                 <div class="form-text">
-                  Formato sugerido: <strong>DD/MM/AAAA - DD/MM/AAAA</strong> (ej. 05/01/2026 - 20/01/2026)
+                  Se genera automáticamente en formato: <strong>DD/MM/AAAA - DD/MM/AAAA</strong>
                 </div>
               </div>
 
               <div class="col-12">
                 <label class="form-label">Nombre del curso</label>
-                <input v-model.trim="curso.nombre" type="text" class="form-control" maxlength="200" />
+                <input
+                  v-model.trim="curso.nombre"
+                  @input="curso.nombre = toUpperText(curso.nombre)"
+                  type="text"
+                  class="form-control"
+                  maxlength="200"
+                />
               </div>
 
               <div class="col-12">
                 <label class="form-label">Institución</label>
-                <input v-model.trim="curso.institucion" type="text" class="form-control" maxlength="200" />
+                <input
+                  v-model.trim="curso.institucion"
+                  @input="curso.institucion = toUpperText(curso.institucion)"
+                  type="text"
+                  class="form-control"
+                  maxlength="200"
+                />
               </div>
             </div>
           </div>
@@ -487,7 +605,11 @@ export default {
     return {
       BASE_URL,
 
+      // bandera por ENV
       requireToken: (import.meta.env.VITE_CV_REQUIRE_TOKEN !== 'false'),
+
+      // token ignorado por ahora (no obliga paso 2)
+      skipTokenValidation: true,
 
       pasoActual: 1,
       totalPasos: 6,
@@ -508,6 +630,7 @@ export default {
       form: {
         curp: '',
         correo: '',
+        nacionalidad: '',
         token: '',
         nombres: '',
         primer_apellido: '',
@@ -536,17 +659,22 @@ export default {
           id_area_estudios: null,
           area_estudios: '',
         },
-        cursos: [{ periodo: '', nombre: '', institucion: '' }],
+        cursos: [
+          { fecha_inicio: '', fecha_fin: '', periodo: '', nombre: '', institucion: '' },
+        ],
       },
     }
   },
   computed: {
+    useTokenFlow() {
+      return this.requireToken && !this.skipTokenValidation
+    },
     pasoVisual() {
-      if (this.requireToken) return this.pasoActual
+      if (this.useTokenFlow) return this.pasoActual
       return this.pasoActual >= 3 ? this.pasoActual - 1 : this.pasoActual
     },
     totalVisual() {
-      return this.requireToken ? this.totalPasos : (this.totalPasos - 1)
+      return this.useTokenFlow ? this.totalPasos : (this.totalPasos - 1)
     },
     porcentajeProgreso() {
       if (this.totalVisual <= 1) return 0
@@ -558,6 +686,31 @@ export default {
     },
   },
   methods: {
+    toUpperText(value) {
+      return String(value ?? '').toUpperCase()
+    },
+
+    isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim())
+    },
+
+    formatDateDMY(iso) {
+      if (!iso) return ''
+      const [y, m, d] = String(iso).split('-')
+      if (!y || !m || !d) return ''
+      return `${d}/${m}/${y}`
+    },
+
+    syncCursoPeriodo(curso) {
+      const ini = curso?.fecha_inicio || ''
+      const fin = curso?.fecha_fin || ''
+      if (ini && fin) {
+        curso.periodo = `${this.formatDateDMY(ini)} - ${this.formatDateDMY(fin)}`
+      } else {
+        curso.periodo = ''
+      }
+    },
+
     async cargarCatalogos() {
       try {
         const results = await Promise.allSettled([
@@ -711,36 +864,47 @@ export default {
     async enviarToken() {
       this.loading = true
       try {
-        const payload = this.requireToken
-          ? { curp: this.form.curp, correo: this.form.correo }
-          : { curp: this.form.curp }
+        this.form.curp = this.toUpperText((this.form.curp || '').trim())
+        this.form.correo = (this.form.correo || '').trim()
 
-        if (this.requireToken) {
-          await axios.post('api/cv/check-correo', payload)
+        if (!this.form.curp || this.form.curp.length !== 18) {
+          this.mostrarMensaje('error', 'Captura una CURP válida de 18 caracteres.')
+          return
         }
-
-        const { data } = await axios.post('api/cv/send-token', payload)
-
-        if (!this.requireToken) {
-          if (data.empleado) {
-            this.form.nombres = data.empleado.nombre || ''
-            this.form.primer_apellido = data.empleado.primer_apellido || ''
-            this.form.segundo_apellido = data.empleado.segundo_apellido || ''
-            this.form.puesto_actual = data.empleado.puesto_actual || ''
-            this.form.fecha_inicio = data.empleado.fecha_inicio_puesto || ''
-            this.form.area_adscripcion = data.empleado.area_adscripcion || ''
-            this.form.id_puesto = data.empleado.id_puesto || null
-            this.form.id_unidad = data.empleado.id_unidad_adscripcion || null
-            if (this.form.id_unidad) await this.cargarCoordinacionesUnidad()
-          }
-
-          this.mostrarMensaje('ok', data.message || 'CURP validada correctamente.')
-          this.irPaso(3)
+        if (!this.form.correo) {
+          this.mostrarMensaje('error', 'Captura tu correo electrónico.')
+          return
+        }
+        if (!this.isValidEmail(this.form.correo)) {
+          this.mostrarMensaje('error', 'El correo no tiene un formato válido.')
           return
         }
 
-        this.mostrarMensaje('ok', data.message || 'Se envió el código a tu correo.')
-        this.irPaso(2)
+        if (this.useTokenFlow) {
+          const payload = { curp: this.form.curp, correo: this.form.correo }
+          await axios.post('api/cv/check-correo', payload)
+          const { data } = await axios.post('api/cv/send-token', payload)
+          this.mostrarMensaje('ok', data.message || 'Se envió el código a tu correo.')
+          this.irPaso(2)
+          return
+        }
+
+        const { data } = await axios.post('api/cv/send-token', { curp: this.form.curp })
+
+        if (data.empleado) {
+          this.form.nombres = this.toUpperText(data.empleado.nombre || '')
+          this.form.primer_apellido = this.toUpperText(data.empleado.primer_apellido || '')
+          this.form.segundo_apellido = this.toUpperText(data.empleado.segundo_apellido || '')
+          this.form.puesto_actual = data.empleado.puesto_actual || ''
+          this.form.fecha_inicio = data.empleado.fecha_inicio_puesto || ''
+          this.form.area_adscripcion = data.empleado.area_adscripcion || ''
+          this.form.id_puesto = data.empleado.id_puesto || null
+          this.form.id_unidad = data.empleado.id_unidad_adscripcion || null
+          if (this.form.id_unidad) await this.cargarCoordinacionesUnidad()
+        }
+
+        this.mostrarMensaje('ok', data.message || 'CURP validada correctamente.')
+        this.irPaso(3)
 
       } catch (error) {
         const msg = error?.response?.data?.message || 'No se pudo continuar. Verifica los datos e inténtalo de nuevo.'
@@ -751,7 +915,7 @@ export default {
     },
 
     async validarToken() {
-      if (!this.requireToken) {
+      if (!this.useTokenFlow) {
         this.irPaso(3)
         return
       }
@@ -762,9 +926,9 @@ export default {
         const { data } = await axios.post('api/cv/validate-token', payload)
 
         if (data.empleado) {
-          this.form.nombres = data.empleado.nombre || ''
-          this.form.primer_apellido = data.empleado.primer_apellido || ''
-          this.form.segundo_apellido = data.empleado.segundo_apellido || ''
+          this.form.nombres = this.toUpperText(data.empleado.nombre || '')
+          this.form.primer_apellido = this.toUpperText(data.empleado.primer_apellido || '')
+          this.form.segundo_apellido = this.toUpperText(data.empleado.segundo_apellido || '')
           this.form.puesto_actual = data.empleado.puesto_actual || ''
           this.form.fecha_inicio = data.empleado.fecha_inicio_puesto || ''
           this.form.area_adscripcion = data.empleado.area_adscripcion || ''
@@ -786,17 +950,39 @@ export default {
     async guardarDatosPersonales() {
       this.loading = true
       try {
+        this.form.curp = this.toUpperText((this.form.curp || '').trim())
+        this.form.correo = (this.form.correo || '').trim()
+
+        if (!this.form.correo || !this.isValidEmail(this.form.correo)) {
+          this.mostrarMensaje('error', 'Captura un correo válido antes de continuar.')
+          return
+        }
+
+        if (!this.form.nacionalidad) {
+          this.mostrarMensaje('error', 'Selecciona tu nacionalidad.')
+          return
+        }
+        if (!['NACIONAL', 'EXTRANJERO'].includes(this.form.nacionalidad)) {
+          this.mostrarMensaje('error', 'Nacionalidad inválida. Solo: NACIONAL o EXTRANJERO.')
+          return
+        }
+
         const payload = {
           curp: this.form.curp,
-          nombres: this.form.nombres,
-          primer_apellido: this.form.primer_apellido,
-          segundo_apellido: this.form.segundo_apellido,
+          correo: this.form.correo,
+          nacionalidad: this.form.nacionalidad,
+          nombres: this.toUpperText(this.form.nombres),
+          primer_apellido: this.toUpperText(this.form.primer_apellido),
+          segundo_apellido: this.toUpperText(this.form.segundo_apellido),
           puesto_actual: this.form.puesto_actual,
           fecha_inicio: this.form.fecha_inicio,
           area_adscripcion: this.form.area_adscripcion,
           id_puesto: this.form.id_puesto,
+          id_puesto_especifico: this.form.id_puesto_especifico,
           id_unidad_adscripcion: this.form.id_unidad,
+          id_coordinacion: this.form.id_coordinacion,
         }
+
         await axios.post('api/cv/datos-personales', payload)
         this.mostrarMensaje('ok', 'Datos personales guardados.')
         this.irPaso(4)
@@ -811,6 +997,14 @@ export default {
     async guardarExperiencias() {
       this.loading = true
       try {
+        // refuerza mayúsculas
+        this.form.experiencias = this.form.experiencias.map((e) => ({
+          ...e,
+          puesto: this.toUpperText(e.puesto),
+          institucion: this.toUpperText(e.institucion),
+          campo: this.toUpperText(e.campo),
+        }))
+
         const payload = { curp: this.form.curp, experiencias: this.form.experiencias }
         await axios.post('api/cv/experiencias', payload)
         this.mostrarMensaje('ok', 'Experiencia laboral guardada.')
@@ -826,6 +1020,25 @@ export default {
     async guardarEstudios() {
       this.loading = true
       try {
+        const e = this.form.estudios
+        const estaVacio =
+          !e.institucion &&
+          !e.id_pais &&
+          !e.id_nivel_estudios &&
+          !e.numero_cedula &&
+          !e.id_carrera_especifica &&
+          !e.id_carrera_generica &&
+          !e.id_area_estudios
+
+        if (estaVacio) {
+          this.mostrarMensaje('error', 'El apartado de estudios no puede guardarse en blanco.')
+          return
+        }
+
+        // refuerza mayúsculas
+        this.form.estudios.institucion = this.toUpperText(this.form.estudios.institucion)
+        this.form.estudios.numero_cedula = this.toUpperText(this.form.estudios.numero_cedula)
+
         const payload = { curp: this.form.curp, ...this.form.estudios }
         await axios.post('api/cv/estudios', payload)
         this.mostrarMensaje('ok', 'Estudios académicos guardados.')
@@ -841,6 +1054,53 @@ export default {
     async guardarCursos(enviar) {
       this.loading = true
       try {
+        // Refuerza período y mayúsculas + validación de fechas
+        let hayCursoCompleto = false
+
+        for (const c of this.form.cursos) {
+          c.nombre = this.toUpperText(c.nombre)
+          c.institucion = this.toUpperText(c.institucion)
+          this.syncCursoPeriodo(c)
+
+          const tieneAlgo =
+            !!(c.fecha_inicio || c.fecha_fin || (c.nombre || '').trim() || (c.institucion || '').trim())
+
+          if (!tieneAlgo) continue
+
+          // Si hay alguna fecha capturada, deben estar ambas
+          if ((c.fecha_inicio && !c.fecha_fin) || (!c.fecha_inicio && c.fecha_fin)) {
+            this.mostrarMensaje('error', 'En cursos: captura Fecha inicio y Fecha fin (ambas).')
+            return
+          }
+
+          // Si ambas fechas existen, valida orden
+          if (c.fecha_inicio && c.fecha_fin) {
+            if (String(c.fecha_fin) < String(c.fecha_inicio)) {
+              this.mostrarMensaje('error', 'En cursos: la Fecha fin no puede ser menor que la Fecha inicio.')
+              return
+            }
+          }
+
+          // Para enviar definitivo, exige que el curso capturado esté completo
+          if (enviar) {
+            const completo =
+              !!c.fecha_inicio && !!c.fecha_fin &&
+              !!(c.nombre || '').trim() &&
+              !!(c.institucion || '').trim()
+
+            if (!completo) {
+              this.mostrarMensaje('error', 'Para finalizar: cada curso capturado debe tener fechas, nombre e institución.')
+              return
+            }
+            hayCursoCompleto = true
+          }
+        }
+
+        if (enviar && !hayCursoCompleto) {
+          this.mostrarMensaje('error', 'Para finalizar debes registrar al menos 1 curso completo.')
+          return
+        }
+
         const payload = { curp: this.form.curp, cursos: this.form.cursos, enviar: enviar ? 1 : 0 }
         await axios.post('api/cv/cursos', payload)
 
@@ -868,7 +1128,7 @@ export default {
     },
     agregarCurso() {
       if (this.form.cursos.length >= 5) return
-      this.form.cursos.push({ periodo: '', nombre: '', institucion: '' })
+      this.form.cursos.push({ fecha_inicio: '', fecha_fin: '', periodo: '', nombre: '', institucion: '' })
     },
     eliminarCurso(index) {
       if (this.form.cursos.length <= 1) return

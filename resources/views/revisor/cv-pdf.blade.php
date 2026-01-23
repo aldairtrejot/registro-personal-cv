@@ -59,11 +59,11 @@
         <tbody>
         @forelse($experiencias as $x)
             <tr>
-                <td>{{ $x['inicio'] }} - {{ $x['fin'] }}</td>
-                <td>{{ $x['sector'] }}</td>
-                <td>{{ $x['puesto'] }}</td>
-                <td>{{ $x['institucion'] }}</td>
-                <td>{{ $x['campo'] }}</td>
+                <td>{{ $x['inicio'] ?? '' }} - {{ $x['fin'] ?? '' }}</td>
+                <td>{{ $x['sector'] ?? '' }}</td>
+                <td>{{ $x['puesto'] ?? '' }}</td>
+                <td>{{ $x['institucion'] ?? '' }}</td>
+                <td>{{ $x['campo'] ?? '' }}</td>
             </tr>
         @empty
             <tr><td colspan="5" class="muted">Sin registros</td></tr>
@@ -73,13 +73,13 @@
 
     <div class="h2">ESTUDIOS ACADÉMICOS</div>
     <div class="box">
-        <div><span class="label">Institución:</span> {{ $estudio['institucion'] }}</div>
-        <div><span class="label">País:</span> {{ $estudio['pais'] }}</div>
-        <div><span class="label">Nivel:</span> {{ $estudio['nivel'] }}</div>
-        <div><span class="label">Cédula:</span> {{ $estudio['cedula'] }}</div>
-        <div><span class="label">Área de estudios:</span> {{ $estudio['area'] }}</div>
-        <div><span class="label">Carrera específica:</span> {{ $estudio['carrera_especifica'] }}</div>
-        <div><span class="label">Carrera genérica:</span> {{ $estudio['carrera_generica'] }}</div>
+        <div><span class="label">Institución:</span> {{ $estudio['institucion'] ?? '' }}</div>
+        <div><span class="label">País:</span> {{ $estudio['pais'] ?? '' }}</div>
+        <div><span class="label">Nivel:</span> {{ $estudio['nivel'] ?? '' }}</div>
+        <div><span class="label">Cédula:</span> {{ $estudio['cedula'] ?? '' }}</div>
+        <div><span class="label">Área de estudios:</span> {{ $estudio['area'] ?? '' }}</div>
+        <div><span class="label">Carrera específica:</span> {{ $estudio['carrera_especifica'] ?? '' }}</div>
+        <div><span class="label">Carrera genérica:</span> {{ $estudio['carrera_generica'] ?? '' }}</div>
     </div>
 
     <div class="h2">CURSOS Y CAPACITACIONES (máx. 5)</div>
@@ -94,9 +94,9 @@
         <tbody>
         @forelse($cursos as $c)
             <tr>
-                <td>{{ $c['periodo'] }}</td>
-                <td>{{ $c['nombre'] }}</td>
-                <td>{{ $c['institucion'] }}</td>
+                <td>{{ $c['periodo'] ?? '' }}</td>
+                <td>{{ $c['nombre'] ?? '' }}</td>
+                <td>{{ $c['institucion'] ?? '' }}</td>
             </tr>
         @empty
             <tr><td colspan="3" class="muted">Sin registros</td></tr>
