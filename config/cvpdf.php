@@ -30,11 +30,11 @@ return [
             // Experiencia laboral (3 bloques x 6 líneas)
             // Bloque 1
             'exp1_puesto'      => ['x' => 46, 'y' => 74.1, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp1_institucion' => ['x' => 46, 'y' => 77, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp1_sector'      => ['x' => 46, 'y' => 85.81, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp1_inicio'      => ['x' => 46, 'y' => 90.58, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp1_fin'         => ['x' => 46, 'y' => 95.34, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp1_campo'       => ['x' => 46, 'y' => 100.10,'w' => 160, 'h' => 5, 'size' => 10],
+            'exp1_institucion' => ['x' => 70, 'y' => 78.9, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp1_sector'      => ['x' => 44, 'y' => 83.1, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp1_inicio'      => ['x' => 60, 'y' => 88.5, 'w' => 80,  'h' => 5, 'size' => 10],
+            'exp1_fin'         => ['x' => 64, 'y' => 93.4, 'w' => 80,  'h' => 5, 'size' => 10],
+            'exp1_campo'       => ['x' => 72, 'y' => 98,'w' => 160, 'h' => 5, 'size' => 10],
 
             // Bloque 2
             'exp2_puesto'      => ['x' => 46, 'y' => 107.33, 'w' => 160, 'h' => 5, 'size' => 10],
