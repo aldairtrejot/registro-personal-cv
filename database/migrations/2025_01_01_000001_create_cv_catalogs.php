@@ -55,7 +55,7 @@ return new class extends Migration
         // 6) cat_sectores_experiencia
         Schema::create('profesionalizacion.cat_sectores_experiencia', function (Blueprint $table) {
             $table->increments('id_sector');
-            $table->string('nombre', 20)->unique(); // Publico / Privado, etc.
+            $table->string('nombre', 20)->unique(); // PÚBLICO / PRIVADO, etc.
             $table->boolean('activo')->default(true);
         });
     }

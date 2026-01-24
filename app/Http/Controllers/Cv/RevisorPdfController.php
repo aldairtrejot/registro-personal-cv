@@ -5,19 +5,19 @@ namespace App\Http\Controllers\Cv;
 use App\Http\Controllers\Controller;
 use App\Models\Cv\Empleado;
 use App\Services\Cv\CvFichaPdfService;
-use Illuminate\Http\Response;
+use App\Services\Cv\CvFolioService;
 use RuntimeException;
 use ZipArchive;
 
 class RevisorPdfController extends Controller
 {
-    public function pdfPorEmpleadoId(int $id, CvFichaPdfService $svc)
+    public function pdfPorEmpleadoId(int $id, CvFichaPdfService $svc, CvFolioService $folioSvc)
     {
         $empleado = Empleado::query()->findOrFail($id);
-        return $this->downloadPdf($empleado, $svc);
+        return $this->downloadPdf($empleado, $svc, $folioSvc);
     }
 
-    public function pdfPorCurp(string $curp, CvFichaPdfService $svc)
+    public function pdfPorCurp(string $curp, CvFichaPdfService $svc, CvFolioService $folioSvc)
     {
         $curp = strtoupper(trim($curp));
 
@@ -25,16 +25,15 @@ class RevisorPdfController extends Controller
             ->whereRaw('UPPER(curp) = ?', [$curp])
             ->firstOrFail();
 
-        return $this->downloadPdf($empleado, $svc);
+        return $this->downloadPdf($empleado, $svc, $folioSvc);
     }
 
-    public function zipAprobados(CvFichaPdfService $svc)
+    public function zipAprobados(CvFichaPdfService $svc, CvFolioService $folioSvc)
     {
-        // En tu mapeo: 3 = aprobado
         $empleados = Empleado::query()
             ->where('estatus_cv', 3)
             ->orderBy('id_tbl_empleados')
-            ->get(['id_tbl_empleados', 'curp', 'nombre', 'primer_apellido', 'segundo_apellido']);
+            ->get(['id_tbl_empleados', 'curp', 'nombre', 'primer_apellido', 'segundo_apellido', 'folio_cv']);
 
         if ($empleados->isEmpty()) {
             abort(404, 'No hay CV aprobados para descargar.');
@@ -58,23 +57,19 @@ class RevisorPdfController extends Controller
             $pdfPath = $svc->generarPdfPorEmpleado($emp);
             $pdfGenerados[] = $pdfPath;
 
-            $curp = strtoupper(trim((string) $emp->curp));
-            $nombre = trim(implode('_', array_filter([
-                $emp->nombre,
-                $emp->primer_apellido,
-                $emp->segundo_apellido,
-            ])));
+            $consec = $folioSvc->parseConsecutivo($emp->folio_cv);
+            if ($consec > 0) {
+                $zipName = "{$consec}.pdf";
+            } else {
+                $curp = strtoupper(trim((string)$emp->curp));
+                $zipName = "CV_{$curp}.pdf";
+            }
 
-            $nombre = preg_replace('/[^A-Za-z0-9_\-]/', '', $nombre);
-            if ($nombre === '') $nombre = 'SIN_NOMBRE';
-
-            $zipName = "CV_{$curp}_{$nombre}.pdf";
             $zip->addFile($pdfPath, $zipName);
         }
 
         $zip->close();
 
-        // Limpia PDFs temporales
         foreach ($pdfGenerados as $p) {
             if (is_file($p)) @unlink($p);
         }
@@ -82,12 +77,19 @@ class RevisorPdfController extends Controller
         return response()->download($zipPath, basename($zipPath))->deleteFileAfterSend(true);
     }
 
-    private function downloadPdf(Empleado $empleado, CvFichaPdfService $svc)
+    private function downloadPdf(Empleado $empleado, CvFichaPdfService $svc, CvFolioService $folioSvc)
     {
         $pdfPath = $svc->generarPdfPorEmpleado($empleado);
 
-        $curp = strtoupper(trim((string) $empleado->curp));
-        $filename = "CV_{$curp}.pdf";
+        $consec = $folioSvc->parseConsecutivo($empleado->folio_cv);
+
+        // ✅ Nombre requerido: {folio}.pdf
+        if ($consec > 0) {
+            $filename = "{$consec}.pdf";
+        } else {
+            $curp = strtoupper(trim((string)$empleado->curp));
+            $filename = "CV_{$curp}.pdf";
+        }
 
         return response()->download($pdfPath, $filename)->deleteFileAfterSend(true);
     }

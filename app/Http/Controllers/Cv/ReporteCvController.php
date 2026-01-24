@@ -100,7 +100,7 @@ class ReporteCvController extends Controller
             'RFC',
             'Periodo: dia /mes/año de inicio',
             'Periodo: dia/ mes/año de término',
-            'SECTOR (Público o Privado)',
+            'SECTOR (PÚBLICO o PRIVADO)',
             'Denominación de la institución o empresa (Nombre completo) ',
             'Cargo o puesto desempeñado',
             'Campo de experiencia En 100 caracteres',

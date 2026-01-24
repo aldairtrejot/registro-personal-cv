@@ -44,13 +44,26 @@ class CvFichaPdfService
 
         // ESTUDIOS (1)
         $est = $this->cargarEstudio($empleadoId);
+
+        // ✅ REGLA: si hay cédula => "TERMINADO", si no => vacío
+        $cedula = trim((string)($est['cedula'] ?? ''));
+        $gradoAvance = $cedula !== '' ? 'TERMINADO' : '';
+
         $page1 = array_merge($page1, [
             'est_institucion'  => (string)($est['institucion'] ?? ''),
             'est_pais'         => (string)($est['pais'] ?? ''),
             'nivel'            => (string)($est['nivel'] ?? ''),
-            'grado_avance'     => (string)($est['grado_avance'] ?? ''),
+            'grado_avance'     => $gradoAvance,
+
+            // ✅ Mapeos solicitados
+            // Área de Estudios -> area_estudios
             'area_estudios'    => (string)($est['area_estudios'] ?? ''),
+
+            // Nombre del título, grado o certificado -> Carrera Específica
+            // (aquí mantenemos la llave titulo_grado porque así se imprime en el PDF)
             'titulo_grado'     => (string)($est['titulo_grado'] ?? ''),
+
+            // Carrera Genérica -> carrera_generica
             'carrera_generica' => (string)($est['carrera_generica'] ?? ''),
         ]);
 
@@ -127,7 +140,7 @@ class CvFichaPdfService
 
     private function cargarExperiencias(int $empleadoId): array
     {
-        // 🔥 aquí va el FIX: encuentra la tabla real (con schema si aplica)
+        // 🔥 FIX: encuentra la tabla real (con schema si aplica)
         $table = $this->resolveTable([
             'tbl_cv_experiencia_laboral',
             'tbl_cv_experiencias_laborales',
@@ -182,10 +195,33 @@ class CvFichaPdfService
         $colInstitucion = $this->pickColumn($cols, ['institucion']);
         $colPais        = $this->pickColumn($cols, ['pais']);
         $colNivel       = $this->pickColumn($cols, ['nivel', 'nivel_estudios']);
-        $colAvance      = $this->pickColumn($cols, ['grado_avance', 'avance']);
-        $colArea        = $this->pickColumn($cols, ['area_estudios', 'area']);
-        $colTitulo      = $this->pickColumn($cols, ['titulo_grado', 'titulo', 'grado']);
-        $colCarreraGen  = $this->pickColumn($cols, ['carrera_generica']);
+
+        // ✅ CÉDULA (para regla TERMINADO)
+        $colCedula      = $this->pickColumn($cols, [
+            'cedula',
+            'numero_cedula',
+            'no_cedula',
+            'cedula_profesional',
+            'cedula_prof'
+        ]);
+
+        // ✅ Área de Estudios
+        $colArea        = $this->pickColumn($cols, ['area_estudios', 'area_de_estudios', 'area']);
+
+        // ✅ Carrera Específica (Nombre del título, grado o certificado)
+        // (La imprimimos con la llave "titulo_grado" por compatibilidad con coords/page1)
+        $colCarreraEsp  = $this->pickColumn($cols, [
+            'carrera_especifica',
+            'carrera_específica',
+            'carrera',
+            'titulo_grado',
+            'titulo',
+            'grado',
+            'nombre_titulo'
+        ]);
+
+        // ✅ Carrera Genérica
+        $colCarreraGen  = $this->pickColumn($cols, ['carrera_generica', 'carrera_general', 'carrera_gen']);
 
         $orderCol = $this->pickColumn($cols, ['id_tbl_cv_estudios_academicos','id','created_at','updated_at']);
 
@@ -195,21 +231,33 @@ class CvFichaPdfService
         $q->addSelect(DB::raw(($colInstitucion ? $this->qCol($colInstitucion) : "''") . " as institucion"));
         $q->addSelect(DB::raw(($colPais        ? $this->qCol($colPais)        : "''") . " as pais"));
         $q->addSelect(DB::raw(($colNivel       ? $this->qCol($colNivel)       : "''") . " as nivel"));
-        $q->addSelect(DB::raw(($colAvance      ? $this->qCol($colAvance)      : "''") . " as grado_avance"));
+
+        // ✅ cedula para la regla
+        $q->addSelect(DB::raw(($colCedula      ? $this->qCol($colCedula)      : "''") . " as cedula"));
+
         $q->addSelect(DB::raw(($colArea        ? $this->qCol($colArea)        : "''") . " as area_estudios"));
-        $q->addSelect(DB::raw(($colTitulo      ? $this->qCol($colTitulo)      : "''") . " as titulo_grado"));
+        $q->addSelect(DB::raw(($colCarreraEsp  ? $this->qCol($colCarreraEsp)  : "''") . " as titulo_grado"));
         $q->addSelect(DB::raw(($colCarreraGen  ? $this->qCol($colCarreraGen)  : "''") . " as carrera_generica"));
 
         $r = $q->first();
         if (!$r) return [];
 
+        // ✅ Calcula grado_avance según cédula
+        $cedula = trim((string)($r->cedula ?? ''));
+        $gradoAvance = $cedula !== '' ? 'TERMINADO' : '';
+
         return [
             'institucion'      => (string)($r->institucion ?? ''),
             'pais'             => (string)($r->pais ?? ''),
             'nivel'            => (string)($r->nivel ?? ''),
-            'grado_avance'     => (string)($r->grado_avance ?? ''),
+
+            // ✅ para regla TERMINADO
+            'cedula'           => $cedula,
+            'grado_avance'     => $gradoAvance,
+
+            // ✅ mapeos solicitados
             'area_estudios'    => (string)($r->area_estudios ?? ''),
-            'titulo_grado'     => (string)($r->titulo_grado ?? ''),
+            'titulo_grado'     => (string)($r->titulo_grado ?? ''),     // Carrera específica
             'carrera_generica' => (string)($r->carrera_generica ?? ''),
         ];
     }
@@ -223,6 +271,7 @@ class CvFichaPdfService
 
         $cols = $this->getColumnsSafe($table);
 
+        $colPeriodo     = $this->pickColumn($cols, ['periodo', 'periodo_curso', 'rango_fechas', 'vigencia']);
         $colNombre      = $this->pickColumn($cols, ['nombre_curso', 'nombre', 'curso']);
         $colInstitucion = $this->pickColumn($cols, ['institucion', 'instancia', 'dependencia']);
         $colInicio      = $this->pickColumn($cols, ['fecha_inicio', 'inicio', 'fecha_inicial']);
@@ -233,6 +282,8 @@ class CvFichaPdfService
         $q = $this->fromTable($table)->where('id_tbl_empleados', $empleadoId)->limit(5);
         if ($orderCol) $q->orderByDesc($orderCol);
 
+        // ✅ trae periodo si existe, si no devuelve ''
+        $q->addSelect(DB::raw(($colPeriodo     ? $this->qCol($colPeriodo)     : "''") . " as periodo"));
         $q->addSelect(DB::raw(($colNombre      ? $this->qCol($colNombre)      : "''") . " as nombre"));
         $q->addSelect(DB::raw(($colInstitucion ? $this->qCol($colInstitucion) : "''") . " as institucion"));
         $q->addSelect(DB::raw(($colInicio      ? $this->qCol($colInicio)      : "NULL") . " as inicio"));
@@ -241,7 +292,11 @@ class CvFichaPdfService
         return $q->get()->map(function ($r) {
             $ini = $this->fmtFecha($r->inicio ?? null);
             $fin = $this->fmtFecha($r->fin ?? null);
-            $periodo = trim($ini . ($fin ? " - {$fin}" : ''));
+            $periodoFechas = trim($ini . ($fin ? " - {$fin}" : ''));
+
+            // ✅ prioridad: periodo capturado en BD, si viene vacío usa inicio-fin
+            $periodoCapturado = trim((string)($r->periodo ?? ''));
+            $periodo = $periodoCapturado !== '' ? $periodoCapturado : $periodoFechas;
 
             return [
                 'periodo'     => $periodo,

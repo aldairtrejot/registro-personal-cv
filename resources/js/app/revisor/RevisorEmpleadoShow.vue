@@ -163,8 +163,8 @@
 
                   <div class="text-muted small mt-1">
                     Sector:
-                    <span v-if="exp.sector === 'publico'">Público</span>
-                    <span v-else-if="exp.sector === 'privado'">Privado</span>
+                    <span v-if="exp.sector === 'PUBLICO'">PÚBLICO</span>
+                    <span v-else-if="exp.sector === 'PRIVADO'">PRIVADO</span>
                     <span v-else>Sin especificar</span>
                   </div>
 

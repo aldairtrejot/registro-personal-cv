@@ -20,7 +20,7 @@ return [
     'coords' => [
         'page1' => [
             // Encabezado
-            'hoy' => ['x' => 160, 'y' => 18, 'w' => 45, 'h' => 4, 'size' => 9, 'align' => 'R'],
+            'hoy' => ['x' => 155, 'y' => 8, 'w' => 45, 'h' => 4, 'size' => 9, 'align' => 'R'],
 
             // Datos servidor público
             'fullName'         => ['x' => 46, 'y' => 47, 'w' => 160, 'h' => 5, 'size' => 11],
@@ -31,60 +31,60 @@ return [
             // Bloque 1
             'exp1_puesto'      => ['x' => 46, 'y' => 74.1, 'w' => 160, 'h' => 5, 'size' => 10],
             'exp1_institucion' => ['x' => 70, 'y' => 78.9, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp1_sector'      => ['x' => 44, 'y' => 83.1, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp1_sector'      => ['x' => 44, 'y' => 83.5, 'w' => 160, 'h' => 5, 'size' => 10],
             'exp1_inicio'      => ['x' => 60, 'y' => 88.5, 'w' => 80,  'h' => 5, 'size' => 10],
             'exp1_fin'         => ['x' => 64, 'y' => 93.4, 'w' => 80,  'h' => 5, 'size' => 10],
             'exp1_campo'       => ['x' => 72, 'y' => 98,'w' => 160, 'h' => 5, 'size' => 10],
 
             // Bloque 2
-            'exp2_puesto'      => ['x' => 46, 'y' => 107.33, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp2_institucion' => ['x' => 46, 'y' => 112.27, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp2_sector'      => ['x' => 46, 'y' => 117.03, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp2_inicio'      => ['x' => 46, 'y' => 121.80, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp2_fin'         => ['x' => 46, 'y' => 126.56, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp2_campo'       => ['x' => 46, 'y' => 131.50, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp2_puesto'      => ['x' => 46, 'y' => 105.4, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp2_institucion' => ['x' => 70, 'y' => 110.1, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp2_sector'      => ['x' => 44, 'y' => 114.3, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp2_inicio'      => ['x' => 60, 'y' => 119.75, 'w' => 80,  'h' => 5, 'size' => 10],
+            'exp2_fin'         => ['x' => 64, 'y' => 124.5, 'w' => 80,  'h' => 5, 'size' => 10],
+            'exp2_campo'       => ['x' => 72, 'y' => 129.3, 'w' => 160, 'h' => 5, 'size' => 10],
 
             // Bloque 3
-            'exp3_puesto'      => ['x' => 46, 'y' => 141.02, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp3_institucion' => ['x' => 46, 'y' => 145.78, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp3_sector'      => ['x' => 46, 'y' => 150.72, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp3_inicio'      => ['x' => 46, 'y' => 155.49, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp3_fin'         => ['x' => 46, 'y' => 160.25, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp3_campo'       => ['x' => 46, 'y' => 165.01, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp3_puesto'      => ['x' => 46, 'y' => 139.1, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp3_institucion' => ['x' => 70, 'y' => 143.9, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp3_sector'      => ['x' => 44, 'y' => 148, 'w' => 160, 'h' => 5, 'size' => 10],
+            'exp3_inicio'      => ['x' => 60, 'y' => 153.49, 'w' => 80,  'h' => 5, 'size' => 10],
+            'exp3_fin'         => ['x' => 64, 'y' => 158.1, 'w' => 80,  'h' => 5, 'size' => 10],
+            'exp3_campo'       => ['x' => 72, 'y' => 163.01, 'w' => 160, 'h' => 5, 'size' => 10],
 
             // Información académica (7 líneas)
             // Nota: aquí conviene empezar más a la derecha porque no hay línea punteada
-            'est_institucion'  => ['x' => 70, 'y' => 180.36, 'w' => 135, 'h' => 5, 'size' => 10],
-            'est_pais'         => ['x' => 70, 'y' => 185.12, 'w' => 135, 'h' => 5, 'size' => 10],
-            'nivel'            => ['x' => 70, 'y' => 189.88, 'w' => 135, 'h' => 5, 'size' => 10],
-            'grado_avance'     => ['x' => 70, 'y' => 194.82, 'w' => 135, 'h' => 5, 'size' => 10],
-            'area_estudios'    => ['x' => 70, 'y' => 199.58, 'w' => 135, 'h' => 5, 'size' => 10],
-            'titulo_grado'     => ['x' => 70, 'y' => 204.35, 'w' => 135, 'h' => 5, 'size' => 10],
-            'carrera_generica' => ['x' => 70, 'y' => 209.11, 'w' => 135, 'h' => 5, 'size' => 10],
+            'est_institucion'  => ['x' => 53, 'y' => 178.3, 'w' => 135, 'h' => 5, 'size' => 10],
+            'est_pais'         => ['x' => 38, 'y' => 183.12, 'w' => 135, 'h' => 5, 'size' => 10],
+            'nivel'            => ['x' => 64, 'y' => 188, 'w' => 135, 'h' => 5, 'size' => 10],
+            'grado_avance'     => ['x' => 64, 'y' => 192.52, 'w' => 135, 'h' => 5, 'size' => 10],
+            'area_estudios'    => ['x' => 64, 'y' => 197.49, 'w' => 135, 'h' => 5, 'size' => 10],
+            'titulo_grado'     => ['x' => 107, 'y' => 202.3, 'w' => 135, 'h' => 5, 'size' => 10],
+            'carrera_generica' => ['x' => 64, 'y' => 207.1, 'w' => 135, 'h' => 5, 'size' => 10],
         ],
 
         'page2' => [
             // Cursos/Capacitaciones (5 bloques x 3 líneas)
             // Para no encimarte con el label largo, aquí empezamos más a la derecha
-            'curso1_periodo'     => ['x' => 95, 'y' => 41.89,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso1_nombre'      => ['x' => 95, 'y' => 46.65,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso1_institucion' => ['x' => 95, 'y' => 51.59,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso1_periodo'     => ['x' => 46, 'y' => 44.7,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso1_nombre'      => ['x' => 90, 'y' => 49.4,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso1_institucion' => ['x' => 80, 'y' => 54.4,  'w' => 110, 'h' => 5, 'size' => 10],
 
-            'curso2_periodo'     => ['x' => 95, 'y' => 65.88,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso2_nombre'      => ['x' => 95, 'y' => 70.82,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso2_institucion' => ['x' => 95, 'y' => 76.28,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso2_periodo'     => ['x' => 46, 'y' => 63.9,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso2_nombre'      => ['x' => 90, 'y' => 68.9,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso2_institucion' => ['x' => 80, 'y' => 74.28,  'w' => 110, 'h' => 5, 'size' => 10],
 
-            'curso3_periodo'     => ['x' => 95, 'y' => 87.40,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso3_nombre'      => ['x' => 95, 'y' => 92.86,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso3_institucion' => ['x' => 95, 'y' => 98.51,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso3_periodo'     => ['x' => 46, 'y' => 85.4,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso3_nombre'      => ['x' => 90, 'y' => 90.8,  'w' => 110, 'h' => 5, 'size' => 10],
+            'curso3_institucion' => ['x' => 80, 'y' => 96.4,  'w' => 110, 'h' => 5, 'size' => 10],
 
-            'curso4_periodo'     => ['x' => 95, 'y' => 109.45, 'w' => 110, 'h' => 5, 'size' => 10],
-            'curso4_nombre'      => ['x' => 95, 'y' => 114.92, 'w' => 110, 'h' => 5, 'size' => 10],
-            'curso4_institucion' => ['x' => 95, 'y' => 120.56, 'w' => 110, 'h' => 5, 'size' => 10],
+            'curso4_periodo'     => ['x' => 46, 'y' => 107.3, 'w' => 110, 'h' => 5, 'size' => 10],
+            'curso4_nombre'      => ['x' => 90, 'y' => 112.92, 'w' => 110, 'h' => 5, 'size' => 10],
+            'curso4_institucion' => ['x' => 80, 'y' => 118.56, 'w' => 110, 'h' => 5, 'size' => 10],
 
-            'curso5_periodo'     => ['x' => 95, 'y' => 131.50, 'w' => 110, 'h' => 5, 'size' => 10],
-            'curso5_nombre'      => ['x' => 95, 'y' => 137.14, 'w' => 110, 'h' => 5, 'size' => 10],
-            'curso5_institucion' => ['x' => 95, 'y' => 142.61, 'w' => 110, 'h' => 5, 'size' => 10],
+            'curso5_periodo'     => ['x' => 46, 'y' => 129.50, 'w' => 110, 'h' => 5, 'size' => 10],
+            'curso5_nombre'      => ['x' => 90, 'y' => 134.9, 'w' => 110, 'h' => 5, 'size' => 10],
+            'curso5_institucion' => ['x' => 80, 'y' => 140.5, 'w' => 110, 'h' => 5, 'size' => 10],
         ],
     ],
 ];

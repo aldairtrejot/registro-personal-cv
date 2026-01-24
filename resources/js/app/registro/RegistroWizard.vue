@@ -317,8 +317,8 @@
                 <label class="form-label">Sector</label>
                 <select v-model="exp.sector" class="form-select">
                   <option value="">Selecciona…</option>
-                  <option value="publico">Público</option>
-                  <option value="privado">Privado</option>
+                  <option value="PUBLICO">PÚBLICO</option>
+                  <option value="PRIVADO">PRIVADO</option>
                 </select>
               </div>
 

@@ -292,7 +292,7 @@ class WizardController extends Controller
             'experiencias' => 'required|array|min:1|max:3',
             'experiencias.*.fecha_inicio' => 'nullable|date',
             'experiencias.*.fecha_termino' => 'nullable|date',
-            'experiencias.*.sector' => 'nullable|in:publico,privado',
+            'experiencias.*.sector' => 'nullable|in:PUBLICO,PRIVADO',
             'experiencias.*.puesto' => 'nullable|string|max:150',
             'experiencias.*.institucion' => 'nullable|string|max:200',
 

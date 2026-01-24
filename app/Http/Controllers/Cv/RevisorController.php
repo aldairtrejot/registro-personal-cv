@@ -9,8 +9,8 @@ use App\Models\Cv\CvExperienciaLaboral;
 use App\Models\Cv\CvEstudiosAcademicos;
 use App\Models\Cv\CvCursosCapacitaciones;
 use App\Models\Cv\CvTokenAcceso;
+use App\Services\Cv\CvFolioService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 class RevisorController extends Controller
 {
@@ -80,7 +80,7 @@ class RevisorController extends Controller
         ]);
     }
 
-    public function updateStatus(Request $request, $id)
+    public function updateStatus(Request $request, $id, CvFolioService $folioSvc)
     {
         $data = $request->validate([
             'status' => 'required|in:edicion,enviado,aprobado,rechazado',
@@ -101,10 +101,12 @@ class RevisorController extends Controller
 
         $empleado->estatus_cv = $map[$status];
 
-        // ✅ si aprueba y no tiene folio, generarlo una sola vez
-        if ($status === 'aprobado' && empty($empleado->folio_cv)) {
-            $empleado->folio_cv = $this->generarFolio($empleado);
-            $empleado->folio_generado_en = Carbon::now();
+        // ✅ AL APROBAR:
+        // - asigna si está vacío
+        // - o normaliza si viene en formato viejo (2026000003 -> 3)
+        if ($status === 'aprobado') {
+            $consec = $folioSvc->asignarONormalizarAlAprobar((int)$empleado->id_tbl_empleados);
+            $empleado->folio_cv = $consec; // para que el JSON ya regrese "3"
         }
 
         $empleado->save();
@@ -113,14 +115,10 @@ class RevisorController extends Controller
             $this->enviarCorreoRechazo($empleado, $motivo);
         }
 
-        return response()->json(['ok' => true]);
-    }
-
-    private function generarFolio(Empleado $empleado): string
-    {
-        $anio = Carbon::now()->format('Y');
-        $id = (int)$empleado->id_tbl_empleados;
-        return 'CV-' . $anio . '-' . str_pad((string)$id, 6, '0', STR_PAD_LEFT);
+        return response()->json([
+            'ok' => true,
+            'folio' => $empleado->folio_cv ?? null,
+        ]);
     }
 
     private function cvStatusLabel($estatus_cv)

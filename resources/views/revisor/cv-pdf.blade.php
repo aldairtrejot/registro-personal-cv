@@ -76,9 +76,12 @@
         <div><span class="label">Institución:</span> {{ $estudio['institucion'] ?? '' }}</div>
         <div><span class="label">País:</span> {{ $estudio['pais'] ?? '' }}</div>
         <div><span class="label">Nivel:</span> {{ $estudio['nivel'] ?? '' }}</div>
+
         <div><span class="label">Cédula:</span> {{ $estudio['cedula'] ?? '' }}</div>
-        <div><span class="label">Área de estudios:</span> {{ $estudio['area'] ?? '' }}</div>
-        <div><span class="label">Carrera específica:</span> {{ $estudio['carrera_especifica'] ?? '' }}</div>
+        <div><span class="label">Grado de avance:</span> {{ $estudio['grado_avance'] ?? '' }}</div>
+
+        <div><span class="label">Área de estudios:</span> {{ $estudio['area_estudios'] ?? '' }}</div>
+        <div><span class="label">Nombre del título, grado o certificado (Carrera específica):</span> {{ $estudio['titulo_grado'] ?? '' }}</div>
         <div><span class="label">Carrera genérica:</span> {{ $estudio['carrera_generica'] ?? '' }}</div>
     </div>
 
