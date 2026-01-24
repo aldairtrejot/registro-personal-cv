@@ -45,9 +45,9 @@ class CvFichaPdfService
         // ESTUDIOS (1)
         $est = $this->cargarEstudio($empleadoId);
 
-        // ✅ REGLA: si hay cédula => "TERMINADO", si no => vacío
+        // ✅ REGLA: si hay cédula => "TITULADO", si no => vacío
         $cedula = trim((string)($est['cedula'] ?? ''));
-        $gradoAvance = $cedula !== '' ? 'TERMINADO' : '';
+        $gradoAvance = $cedula !== '' ? 'TITULADO' : '';
 
         $page1 = array_merge($page1, [
             'est_institucion'  => (string)($est['institucion'] ?? ''),
@@ -196,7 +196,7 @@ class CvFichaPdfService
         $colPais        = $this->pickColumn($cols, ['pais']);
         $colNivel       = $this->pickColumn($cols, ['nivel', 'nivel_estudios']);
 
-        // ✅ CÉDULA (para regla TERMINADO)
+        // ✅ CÉDULA (para regla TITULADO)
         $colCedula      = $this->pickColumn($cols, [
             'cedula',
             'numero_cedula',
@@ -244,14 +244,14 @@ class CvFichaPdfService
 
         // ✅ Calcula grado_avance según cédula
         $cedula = trim((string)($r->cedula ?? ''));
-        $gradoAvance = $cedula !== '' ? 'TERMINADO' : '';
+        $gradoAvance = $cedula !== '' ? 'TITULADO' : '';
 
         return [
             'institucion'      => (string)($r->institucion ?? ''),
             'pais'             => (string)($r->pais ?? ''),
             'nivel'            => (string)($r->nivel ?? ''),
 
-            // ✅ para regla TERMINADO
+            // ✅ para regla TITULADO
             'cedula'           => $cedula,
             'grado_avance'     => $gradoAvance,
 
