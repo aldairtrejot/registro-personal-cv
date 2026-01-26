@@ -19,12 +19,10 @@ return [
      */
     'coords' => [
         'page1' => [
-            // Encabezado
-            //'hoy' => ['x' => 155, 'y' => 8, 'w' => 45, 'h' => 4, 'size' => 9, 'align' => 'R'],
 
             // Datos servidor público
             'fullName'         => ['x' => 46, 'y' => 47, 'w' => 160, 'h' => 5, 'size' => 11],
-            'puesto'           => ['x' => 58, 'y' => 52, 'w' => 160, 'h' => 5, 'size' => 11],
+            'puesto'           => ['x' => 58, 'y' => 52.5, 'w' => 160, 'h' => 5, 'size' => 9],
             'fechaInicioPuesto'=> ['x' => 59, 'y' => 57, 'w' => 80,  'h' => 5, 'size' => 11],
 
             // Experiencia laboral (3 bloques x 6 líneas)

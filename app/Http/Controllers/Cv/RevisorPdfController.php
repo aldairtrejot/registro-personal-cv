@@ -13,7 +13,11 @@ class RevisorPdfController extends Controller
 {
     public function pdfPorEmpleadoId(int $id, CvFichaPdfService $svc, CvFolioService $folioSvc)
     {
-        $empleado = Empleado::query()->findOrFail($id);
+        $empleado = Empleado::query()->with(['puesto'])->findOrFail($id);
+
+        // ✅ compat: si el service usa puesto_actual
+        $empleado->setAttribute('puesto_actual', $empleado->puesto_label);
+
         return $this->downloadPdf($empleado, $svc, $folioSvc);
     }
 
@@ -22,8 +26,11 @@ class RevisorPdfController extends Controller
         $curp = strtoupper(trim($curp));
 
         $empleado = Empleado::query()
+            ->with(['puesto'])
             ->whereRaw('UPPER(curp) = ?', [$curp])
             ->firstOrFail();
+
+        $empleado->setAttribute('puesto_actual', $empleado->puesto_label);
 
         return $this->downloadPdf($empleado, $svc, $folioSvc);
     }
@@ -31,9 +38,10 @@ class RevisorPdfController extends Controller
     public function zipAprobados(CvFichaPdfService $svc, CvFolioService $folioSvc)
     {
         $empleados = Empleado::query()
+            ->with(['puesto'])
             ->where('estatus_cv', 3)
             ->orderBy('id_tbl_empleados')
-            ->get(['id_tbl_empleados', 'curp', 'nombre', 'primer_apellido', 'segundo_apellido', 'folio_cv']);
+            ->get(['id_tbl_empleados', 'curp', 'nombre', 'primer_apellido', 'segundo_apellido', 'folio_cv', 'id_puesto', 'puesto_actual']);
 
         if ($empleados->isEmpty()) {
             abort(404, 'No hay CV aprobados para descargar.');
@@ -54,6 +62,9 @@ class RevisorPdfController extends Controller
         $pdfGenerados = [];
 
         foreach ($empleados as $emp) {
+            // ✅ compat: si el service usa puesto_actual
+            $emp->setAttribute('puesto_actual', $emp->puesto_label);
+
             $pdfPath = $svc->generarPdfPorEmpleado($emp);
             $pdfGenerados[] = $pdfPath;
 
@@ -83,7 +94,6 @@ class RevisorPdfController extends Controller
 
         $consec = $folioSvc->parseConsecutivo($empleado->folio_cv);
 
-        // ✅ Nombre requerido: {folio}.pdf
         if ($consec > 0) {
             $filename = "{$consec}.pdf";
         } else {

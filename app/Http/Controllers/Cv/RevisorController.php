@@ -16,7 +16,9 @@ class RevisorController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Empleado::query()->where('estatus_cv', '>', 0);
+        $query = Empleado::query()
+            ->with(['puesto'])
+            ->where('estatus_cv', '>', 0);
 
         if ($request->filled('status')) {
             $map = [
@@ -50,6 +52,7 @@ class RevisorController extends Controller
                     'nombre' => trim("{$e->nombre} {$e->primer_apellido} {$e->segundo_apellido}"),
                     'curp' => $e->curp,
                     'area' => $e->area_adscripcion,
+                    'puesto' => $e->puesto_label, // ✅ aquí ya va el correcto
                     'fechaActualizacion' => optional($e->updated_at)->format('d/m/Y H:i'),
                     'status' => $this->cvStatusLabel($e->estatus_cv),
                 ];
@@ -57,28 +60,37 @@ class RevisorController extends Controller
 
         return response()->json($empleados);
     }
+public function show($id)
+{
+    $empleado = Empleado::with(['puesto'])->findOrFail($id);
 
-    public function show($id)
-    {
-        $empleado = Empleado::findOrFail($id);
+    // ✅ puesto correcto
+    $empleado->setAttribute('puesto_actual', $empleado->puesto_label);
 
-        $experiencias = CvExperienciaLaboral::where('id_tbl_empleados', $id)
-            ->orderBy('orden')
-            ->get();
+    // ✅ fecha bonita para el revisor (dd/mm/YYYY)
+    $empleado->setAttribute(
+        'fecha_inicio_puesto',
+        $empleado->fecha_inicio_puesto ? $empleado->fecha_inicio_puesto->format('d/m/Y') : null
+    );
 
-        $estudios = CvEstudiosAcademicos::where('id_tbl_empleados', $id)->first();
+    $experiencias = CvExperienciaLaboral::where('id_tbl_empleados', $id)
+        ->orderBy('orden')
+        ->get();
 
-        $cursos = CvCursosCapacitaciones::where('id_tbl_empleados', $id)
-            ->orderBy('orden')
-            ->get();
+    $estudios = CvEstudiosAcademicos::where('id_tbl_empleados', $id)->first();
 
-        return response()->json([
-            'empleado' => $empleado,
-            'experiencias' => $experiencias,
-            'estudios' => $estudios,
-            'cursos' => $cursos,
-        ]);
-    }
+    $cursos = CvCursosCapacitaciones::where('id_tbl_empleados', $id)
+        ->orderBy('orden')
+        ->get();
+
+    return response()->json([
+        'empleado' => $empleado,
+        'experiencias' => $experiencias,
+        'estudios' => $estudios,
+        'cursos' => $cursos,
+    ]);
+}
+
 
     public function updateStatus(Request $request, $id, CvFolioService $folioSvc)
     {
@@ -101,12 +113,9 @@ class RevisorController extends Controller
 
         $empleado->estatus_cv = $map[$status];
 
-        // ✅ AL APROBAR:
-        // - asigna si está vacío
-        // - o normaliza si viene en formato viejo (2026000003 -> 3)
         if ($status === 'aprobado') {
             $consec = $folioSvc->asignarONormalizarAlAprobar((int)$empleado->id_tbl_empleados);
-            $empleado->folio_cv = $consec; // para que el JSON ya regrese "3"
+            $empleado->folio_cv = $consec;
         }
 
         $empleado->save();

@@ -163,9 +163,7 @@
 
                   <div class="text-muted small mt-1">
                     Sector:
-                    <span v-if="exp.sector === 'PUBLICO'">PÚBLICO</span>
-                    <span v-else-if="exp.sector === 'PRIVADO'">PRIVADO</span>
-                    <span v-else>Sin especificar</span>
+                    <span>{{ displaySector(exp.sector) }}</span>
                   </div>
 
                   <div class="small mt-1">
@@ -361,6 +359,23 @@ export default {
     },
   },
   methods: {
+    // ✅ Normaliza para comparar sin acentos
+    normalizeText(value) {
+      return String(value ?? '')
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+    },
+
+    // ✅ Siempre devuelve con acento cuando aplique
+    displaySector(value) {
+      const n = this.normalizeText(value)
+      if (n === 'PUBLICO') return 'PÚBLICO'
+      if (n === 'PRIVADO') return 'PRIVADO'
+      return 'Sin especificar'
+    },
+
     statusLabel(status) {
       switch (status) {
         case 'edicion': return 'En edición'
@@ -391,7 +406,6 @@ export default {
 
     async cargarDetalle(id) {
       try {
-        // ✅ CAMBIO: agregar "/" para no volverse ruta relativa
         const { data } = await axios.get(`/api/revisor/empleados/${id}`)
         this.empleado = data.empleado
         this.experiencias = data.experiencias || []
@@ -453,7 +467,6 @@ export default {
         const payload = { status: nuevo }
         if (nuevo === 'rechazado') payload.motivo = motivo
 
-        // ✅ CAMBIO: agregar "/" para no volverse ruta relativa
         await axios.post(`/api/revisor/empleados/${id}/estatus`, payload)
 
         this.statusLocal = nuevo

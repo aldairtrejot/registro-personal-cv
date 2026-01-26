@@ -7,7 +7,6 @@ use App\Models\Cv\Empleado;
 use App\Models\Cv\CvExperienciaLaboral;
 use App\Models\Cv\CvEstudiosAcademicos;
 use App\Models\Cv\CvCursosCapacitaciones;
-use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -16,15 +15,10 @@ use ZipArchive;
 
 class CvPdfController extends Controller
 {
-    // =========================
-    //  PDF INDIVIDUAL (por ID)
-    // =========================
     public function pdfPorEmpleado($id)
     {
         $empleado = Empleado::findOrFail($id);
-
-        // (Opcional) solo permitir si está aprobado:
-        // if ((int)$empleado->estatus_cv !== 3) abort(403, 'Solo se puede descargar PDF de aprobados.');
+        $empleado->loadMissing(['puesto']);
 
         $pdfPath = $this->generarPdfEmpleado($empleado);
 
@@ -33,27 +27,24 @@ class CvPdfController extends Controller
         return response()->download($pdfPath, $nombre)->deleteFileAfterSend(true);
     }
 
-    // =========================
-    //  PDF INDIVIDUAL (por CURP)
-    // =========================
     public function pdfPorCurp($curp)
     {
         $empleado = Empleado::whereRaw('UPPER(curp) = ?', [strtoupper(trim($curp))])->firstOrFail();
+        $empleado->loadMissing(['puesto']);
+
         $pdfPath = $this->generarPdfEmpleado($empleado);
 
         $nombre = 'CV_' . ($empleado->curp ?? 'empleado') . '.pdf';
         return response()->download($pdfPath, $nombre)->deleteFileAfterSend(true);
     }
 
-    // =========================
-    //  ZIP MASIVO (aprobados)
-    // =========================
     public function zipAprobados()
     {
         @set_time_limit(0);
         @ini_set('memory_limit', '1024M');
 
         $empleados = Empleado::query()
+            ->with(['puesto'])
             ->where('estatus_cv', 3)
             ->orderBy('id_tbl_empleados')
             ->get();
@@ -82,8 +73,6 @@ class CvPdfController extends Controller
                 $insideName = 'CV_' . ($e->curp ?? $e->id_tbl_empleados) . '.pdf';
                 $zip->addFile($pdfPath, $insideName);
             } catch (\Throwable $ex) {
-                // Si uno falla, seguimos con los demás.
-                // Puedes loguear si quieres.
                 continue;
             }
         }
@@ -93,9 +82,6 @@ class CvPdfController extends Controller
         return response()->download($zipPath, $zipName)->deleteFileAfterSend(true);
     }
 
-    // =========================
-    //  CORE: generar PDF
-    // =========================
     private function generarPdfEmpleado(Empleado $empleado): string
     {
         $templatePath = config('cvpdf.template_path');
@@ -111,7 +97,7 @@ class CvPdfController extends Controller
             abort(500, "No se encontró la plantilla: {$templatePath}");
         }
 
-        // Traer relaciones
+        // Traer relaciones CV
         $experiencias = CvExperienciaLaboral::where('id_tbl_empleados', $empleado->id_tbl_empleados)
             ->orderBy('orden')
             ->limit(3)
@@ -124,17 +110,18 @@ class CvPdfController extends Controller
             ->limit(5)
             ->get();
 
-        // Rellenar plantilla
         $tp = new TemplateProcessor($templatePath);
 
         $folio = $empleado->folio_cv ?: '';
 
         $tp->setValue('FOLIO', $this->safe($folio));
         $tp->setValue('NOMBRE', $this->safe(trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}")));
-        $tp->setValue('PUESTO_ACTUAL', $this->safe($empleado->puesto_actual));
+
+        // ✅ AQUÍ VA EL PUESTO CORRECTO
+        $tp->setValue('PUESTO_ACTUAL', $this->safe($empleado->puesto_label));
+
         $tp->setValue('FECHA_INICIO', $this->fmtFecha($empleado->fecha_inicio_puesto));
 
-        // Experiencias (máx 3)
         for ($i = 1; $i <= 3; $i++) {
             $exp = $experiencias[$i - 1] ?? null;
 
@@ -146,7 +133,6 @@ class CvPdfController extends Controller
             $tp->setValue("EXP{$i}_CAMPO", $this->safe($exp?->campo_experiencia));
         }
 
-        // Estudios
         $tp->setValue('INST', $this->safe($estudios?->institucion));
         $tp->setValue('PAIS', $this->safe($estudios?->pais));
         $tp->setValue('NIVEL', $this->safe($estudios?->nivel));
@@ -155,7 +141,6 @@ class CvPdfController extends Controller
         $tp->setValue('CARRERA_GEN', $this->safe($estudios?->carrera_generica));
         $tp->setValue('AREA_EST', $this->safe($estudios?->area_estudios));
 
-        // Cursos (máx 5)
         for ($i = 1; $i <= 5; $i++) {
             $c = $cursos[$i - 1] ?? null;
             $tp->setValue("CUR{$i}_PERIODO", $this->safe($c?->periodo));
@@ -163,13 +148,11 @@ class CvPdfController extends Controller
             $tp->setValue("CUR{$i}_INST", $this->safe($c?->institucion));
         }
 
-        // Guardar DOCX temporal
         $baseName = 'cv_' . ($empleado->curp ?: $empleado->id_tbl_empleados) . '_' . Carbon::now()->format('Ymd_His');
         $docxPath = $tmpDir . DIRECTORY_SEPARATOR . $baseName . '.docx';
 
         $tp->saveAs($docxPath);
 
-        // Convertir a PDF con LibreOffice
         $process = new Process([
             $soffice,
             '--headless',
@@ -190,7 +173,6 @@ class CvPdfController extends Controller
 
         $pdfPath = $pdfDir . DIRECTORY_SEPARATOR . $baseName . '.pdf';
 
-        // Limpieza docx
         @unlink($docxPath);
 
         if (!File::exists($pdfPath)) {
@@ -203,7 +185,6 @@ class CvPdfController extends Controller
     private function safe($v): string
     {
         $v = (string)($v ?? '');
-        // evita caracteres raros invisibles
         $v = preg_replace("/[\\x00-\\x1F\\x7F]/u", '', $v);
         return $v;
     }

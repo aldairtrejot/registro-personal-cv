@@ -35,9 +35,17 @@ Route::get('/registro-cv', fn () => view('registro.wizard'))
 |-------------------------------------------------------------------------- 
 */
 Route::prefix('api/cv')->group(function () {
+
     // Wizard
-    Route::post('/check-correo',     [WizardController::class, 'checkCorreo']); // ✅ lo usa tu Vue cuando requireToken=true
+    Route::post('/check-correo',     [WizardController::class, 'checkCorreo']); // (si lo usas)
     Route::post('/send-token',       [WizardController::class, 'sendToken']);
+
+    // ✅ ESTA ES LA QUE TE FALTA (alias)
+    // - URL:  POST /api/cv/validar-curp
+    // - NAME: api/cv/validar-curp  (por si lo llamas con route('api/cv/validar-curp'))
+    Route::post('/validar-curp',     [WizardController::class, 'sendToken'])
+        ->name('api/cv/validar-curp');
+
     Route::post('/validate-token',   [WizardController::class, 'validateToken']);
     Route::post('/datos-personales', [WizardController::class, 'saveDatosPersonales']);
     Route::post('/experiencias',     [WizardController::class, 'saveExperiencias']);
@@ -55,7 +63,7 @@ Route::prefix('api/cv')->group(function () {
     Route::get('/catalogos/unidades',        [CatalogosController::class, 'unidades']);
     Route::get('/catalogos/coordinaciones-por-unidad/{id}', [CatalogosController::class, 'coordinacionesPorUnidad']);
 
-    // ✅ Carreras (3 combos en cascada)
+    // Carreras (3 combos en cascada)
     Route::get('/catalogos/carreras-especificas', [CatalogosController::class, 'carrerasEspecificas']);
     Route::get('/catalogos/carreras-genericas/{idEspecifica}', [CatalogosController::class, 'carrerasGenericasPorEspecifica']);
     Route::get('/catalogos/areas-estudio-por-carrera/{idEspecifica}/{idGenerica}', [CatalogosController::class, 'areasEstudioPorCarrera']);
@@ -73,7 +81,7 @@ Route::middleware(['auth', 'role:1,3'])->group(function () {
         Route::view('/empleados', 'revisor.empleados')->name('revisor.empleados');
         Route::view('/empleados/{id}', 'revisor.empleado-show')->name('revisor.empleados.show');
 
-        // ✅ Descargas PDF/ZIP
+        // Descargas PDF/ZIP
         Route::get('/empleados/{id}/pdf', [RevisorPdfController::class, 'pdfPorEmpleadoId']);
         Route::get('/pdf/curp/{curp}', [RevisorPdfController::class, 'pdfPorCurp']);
         Route::get('/pdf/aprobados.zip', [RevisorPdfController::class, 'zipAprobados']);
