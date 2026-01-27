@@ -25,15 +25,6 @@ const url = axios.create({
   withCredentials: true,
 })
 
-// Interceptor para incluir el token CSRF en cada petición
-url.interceptors.request.use(config => {
-  const token = document.querySelector('meta[name="csrf-token"]')
-  if (token) {
-    config.headers['X-CSRF-TOKEN'] = token.content
-  }
-  return config
-})
-
 /*
 // Si quieres manejar expiración de sesión, descomenta esto
 url.interceptors.response.use(
