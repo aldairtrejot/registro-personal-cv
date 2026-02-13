@@ -134,11 +134,11 @@
                 <x-menu.menu-only title="Dashboard" icon="ti ti-home" href="{{ route('dashboard') }}" />
             @endhasrole
 
-            @hasrole(2)
+            @hasrole(5)
                 <x-menu.menu-only title="Mi Expediente" icon="ti ti-file-spark" href="{{ route('follow') }}" />
             @endhasrole
 
-            @hasrole(1)
+            @hasrole(5)
                 <x-menu.menu-dropdown title="Administración" icon="ti ti-user-cog">
                     <x-menu.menu-item label="Usuarios" href="{{ route('user') }}" :isNew="false" />
                     <x-menu.menu-item label="Usuario Empleados" href="{{ route('useremployee') }}" :isNew="false" />

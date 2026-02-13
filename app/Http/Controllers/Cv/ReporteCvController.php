@@ -6,16 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Models\Cv\Empleado;
 use App\Models\Cv\CvExperienciaLaboral;
 use App\Models\Cv\CvEstudiosAcademicos;
-use App\Models\Cv\CvCursosCapacitaciones;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\NamedRange;
+
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 
 class ReporteCvController extends Controller
 {
@@ -24,383 +28,335 @@ class ReporteCvController extends Controller
         @set_time_limit(0);
         @ini_set('memory_limit', '1024M');
 
-        // 🔥 SOLO APROBADOS + PUESTO
+        // ============================================================
+        // 1) Defaults automáticos
+        //    - ejercicio: año actual
+        //    - trimestre: trimestre actual
+        // ============================================================
+        $now = Carbon::now();
+
+        $ejercicio = (int)($request->query('ejercicio', $now->year));
+        $trimestre = (int)($request->query('trimestre', $this->trimestreActual($now)));
+
+        if ($ejercicio < 2000 || $ejercicio > 2100) {
+            $ejercicio = (int)$now->year;
+        }
+        if (!in_array($trimestre, [1, 2, 3, 4], true)) {
+            $trimestre = $this->trimestreActual($now);
+        }
+
+        [$inicio, $fin] = $this->periodoPorTrimestre($ejercicio, $trimestre);
+
+        // Fecha actualización = fecha de descarga
+        $fechaActualizacion = $now->copy()->startOfDay();
+
+        // ============================================================
+        // 2) Traer datos (solo aprobados)
+        // ============================================================
         $empleados = Empleado::query()
             ->with(['puesto'])
             ->where('estatus_cv', 3)
+            ->orderBy('id_tbl_empleados')
             ->get();
 
-        $filename = 'Datos_CV_Publico_' . Carbon::now()->format('Ymd_His') . '.xlsx';
+        if ($empleados->isEmpty()) {
+            return response('No hay CV aprobados para exportar.', 404, [
+                'Content-Type' => 'text/plain; charset=UTF-8'
+            ]);
+        }
 
         $ids = $empleados->pluck('id_tbl_empleados')->all();
 
-        $experiencias = CvExperienciaLaboral::query()
+        $experienciasByEmp = CvExperienciaLaboral::query()
             ->whereIn('id_tbl_empleados', $ids)
             ->orderBy('id_tbl_empleados')
             ->orderBy('orden')
-            ->get();
+            ->get()
+            ->groupBy('id_tbl_empleados');
 
-        $estudios = CvEstudiosAcademicos::query()
+        $estudiosByEmp = CvEstudiosAcademicos::query()
             ->whereIn('id_tbl_empleados', $ids)
             ->get()
             ->keyBy('id_tbl_empleados');
 
-        $cursos = CvCursosCapacitaciones::query()
-            ->whereIn('id_tbl_empleados', $ids)
-            ->orderBy('id_tbl_empleados')
-            ->orderBy('orden')
-            ->get();
-
-        $empleadosById = $empleados->keyBy('id_tbl_empleados');
-
+        // ============================================================
+        // 3) Crear Excel
+        // ============================================================
         $spreadsheet = new Spreadsheet();
 
-        $sheetFicha = $spreadsheet->getActiveSheet();
-        $sheetFicha->setTitle('FICHA CURRICULAR');
+        $sheetMain = $spreadsheet->getActiveSheet();
+        $sheetMain->setTitle('Reporte de Formatos');
 
-        $sheetExp = $spreadsheet->createSheet();
-        $sheetExp->setTitle('EXPERIENCIA LABORAL');
+        $hidden1 = new Worksheet($spreadsheet, 'Hidden_1');
+        $hidden2 = new Worksheet($spreadsheet, 'Hidden_2');
+        $hidden3 = new Worksheet($spreadsheet, 'Hidden_3');
 
-        $sheetEst = $spreadsheet->createSheet();
-        $sheetEst->setTitle('ESTUDIOS');
+        $spreadsheet->addSheet($hidden1);
+        $spreadsheet->addSheet($hidden2);
+        $spreadsheet->addSheet($hidden3);
 
-        $sheetCur = $spreadsheet->createSheet();
-        $sheetCur->setTitle('CURSOS');
+        $hidden1->setSheetState(Worksheet::SHEETSTATE_HIDDEN);
+        $hidden2->setSheetState(Worksheet::SHEETSTATE_HIDDEN);
+        $hidden3->setSheetState(Worksheet::SHEETSTATE_HIDDEN);
 
-        $sheetListas = $spreadsheet->createSheet();
-        $sheetListas->setTitle('Listas');
-        $sheetListas->setSheetState(Worksheet::SHEETSTATE_HIDDEN);
-        $sheetListas->setCellValue('A1', 'ESPECIFICAS');
+        $sheetExp = new Worksheet($spreadsheet, 'Tabla_334596');
+        $spreadsheet->addSheet($sheetExp);
 
-        $sheetFicha->fromArray([[
-            'CURP',
-            'RFC',
-            'Nombre (s)',
-            'Primer Apellido',
-            'Segundo Apellido',
-            'Puesto actual ',
-            'Fecha de inicio',
-            'Área de Adscrición',
-        ]], null, 'A1');
+        // ============================================================
+        // 4) Catálogos hidden
+        // ============================================================
+        $hidden1->setCellValue('A1', 'Hombre');
+        $hidden1->setCellValue('A2', 'Mujer');
 
-        $sheetExp->fromArray([[
-            'RFC',
-            'Periodo: dia /mes/año de inicio',
-            'Periodo: dia/ mes/año de término',
-            'SECTOR (PUBLICO o PRIVADO)',
-            'Denominación de la institución o empresa (Nombre completo) ',
+        $niveles = [
+            'Ninguno', 'Primaria', 'Secundaria', 'Bachillerato',
+            'Carrera técnica', 'Licenciatura', 'Maestría',
+            'Especialización', 'Doctorado', 'Posdoctorado',
+        ];
+        $r = 1;
+        foreach ($niveles as $n) {
+            $hidden2->setCellValue("A{$r}", $n);
+            $r++;
+        }
+
+        $hidden3->setCellValue('A1', 'Si');
+        $hidden3->setCellValue('A2', 'No');
+
+        // ============================================================
+        // 5) NamedRanges
+        // ============================================================
+        $spreadsheet->addNamedRange(new NamedRange('Hidden_18',  $hidden1, '$A$1:$A$2'));
+        $spreadsheet->addNamedRange(new NamedRange('Hidden_210', $hidden2, '$A$1:$A$10'));
+        $spreadsheet->addNamedRange(new NamedRange('Hidden_314', $hidden3, '$A$1:$A$2'));
+
+        // ============================================================
+        // 6) Encabezados main
+        // ============================================================
+        $headersMain = [
+            'Ejercicio',
+            'Fecha de inicio del periodo que se informa',
+            'Fecha de término del periodo que se informa',
+            'Denominación de puesto (Redactados con perspectiva de género)',
+            'Denominación del cargo',
+            'Nombre(s)',
+            'Primer apellido',
+            'Segundo apellido',
+            'ESTE CRITERIO APLICA A PARTIR DEL 01/04/2023 -> Sexo (catálogo)',
+            'Área de adscripción',
+            'Nivel máximo de estudios concluido y comprobable (catálogo)',
+            'Carrera genérica, en su caso',
+            "Experiencia laboral \nTabla_334596",
+            'Hipervínculo al documento que contenga la trayectoria (Redactados con perspectiva de género)',
+            'Sanciones Administrativas definitivas aplicadas por la autoridad competente (catálogo)',
+            'Hipervínculo a la resolución donde se observe la aprobación de la sanción',
+            'Área(s) responsable(s) que genera(n), posee(n), publica(n) y actualizan la información',
+            'Fecha de actualización',
+            'Nota',
+        ];
+        $sheetMain->fromArray([$headersMain], null, 'A1');
+
+        $widthsMain = [
+            'A' => 8.0,
+            'B' => 36.42578125,
+            'C' => 38.5703125,
+            'D' => 56.28515625,
+            'E' => 90.0,
+            'F' => 28.5703125,
+            'G' => 13.5703125,
+            'H' => 15.42578125,
+            'I' => 58.140625,
+            'J' => 70.85546875,
+            'K' => 53.0,
+            'L' => 56.85546875,
+            'M' => 46.0,
+            'N' => 81.5703125,
+            'O' => 74.0,
+            'P' => 62.85546875,
+            'Q' => 73.140625,
+            'R' => 20.0,
+            'S' => 8.0,
+        ];
+        foreach ($widthsMain as $col => $w) {
+            $sheetMain->getColumnDimension($col)->setWidth($w);
+        }
+
+        $sheetMain->getRowDimension(1)->setRowHeight(26.25);
+        $this->styleHeaderMain($sheetMain, 'A1:S1');
+
+        // ============================================================
+        // 7) Encabezados experiencia
+        // ============================================================
+        $headersExp = [
+            'ID',
+            'Periodo: mes/año de inicio',
+            'Periodo: mes/año de término',
+            'Denominación de la institución o empresa',
             'Cargo o puesto desempeñado',
-            'Campo de experiencia En 100 caracteres',
-        ]], null, 'A1');
+            'Campo de experiencia',
+        ];
+        $sheetExp->fromArray([$headersExp], null, 'A1');
 
-        $sheetEst->fromArray([[
-            'RFC',
-            'Institución',
-            'País',
-            'Nivel de máximo de  estudios concluidos y comprobado',
-            'Número de cédula',
-            'Carrera Especifica',
-            'Carrera Génerica',
-            'Área de Estudios',
-        ]], null, 'A1');
+        $widthsExp = [
+            'A' => 7.0,
+            'B' => 28.5703125,
+            'C' => 31.140625,
+            'D' => 60.28515625,
+            'E' => 54.85546875,
+            'F' => 60.5703125,
+        ];
+        foreach ($widthsExp as $col => $w) {
+            $sheetExp->getColumnDimension($col)->setWidth($w);
+        }
+        $this->styleHeaderExp($sheetExp, 'A1:F1');
 
-        $sheetCur->fromArray([[
-            'RFC',
-            'PERIODO',
-            'NOMBRE CURSO O CAPACITACIÓN',
-            'NOMBRE DE LA INSTITUCIÓN',
-        ]], null, 'A1');
+        // ============================================================
+        // 8) Validaciones (listas)
+        // ============================================================
+        $maxRowValid = 5000;
+        $this->applyListValidation($sheetMain, "I2:I{$maxRowValid}", '=Hidden_18');
+        $this->applyListValidation($sheetMain, "K2:K{$maxRowValid}", '=Hidden_210');
+        $this->applyListValidation($sheetMain, "O2:O{$maxRowValid}", '=Hidden_314');
 
-        $this->applyLayoutFicha($sheetFicha);
-        $this->applyLayoutExperiencia($sheetExp);
-        $this->applyLayoutEstudios($sheetEst);
-        $this->applyLayoutCursos($sheetCur);
+        // ============================================================
+        // 9) Llenar datos
+        // ============================================================
+        $rowMain = 2;
+        $rowExp  = 2;
+        $tablaId = 1;
 
-        $sheetFicha->setAutoFilter('A1:H1');
-        $sheetExp->setAutoFilter('A1:G400');
-        $sheetEst->setAutoFilter('A1:H1');
+        $areaResponsable = 'Coordinación de Recursos Humanos';
 
-        $this->addTextLengthValidation($sheetFicha, 'A1:A1048576', 'equal', '18');
-        $this->addTextLengthValidation($sheetFicha, 'B1:B1048576', 'equal', '13');
-        $this->addDateBetweenValidation($sheetFicha, 'G1:G1048576', '3654', '46022');
+        foreach ($empleados as $emp) {
+            $est = $estudiosByEmp->get($emp->id_tbl_empleados);
+            $puesto = $emp->puesto_label ?? $emp->puesto_actual ?? null;
 
-        $this->addTextLengthValidation($sheetExp, 'A1:A1048576', 'equal', '13');
-        $this->addDateBetweenValidation($sheetExp, 'B1:C1048576', '3654', '46022');
-        $this->addTextLengthValidation($sheetExp, 'G1:G1048576', 'lessThanOrEqual', '100');
+            $sheetMain->getRowDimension($rowMain)->setRowHeight(16.5);
 
-        $this->addTextLengthValidation($sheetEst, 'A1:A1048576', 'equal', '13');
-        $this->addTextLengthValidation($sheetCur, 'A1:A1048576', 'equal', '13');
+            $sheetMain->setCellValue("A{$rowMain}", $ejercicio);
 
-        $sheetFicha->getStyle('G:G')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $sheetExp->getStyle('B:C')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+            $sheetMain->setCellValue("B{$rowMain}", ExcelDate::PHPToExcel($inicio));
+            $sheetMain->setCellValue("C{$rowMain}", ExcelDate::PHPToExcel($fin));
 
-        // ==========================
-        //   LLENAR DATOS
-        // ==========================
-        $r = 2;
-        foreach ($empleados as $e) {
-            $curp = $this->normalizeCurp($e->curp);
-            $rfc13 = $this->rfc13FromCurp($curp);
+            $sheetMain->setCellValue("D{$rowMain}", $this->excelText($puesto));
+            $sheetMain->setCellValue("E{$rowMain}", $this->excelText($puesto));
 
-            $sheetFicha->setCellValue("A{$r}", $this->excelText($curp));
-            $sheetFicha->setCellValue("B{$r}", $this->excelText($rfc13));
-            $sheetFicha->setCellValue("C{$r}", $this->excelText($e->nombre));
-            $sheetFicha->setCellValue("D{$r}", $this->excelText($e->primer_apellido));
-            $sheetFicha->setCellValue("E{$r}", $this->excelText($e->segundo_apellido));
+            $sheetMain->setCellValue("F{$rowMain}", $this->excelText($emp->nombre));
+            $sheetMain->setCellValue("G{$rowMain}", $this->excelText($emp->primer_apellido));
+            $sheetMain->setCellValue("H{$rowMain}", $this->excelText($emp->segundo_apellido));
 
-            // ✅ PUESTO DESDE CATÁLOGO (o fallback)
-            $sheetFicha->setCellValue("F{$r}", $this->excelText($e->puesto_label));
+            $sheetMain->setCellValue("I{$rowMain}", $this->sexoDesdeCurp($emp->curp));
 
-            $this->setExcelDate($sheetFicha, "G{$r}", $e->fecha_inicio_puesto);
-            $sheetFicha->setCellValue("H{$r}", $this->excelText($e->area_adscripcion));
-            $r++;
+            $sheetMain->setCellValue("J{$rowMain}", $this->excelText($emp->area_adscripcion));
+
+            $sheetMain->setCellValue("K{$rowMain}", $this->excelText($est?->nivel));
+            $sheetMain->setCellValue("L{$rowMain}", $this->excelText($est?->carrera_generica));
+
+            $sheetMain->setCellValue("M{$rowMain}", $tablaId);
+
+            $sheetMain->setCellValue("N{$rowMain}", null); // sin hipervínculo
+            $sheetMain->setCellValue("O{$rowMain}", 'No'); // siempre No
+            $sheetMain->setCellValue("P{$rowMain}", null); // sin hipervínculo
+
+            $sheetMain->setCellValue("Q{$rowMain}", $areaResponsable);
+
+            $sheetMain->setCellValue("R{$rowMain}", ExcelDate::PHPToExcel($fechaActualizacion));
+
+            $sheetMain->setCellValue("S{$rowMain}", null);
+
+            $sheetMain->getStyle("B{$rowMain}:C{$rowMain}")->getNumberFormat()->setFormatCode('mm-dd-yy');
+            $sheetMain->getStyle("R{$rowMain}")->getNumberFormat()->setFormatCode('mm-dd-yy');
+
+            $this->applyThinBorder($sheetMain, "A{$rowMain}:S{$rowMain}");
+
+            $exps = $experienciasByEmp->get($emp->id_tbl_empleados, collect());
+            foreach ($exps as $exp) {
+                $sheetExp->getRowDimension($rowExp)->setRowHeight(16.5);
+
+                $sheetExp->setCellValue("A{$rowExp}", $tablaId);
+
+                $ini = $this->toCarbonSafe($exp->fecha_inicio);
+                $finExp = $this->toCarbonSafe($exp->fecha_termino);
+
+                $sheetExp->setCellValue("B{$rowExp}", $ini ? ExcelDate::PHPToExcel($ini->startOfDay()) : null);
+                $sheetExp->setCellValue("C{$rowExp}", $finExp ? ExcelDate::PHPToExcel($finExp->startOfDay()) : null);
+
+                $sheetExp->setCellValue("D{$rowExp}", $this->excelText($exp->institucion));
+                $sheetExp->setCellValue("E{$rowExp}", $this->excelText($exp->puesto));
+
+                $campo = (string)($exp->campo_experiencia ?? '');
+                $sheetExp->setCellValue("F{$rowExp}", $this->excelText(mb_substr($campo, 0, 200)));
+
+                $sheetExp->getStyle("B{$rowExp}:C{$rowExp}")->getNumberFormat()->setFormatCode('mm-dd-yy');
+
+                $this->applyThinBorder($sheetExp, "A{$rowExp}:F{$rowExp}");
+
+                $rowExp++;
+            }
+
+            $rowMain++;
+            $tablaId++;
         }
 
-        $r = 2;
-        foreach ($experiencias as $exp) {
-            $emp = $empleadosById->get($exp->id_tbl_empleados);
-            if (!$emp) continue;
+        // ============================================================
+        // 10) Descargar
+        // ============================================================
+        $filename = '17_LGT_Art_70_Fr_XVII_' . $ejercicio . '_T' . $trimestre . '_' . Carbon::now()->format('Ymd_His') . '.xlsx';
 
-            $curp = $this->normalizeCurp($emp->curp);
-            $rfc13 = $this->rfc13FromCurp($curp);
-
-            $sheetExp->setCellValue("A{$r}", $this->excelText($rfc13));
-            $this->setExcelDate($sheetExp, "B{$r}", $exp->fecha_inicio);
-            $this->setExcelDate($sheetExp, "C{$r}", $exp->fecha_termino);
-            $sheetExp->setCellValue("D{$r}", $this->excelText($exp->sector));
-            $sheetExp->setCellValue("E{$r}", $this->excelText($exp->institucion));
-            $sheetExp->setCellValue("F{$r}", $this->excelText($exp->puesto));
-
-            $campo = (string)($exp->campo_experiencia ?? '');
-            $sheetExp->setCellValue("G{$r}", $this->excelText(mb_substr($campo, 0, 100)));
-            $r++;
-        }
-
-        $r = 2;
-        foreach ($empleados as $e) {
-            $est = $estudios->get($e->id_tbl_empleados);
-            if (!$est) continue;
-
-            $curp = $this->normalizeCurp($e->curp);
-            $rfc13 = $this->rfc13FromCurp($curp);
-
-            $sheetEst->setCellValue("A{$r}", $this->excelText($rfc13));
-            $sheetEst->setCellValue("B{$r}", $this->excelText($est->institucion));
-            $sheetEst->setCellValue("C{$r}", $this->excelText($est->pais));
-            $sheetEst->setCellValue("D{$r}", $this->excelText($est->nivel));
-            $sheetEst->setCellValue("E{$r}", $this->excelText($est->numero_cedula));
-            $sheetEst->setCellValue("F{$r}", $this->excelText($est->carrera_especifica));
-            $sheetEst->setCellValue("G{$r}", $this->excelText($est->carrera_generica));
-            $sheetEst->setCellValue("H{$r}", $this->excelText($est->area_estudios));
-            $r++;
-        }
-
-        $r = 2;
-        foreach ($cursos as $curso) {
-            $emp = $empleadosById->get($curso->id_tbl_empleados);
-            if (!$emp) continue;
-
-            $curp = $this->normalizeCurp($emp->curp);
-            $rfc13 = $this->rfc13FromCurp($curp);
-
-            $sheetCur->setCellValue("A{$r}", $this->excelText($rfc13));
-            $sheetCur->setCellValue("B{$r}", $this->excelText($curso->periodo));
-            $sheetCur->setCellValue("C{$r}", $this->excelText($curso->nombre_curso));
-            $sheetCur->setCellValue("D{$r}", $this->excelText($curso->institucion));
-            $r++;
-        }
-
-        $writer = new Xlsx($spreadsheet);
-
-        return response()->streamDownload(function () use ($writer) {
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'max-age=0, no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
         ]);
     }
 
-    // ==========================
-    //   LAYOUT HELPERS
-    // ==========================
-    private function applyLayoutFicha(Worksheet $s): void
+    private function trimestreActual(Carbon $now): int
     {
-        $this->styleHeader($s, 'A1:H1', 16.5);
+        $m = (int)$now->month;
+        if ($m <= 3) return 1;
+        if ($m <= 6) return 2;
+        if ($m <= 9) return 3;
+        return 4;
+    }
 
-        $widths = [
-            'A' => 27.5703125,
-            'B' => 19.7109375,
-            'C' => 29.5703125,
-            'D' => 20.140625,
-            'E' => 22.28515625,
-            'F' => 58.85546875,
-            'G' => 19.28515625,
-            'H' => 107.28515625,
-        ];
-        foreach ($widths as $col => $w) {
-            $s->getColumnDimension($col)->setWidth($w);
+    private function periodoPorTrimestre(int $ejercicio, int $trimestre): array
+    {
+        return match ($trimestre) {
+            1 => [Carbon::create($ejercicio, 1, 1)->startOfDay(), Carbon::create($ejercicio, 3, 31)->startOfDay()],
+            2 => [Carbon::create($ejercicio, 4, 1)->startOfDay(), Carbon::create($ejercicio, 6, 30)->startOfDay()],
+            3 => [Carbon::create($ejercicio, 7, 1)->startOfDay(), Carbon::create($ejercicio, 9, 30)->startOfDay()],
+            4 => [Carbon::create($ejercicio, 10, 1)->startOfDay(), Carbon::create($ejercicio, 12, 31)->startOfDay()],
+        };
+    }
+
+    private function sexoDesdeCurp(?string $curp): ?string
+    {
+        $curp = strtoupper(trim((string)($curp ?? '')));
+        if (strlen($curp) !== 18) return null;
+        $ch = $curp[10] ?? null;
+        return match ($ch) {
+            'H' => 'Hombre',
+            'M' => 'Mujer',
+            default => null,
+        };
+    }
+
+    private function toCarbonSafe($v): ?Carbon
+    {
+        if (!$v) return null;
+        if ($v instanceof Carbon) return $v;
+
+        $s = trim((string)$v);
+
+        if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $s)) {
+            try { return Carbon::createFromFormat('d/m/Y', $s); } catch (\Throwable $e) {}
         }
 
-        $s->getStyle('A:I')->getAlignment()
-            ->setWrapText(true)
-            ->setVertical(Alignment::VERTICAL_CENTER);
-    }
-
-    private function applyLayoutExperiencia(Worksheet $s): void
-    {
-        $this->styleHeader($s, 'A1:G1', 51.75);
-
-        $widths = [
-            'A' => 26.5703125,
-            'B' => 51.28515625,
-            'C' => 47.5703125,
-            'D' => 36.140625,
-            'E' => 138.85546875,
-            'F' => 142.140625,
-            'G' => 206.28515625,
-        ];
-        foreach ($widths as $col => $w) {
-            $s->getColumnDimension($col)->setWidth($w);
-        }
-
-        $s->getStyle('A:G')->getAlignment()
-            ->setWrapText(true)
-            ->setVertical(Alignment::VERTICAL_CENTER);
-    }
-
-    private function applyLayoutEstudios(Worksheet $s): void
-    {
-        $this->styleHeader($s, 'A1:H1', 39.75);
-
-        $widths = [
-            'A' => 17.7109375,
-            'B' => 61.0,
-            'C' => 29.7109375,
-            'D' => 39.85546875,
-            'E' => 35.7109375,
-            'F' => 34.0,
-            'G' => 34.85546875,
-            'H' => 50.85546875,
-        ];
-        foreach ($widths as $col => $w) {
-            $s->getColumnDimension($col)->setWidth($w);
-        }
-
-        $s->getStyle('A:H')->getAlignment()
-            ->setWrapText(true)
-            ->setVertical(Alignment::VERTICAL_CENTER);
-    }
-
-    private function applyLayoutCursos(Worksheet $s): void
-    {
-        $this->styleHeader($s, 'A1:D1', 26.25);
-
-        $widths = [
-            'A' => 17.7109375,
-            'B' => 34.140625,
-            'C' => 42.5703125,
-            'D' => 69.7109375,
-        ];
-        foreach ($widths as $col => $w) {
-            $s->getColumnDimension($col)->setWidth($w);
-        }
-
-        $s->getStyle('A:D')->getAlignment()
-            ->setWrapText(true)
-            ->setVertical(Alignment::VERTICAL_CENTER);
-    }
-
-    private function styleHeader(Worksheet $s, string $range, float $rowHeight): void
-    {
-        $s->getStyle($range)->applyFromArray([
-            'font' => [
-                'bold' => true,
-                'color' => ['rgb' => 'FFFFFF'],
-            ],
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '10312B'],
-            ],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_LEFT,
-                'vertical' => Alignment::VERTICAL_CENTER,
-                'wrapText' => true,
-            ],
-        ]);
-        $s->getRowDimension(1)->setRowHeight($rowHeight);
-    }
-
-    // ==========================
-    //   VALIDATION HELPERS
-    // ==========================
-    private function addTextLengthValidation(Worksheet $sheet, string $range, string $operator, string $formula1): void
-    {
-        $dv = new DataValidation();
-        $dv->setType(DataValidation::TYPE_TEXTLENGTH);
-        $dv->setErrorStyle(DataValidation::STYLE_STOP);
-        $dv->setAllowBlank(true);
-        $dv->setShowInputMessage(true);
-        $dv->setShowErrorMessage(true);
-        $dv->setErrorTitle('Dato inválido');
-        $dv->setError('El valor no cumple con la longitud requerida.');
-        $dv->setPromptTitle('Validación');
-        $dv->setPrompt('Captura un valor con la longitud requerida.');
-        $dv->setOperator($operator);
-        $dv->setFormula1($formula1);
-
-        $sheet->setDataValidation($range, $dv);
-    }
-
-    private function addDateBetweenValidation(Worksheet $sheet, string $range, string $minSerial, string $maxSerial): void
-    {
-        $dv = new DataValidation();
-        $dv->setType(DataValidation::TYPE_DATE);
-        $dv->setErrorStyle(DataValidation::STYLE_STOP);
-        $dv->setAllowBlank(true);
-        $dv->setShowInputMessage(true);
-        $dv->setShowErrorMessage(true);
-        $dv->setErrorTitle('Fecha inválida');
-        $dv->setError('La fecha está fuera del rango permitido.');
-        $dv->setPromptTitle('Fecha');
-        $dv->setPrompt('Captura una fecha válida.');
-        $dv->setOperator(DataValidation::OPERATOR_BETWEEN);
-        $dv->setFormula1($minSerial);
-        $dv->setFormula2($maxSerial);
-
-        $sheet->setDataValidation($range, $dv);
-    }
-
-    // ==========================
-    //   VALUE HELPERS
-    // ==========================
-    private function setExcelDate(Worksheet $sheet, string $cell, $value): void
-    {
-        if (empty($value)) {
-            $sheet->setCellValue($cell, null);
-            return;
-        }
-
-        try {
-            $dt = Carbon::parse($value)->startOfDay();
-            $sheet->setCellValue($cell, ExcelDate::PHPToExcel($dt));
-            $sheet->getStyle($cell)->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        } catch (\Throwable $e) {
-            $sheet->setCellValue($cell, $this->excelText((string)$value));
-        }
-    }
-
-    private function normalizeCurp(?string $curp): string
-    {
-        if (!$curp) return '';
-        $curp = strtoupper(trim($curp));
-        $curp = preg_replace('/\s+/', '', $curp);
-        return $curp ?: '';
-    }
-
-    private function rfc13FromCurp(?string $curp): string
-    {
-        $curp = $this->normalizeCurp($curp);
-        if (strlen($curp) < 10) return '';
-        return substr($curp, 0, 10) . 'XXX';
+        try { return Carbon::parse($s); } catch (\Throwable $e) {}
+        return null;
     }
 
     private function excelText($v)
@@ -413,5 +369,81 @@ class ReporteCvController extends Controller
             return "'" . $v;
         }
         return $v;
+    }
+
+    private function styleHeaderMain(Worksheet $sheet, string $range): void
+    {
+        $sheet->getStyle($range)->applyFromArray([
+            'font' => [
+                'name' => 'Arial',
+                'size' => 10,
+                'bold' => false,
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'E1E1E1'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                ],
+            ],
+        ]);
+    }
+
+    private function styleHeaderExp(Worksheet $sheet, string $range): void
+    {
+        $sheet->getStyle($range)->applyFromArray([
+            'font' => [
+                'name' => 'Arial',
+                'size' => 10,
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '333333'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                ],
+            ],
+        ]);
+    }
+
+    private function applyThinBorder(Worksheet $sheet, string $range): void
+    {
+        $sheet->getStyle($range)->applyFromArray([
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                ],
+            ],
+        ]);
+    }
+
+    private function applyListValidation(Worksheet $sheet, string $range, string $formula): void
+    {
+        $dv = new DataValidation();
+        $dv->setType(DataValidation::TYPE_LIST);
+        $dv->setErrorStyle(DataValidation::STYLE_STOP);
+        $dv->setAllowBlank(true);
+        $dv->setShowInputMessage(true);
+        $dv->setShowErrorMessage(true);
+        $dv->setShowDropDown(true);
+        $dv->setFormula1($formula);
+
+        $sheet->setDataValidation($range, $dv);
     }
 }

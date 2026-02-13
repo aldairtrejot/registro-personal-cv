@@ -2,118 +2,17 @@
     <x-title.title-header title="Dashboard" />
 
     <style>
-        /* Hover suave en cards */
-        .card.card-link.card-link-pop {
-            transition: transform .15s ease, box-shadow .15s ease;
-        }
-
-        .card.card-link.card-link-pop:hover {
-            transform: translateY(-2px);
-        }
-
-        .card-link-pop:hover .ribbon {
-            filter: brightness(.9);
-        }
-
-        /* Íconos del ribbon: blancos y más grandes */
-        .ribbon .ti {
-            color: #ffffff !important;
-            font-size: 20px;
-            line-height: 1;
-        }
-
-        @media (min-width: 992px) {
-            .ribbon .ti {
-                font-size: 25px;
-            }
-        }
+        .card.card-link.card-link-pop { transition: transform .15s ease, box-shadow .15s ease; }
+        .card.card-link.card-link-pop:hover { transform: translateY(-2px); }
+        .card-link-pop:hover .ribbon { filter: brightness(.9); }
+        .ribbon .ti { color: #ffffff !important; font-size: 20px; line-height: 1; }
+        @media (min-width: 992px) { .ribbon .ti { font-size: 25px; } }
     </style>
 
     <div class="container-xl my-3">
         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
 
-            {{-- Usuarios (solo ADMIN = rol 1) --}}
-            @hasrole(1)
-            <div class="col">
-                <a href="{{ route('user') }}" class="card card-link card-link-pop h-100 shadow-sm">
-                    <div style="background-color:#BC955C" class="ribbon ribbon-top">
-                        <i class="ti ti-users-minus" aria-hidden="true"></i>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="card-title mb-2">Usuarios</h3>
-                        <p class="text-secondary mb-0">
-                            Ir a la sección de usuarios: altas, bajas y permisos.
-                        </p>
-                    </div>
-                    <div class="card-footer bg-transparent">
-                        <span class="btn btn-secondary w-100" role="button">IR</span>
-                    </div>
-                </a>
-            </div>
-            @endhasrole
-
-            {{-- Roles (solo ADMIN) --}}
-            @hasrole(1)
-            <div class="col">
-                <a href="{{ route('user') }}" class="card card-link card-link-pop h-100 shadow-sm">
-                    <div style="background-color:#BC955C" class="ribbon ribbon-top">
-                        <i class="ti ti-puzzle" aria-hidden="true"></i>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="card-title mb-2">Roles</h3>
-                        <p class="text-secondary mb-0">
-                            Ir a la sección de administración de roles.
-                        </p>
-                    </div>
-                    <div class="card-footer bg-transparent">
-                        <span class="btn btn-secondary w-100" role="button">IR</span>
-                    </div>
-                </a>
-            </div>
-            @endhasrole
-
-            {{-- Mi expediente (rol 2 = empleado)
-            @hasrole(2)
-            <div class="col">
-                <a href="{{ route('follow') }}" class="card card-link card-link-pop h-100 shadow-sm">
-                    <div style="background-color:#BC955C" class="ribbon ribbon-top">
-                        <i class="ti ti-file-dots" aria-hidden="true"></i>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="card-title mb-2">Mi expediente</h3>
-                        <p class="text-secondary mb-0">
-                            Organiza tus documentos y monitorea tu avance en el camino hacia
-                            el proceso de profesionalización.
-                        </p>
-                    </div>
-                    <div class="card-footer bg-transparent">
-                        <span class="btn btn-secondary w-100" role="button">IR</span>
-                    </div>
-                </a>
-            </div>
-            @endhasrole--}}
-
-            {{-- Profesionalización (varios roles, incluido admin)
-            @hasrole(1,3,4,5)
-            <div class="col">
-                <a href="{{ route('employee') }}" class="card card-link card-link-pop h-100 shadow-sm">
-                    <div style="background-color:#BC955C" class="ribbon ribbon-top">
-                        <i class="ti ti-escalator-up" aria-hidden="true"></i>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="card-title mb-2">Profesionalización</h3>
-                        <p class="text-secondary mb-0">
-                            Ir a profesionalización para validar información.
-                        </p>
-                    </div>
-                    <div class="card-footer bg-transparent">
-                        <span class="btn btn-secondary w-100" role="button">IR</span>
-                    </div>
-                </a>
-            </div>
-            @endhasrole--}}
-
-            {{-- Revisión de CV (que la vean ADMIN y REVISOR) --}}
+            {{-- Revisión de CV (ADMIN y REVISOR) --}}
             @hasrole(1, 3)
             <div class="col">
                 <a href="{{ route('revisor.empleados') }}" class="card card-link card-link-pop h-100 shadow-sm">
@@ -122,9 +21,7 @@
                     </div>
                     <div class="card-body">
                         <h3 class="card-title mb-2">Revisión de CV</h3>
-                        <p class="text-secondary mb-0">
-                            Consulta y revisa los CV capturados por el personal.
-                        </p>
+                        <p class="text-secondary mb-0">Consulta y revisa los CV capturados por el personal.</p>
                     </div>
                     <div class="card-footer bg-transparent">
                         <span class="btn btn-secondary w-100" role="button">IR</span>
@@ -133,19 +30,18 @@
             </div>
             @endhasrole
 
-            {{-- 🔹 Reporte de CV (solo ADMIN = rol 1) --}}
+            {{-- ✅ Reporte de CV (ADMIN) --}}
             @hasrole(1)
             <div class="col">
-                <a href="{{ route('cv.reportes.empleados_terminados') }}"
-                    class="card card-link card-link-pop h-100 shadow-sm">
+                <a href="javascript:void(0)"
+                   class="card card-link card-link-pop h-100 shadow-sm"
+                   onclick="window.openReporteCvModal()">
                     <div style="background-color:#235B4E" class="ribbon ribbon-top">
                         <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
                     </div>
                     <div class="card-body">
                         <h3 class="card-title mb-2">Reporte de CV</h3>
-                        <p class="text-secondary mb-0">
-                            Descarga en Excel los empleados que han concluido su registro.
-                        </p>
+                        <p class="text-secondary mb-0">Descarga en Excel los empleados que han concluido su registro.</p>
                     </div>
                     <div class="card-footer bg-transparent">
                         <span class="btn btn-secondary w-100" role="button">DESCARGAR</span>
@@ -154,19 +50,18 @@
             </div>
             @endhasrole
 
-            {{-- 🔹 Reporte de CV (solo REVISOR = rol 3) --}}
+            {{-- ✅ Reporte de CV (REVISOR) --}}
             @hasrole(3)
             <div class="col">
-                <a href="{{ route('cv.reportes.empleados_terminados') }}"
-                    class="card card-link card-link-pop h-100 shadow-sm">
+                <a href="javascript:void(0)"
+                   class="card card-link card-link-pop h-100 shadow-sm"
+                   onclick="window.openReporteCvModal()">
                     <div style="background-color:#235B4E" class="ribbon ribbon-top">
                         <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
                     </div>
                     <div class="card-body">
                         <h3 class="card-title mb-2">Reporte de CV (Revisor)</h3>
-                        <p class="text-secondary mb-0">
-                            Descarga en Excel los registros concluidos para su análisis.
-                        </p>
+                        <p class="text-secondary mb-0">Descarga en Excel los registros concluidos para su análisis.</p>
                     </div>
                     <div class="card-footer bg-transparent">
                         <span class="btn btn-secondary w-100" role="button">DESCARGAR</span>
@@ -177,6 +72,117 @@
 
         </div>
     </div>
+
+    {{-- ✅ MODAL PARA PARAMETROS --}}
+    <div class="modal modal-blur fade" id="modal_reporte_cv" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Descargar reporte de CV</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        Selecciona el <b>ejercicio</b> y el <b>trimestre</b> que quieres exportar.
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Ejercicio (año)</label>
+                            <input type="number" class="form-control" id="rep_ejercicio" min="2000" max="2100" />
+                            <div class="text-danger small mt-1 d-none" id="err_rep_ejercicio">Este campo es obligatorio.</div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Trimestre</label>
+                            <select class="form-select" id="rep_trimestre">
+                                <option value="">Selecciona…</option>
+                                <option value="1">1 (Ene–Mar)</option>
+                                <option value="2">2 (Abr–Jun)</option>
+                                <option value="3">3 (Jul–Sep)</option>
+                                <option value="4">4 (Oct–Dic)</option>
+                            </select>
+                            <div class="text-danger small mt-1 d-none" id="err_rep_trimestre">Este campo es obligatorio.</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 text-muted small">
+                        * Si no seleccionas nada, se usará el trimestre/año actual (pero aquí lo vamos a pedir para evitar errores).
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn me-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" onclick="window.descargarReporteCv()">
+                        Descargar Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            function nowYear() { return new Date().getFullYear(); }
+            function nowQuarter() { return Math.floor((new Date().getMonth()) / 3) + 1; }
+
+            window.openReporteCvModal = function () {
+                // set defaults
+                const y = nowYear();
+                const q = nowQuarter();
+
+                const inYear = document.getElementById('rep_ejercicio');
+                const inQ = document.getElementById('rep_trimestre');
+
+                if (inYear && !inYear.value) inYear.value = y;
+                if (inQ && !inQ.value) inQ.value = String(q);
+
+                // limpiar errores
+                document.getElementById('err_rep_ejercicio')?.classList.add('d-none');
+                document.getElementById('err_rep_trimestre')?.classList.add('d-none');
+
+                // abrir modal (Tabler/Bootstrap)
+                const el = document.getElementById('modal_reporte_cv');
+                const modal = new bootstrap.Modal(el);
+                modal.show();
+            }
+
+            window.descargarReporteCv = function () {
+                const y = (document.getElementById('rep_ejercicio')?.value || '').trim();
+                const q = (document.getElementById('rep_trimestre')?.value || '').trim();
+
+                let ok = true;
+
+                if (!y) {
+                    document.getElementById('err_rep_ejercicio')?.classList.remove('d-none');
+                    ok = false;
+                } else {
+                    document.getElementById('err_rep_ejercicio')?.classList.add('d-none');
+                }
+
+                if (!q) {
+                    document.getElementById('err_rep_trimestre')?.classList.remove('d-none');
+                    ok = false;
+                } else {
+                    document.getElementById('err_rep_trimestre')?.classList.add('d-none');
+                }
+
+                if (!ok) return;
+
+                const base = (window.BASE_URL || '');
+                const url = base + '/cv/reportes/empleados-terminados?ejercicio=' + encodeURIComponent(y) + '&trimestre=' + encodeURIComponent(q);
+
+                // cerrar modal
+                const el = document.getElementById('modal_reporte_cv');
+                const inst = bootstrap.Modal.getInstance(el);
+                if (inst) inst.hide();
+
+                // descargar
+                window.location.href = url;
+            }
+        })();
+    </script>
 
     <div class="page-body">
         <div class="container-xl">
