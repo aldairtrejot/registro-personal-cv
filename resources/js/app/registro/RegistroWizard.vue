@@ -12,7 +12,7 @@
               onerror="this.style.display='none'"
             />
           </div>
-          <div>
+          <div class="cv-title-block">
             <h1 class="cv-title">Proceso Curricular</h1>
             <p class="cv-subtitle">Registro de CV</p>
           </div>
@@ -30,7 +30,7 @@
           </div>
         </div>
 
-        <div class="cv-stepper-dots">
+        <div class="cv-stepper-dots" aria-label="Progreso de pasos">
           <div
             v-for="n in totalPasos"
             :key="n"
@@ -70,7 +70,7 @@
               />
             </div>
 
-            <!-- ✅ Correo SIEMPRE capturable (NO mayúsculas) -->
+            <!-- Correo siempre capturable -->
             <div class="col-12">
               <label class="form-label">Correo electrónico</label>
               <input
@@ -83,7 +83,7 @@
               <div class="form-text">Este correo se registrará en tu CV.</div>
             </div>
 
-            <!-- ✅ TODO token queda comentado -->
+            <!-- Token omitido -->
             <!--
             <div class="col-12">
               <label class="form-label">Código de verificación</label>
@@ -105,7 +105,7 @@
           </div>
         </div>
 
-        <!-- ✅ PASO 2: DATOS PERSONALES (antes era paso 3) -->
+        <!-- PASO 2 -->
         <div v-else-if="pasoActual === 2">
           <h3 class="cv-section-title">2. Datos personales</h3>
           <p class="cv-section-subtitle">
@@ -113,13 +113,11 @@
           </p>
 
           <div class="row g-3 mt-1">
-            <!-- ✅ correo editable (NO mayúsculas) -->
             <div class="col-12">
               <label class="form-label">Correo electrónico</label>
               <input v-model.trim="form.correo" type="email" class="form-control" maxlength="254" />
             </div>
 
-            <!-- ✅ Nacionalidad obligatoria -->
             <div class="col-12">
               <label class="form-label">Nacionalidad</label>
               <select v-model="form.nacionalidad" class="form-select">
@@ -282,7 +280,12 @@
             </div>
           </div>
 
-          <button type="button" class="btn btn-link p-0 mt-2 cv-link-add" :disabled="form.experiencias.length >= 3" @click="agregarExperiencia">
+          <button
+            type="button"
+            class="btn btn-link p-0 mt-2 cv-link-add"
+            :disabled="form.experiencias.length >= 3"
+            @click="agregarExperiencia"
+          >
             + Agregar otra experiencia (máx. 3)
           </button>
 
@@ -336,7 +339,12 @@
 
             <div class="col-12">
               <label class="form-label">Carrera genérica</label>
-              <select v-model="form.estudios.id_carrera_generica" class="form-select" :disabled="!catalogos.carrerasGenericas.length" @change="onChangeCarreraGenerica">
+              <select
+                v-model="form.estudios.id_carrera_generica"
+                class="form-select"
+                :disabled="!catalogos.carrerasGenericas.length"
+                @change="onChangeCarreraGenerica"
+              >
                 <option :value="null">Selecciona…</option>
                 <option v-for="car in catalogos.carrerasGenericas" :key="car.id" :value="car.id">{{ car.nombre }}</option>
               </select>
@@ -344,7 +352,12 @@
 
             <div class="col-12">
               <label class="form-label">Área de estudios</label>
-              <select v-model="form.estudios.id_area_estudios" class="form-select" :disabled="!catalogos.areasEstudioFiltradas.length" @change="onChangeAreaEstudios">
+              <select
+                v-model="form.estudios.id_area_estudios"
+                class="form-select"
+                :disabled="!catalogos.areasEstudioFiltradas.length"
+                @change="onChangeAreaEstudios"
+              >
                 <option :value="null">Selecciona…</option>
                 <option v-for="area in catalogos.areasEstudioFiltradas" :key="area.id" :value="area.id">{{ area.nombre }}</option>
               </select>
@@ -367,7 +380,12 @@
           <div v-for="(curso, index) in form.cursos" :key="index" class="cv-block">
             <div class="cv-block-header">
               <h4 class="cv-block-title">Curso #{{ index + 1 }}</h4>
-              <button v-if="form.cursos.length > 1" type="button" class="btn btn-link text-danger p-0 cv-link-remove" @click="eliminarCurso(index)">
+              <button
+                v-if="form.cursos.length > 1"
+                type="button"
+                class="btn btn-link text-danger p-0 cv-link-remove"
+                @click="eliminarCurso(index)"
+              >
                 Eliminar
               </button>
             </div>
@@ -431,7 +449,6 @@ export default {
     return {
       BASE_URL,
 
-      // ✅ Token omitido: dejamos la variable comentada por si luego lo reactivas.
       // requireToken: (import.meta.env.VITE_CV_REQUIRE_TOKEN !== 'false'),
       // skipTokenValidation: false,
 
@@ -457,9 +474,6 @@ export default {
         curp: '',
         correo: '',
         nacionalidad: '',
-
-        // ✅ Token omitido
-        // token: '',
 
         nombres: '',
         primer_apellido: '',
@@ -590,16 +604,19 @@ export default {
       const item = this.catalogos.paises.find((p) => p.id === id)
       this.form.estudios.pais = item ? item.nombre : ''
     },
+
     syncNivelTexto() {
       const id = this.form.estudios.id_nivel_estudios
       const item = this.catalogos.nivelesEstudio.find((n) => n.id === id)
       this.form.estudios.nivel = item ? item.nombre : ''
     },
+
     syncPuestoGenerico() {
       const id = this.form.id_puesto
       const item = this.catalogos.puestos.find((p) => p.id === id)
       if (!this.form.id_puesto_especifico) this.form.puesto_actual = item ? item.nombre : ''
     },
+
     syncPuestoEspecifico() {
       const id = this.form.id_puesto_especifico
       const item = this.catalogos.puestosEspecificos.find((p) => p.id === id)
@@ -684,7 +701,6 @@ export default {
       this.form.estudios.area_estudios = item ? item.nombre : ''
     },
 
-    // ✅ PASO 1: solo valida CURP exista (y deja correo capturable)
     async validarCurp() {
       this.loading = true
       try {
@@ -696,7 +712,6 @@ export default {
           return
         }
 
-        // ✅ correo capturable (lo pedimos para guardarlo después)
         if (!this.form.correo) {
           this.mostrarMensaje('error', 'Captura tu correo electrónico.')
           return
@@ -706,7 +721,6 @@ export default {
           return
         }
 
-        // ✅ Endpoint nuevo SIN TOKEN
         const { data } = await axios.post('api/cv/validar-curp', {
           curp: this.form.curp,
           correo: this.form.correo,
@@ -726,11 +740,6 @@ export default {
 
         this.mostrarMensaje('ok', data.message || 'CURP validada correctamente.')
         this.irPaso(2)
-
-        // ✅ TODO token (omitido)
-        // await axios.post('api/cv/send-token', { curp: this.form.curp, correo: this.form.correo })
-        // this.irPaso(2) // (antes era el paso token)
-
       } catch (error) {
         const msg = error?.response?.data?.message || 'No se pudo continuar. Verifica la CURP.'
         this.mostrarMensaje('error', msg)
@@ -775,9 +784,6 @@ export default {
           id_puesto_especifico: this.form.id_puesto_especifico,
           id_unidad_adscripcion: this.form.id_unidad,
           id_coordinacion: this.form.id_coordinacion,
-
-          // ✅ token omitido
-          // token: this.form.token,
         }
 
         await axios.post('api/cv/datos-personales', payload)
@@ -902,14 +908,17 @@ export default {
       if (this.form.experiencias.length >= 3) return
       this.form.experiencias.push({ fecha_inicio: '', fecha_termino: '', sector: '', puesto: '', institucion: '', campo: '' })
     },
+
     eliminarExperiencia(index) {
       if (this.form.experiencias.length <= 1) return
       this.form.experiencias.splice(index, 1)
     },
+
     agregarCurso() {
       if (this.form.cursos.length >= 5) return
       this.form.cursos.push({ fecha_inicio: '', fecha_fin: '', periodo: '', nombre: '', institucion: '' })
     },
+
     eliminarCurso(index) {
       if (this.form.cursos.length <= 1) return
       this.form.cursos.splice(index, 1)
@@ -922,48 +931,254 @@ export default {
 </script>
 
 <style scoped>
-/* Tu CSS original */
-.cv-wrapper { min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 32px 16px; }
-.cv-card { background: #ffffff; border-radius: 16px; max-width: 740px; width: 100%; padding: 24px 24px 28px; }
-.cv-header { border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 12px; }
-.cv-logo-block { display: flex; align-items: center; gap: 16px; }
-.cv-logo-circle { width: 56px; height: 56px; border-radius: 50%; background: #e6f2ee; display: flex; align-items: center; justify-content: center; }
+/* Ajuste: ahora el fondo lo pone el layout (blade), aquí solo centramos y damos buen padding */
+.cv-wrapper {
+  min-height: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12px 10px; /* ya no necesitamos tanto porque el layout ya da padding */
+}
+
+/* Card del wizard */
+.cv-card {
+  background: rgba(255,255,255,.92);
+  border: 1px solid rgba(229,231,235,.85);
+  border-radius: 18px;
+  max-width: 820px;   /* un poco más ancho para que no se sienta apretado */
+  width: 100%;
+  padding: 22px 22px 26px;
+  box-shadow: 0 16px 40px rgba(16,24,40,.10);
+}
+
+/* Header */
+.cv-header {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.cv-logo-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cv-logo-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;               /* más institucional (menos “bolita”) */
+  background: rgba(0, 99, 65, .10);  /* verde suave */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 99, 65, .12);
+}
+
 .cv-logo-img { max-width: 40px; }
-.cv-title { font-size: 1.25rem; margin: 0; color: #111827; }
-.cv-subtitle { margin: 0; font-size: 0.9rem; color: #6b7280; }
-.cv-stepper { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+
+.cv-title-block { line-height: 1.1; }
+
+.cv-title {
+  font-size: 1.25rem;
+  margin: 0;
+  color: #111827;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.cv-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.92rem;
+  color: #6b7280;
+}
+
+/* Stepper */
+.cv-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
 .cv-stepper-left { flex: 1; }
-.cv-stepper-label { display: block; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
-.cv-stepper-track { position: relative; height: 4px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
-.cv-stepper-bar { position: absolute; left: 0; top: 0; bottom: 0; background: #006341; transition: width 0.3s ease; }
-.cv-stepper-dots { display: flex; gap: 4px; }
-.cv-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #d1d5db; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #6b7280; }
-.cv-dot.is-active { border-color: #006341; color: #006341; font-weight: 600; }
-.cv-dot.is-done { border-color: #006341; background: #006341; color: #ffffff; }
-.cv-content { margin-top: 4px; }
-.cv-section-title { font-size: 1.05rem; margin-bottom: 4px; color: #111827; }
-.cv-section-subtitle { font-size: 0.9rem; color: #6b7280; margin-bottom: 12px; }
-.cv-block { margin-top: 16px; padding: 14px 14px 10px; border-radius: 12px; border: 1px solid #e5e7eb; background: #f9fafb; }
-.cv-block-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.cv-block-title { font-size: 0.95rem; margin: 0; }
-.cv-card .form-label { font-size: 0.86rem; margin-bottom: 4px; color: #374151; }
-.cv-card .form-control, .cv-card .form-select { font-size: 0.9rem; padding: 0.44rem 0.75rem; border-radius: 8px; border-color: #d1d5db; }
-.cv-card .form-control:focus, .cv-card .form-select:focus { border-color: #006341; box-shadow: 0 0 0 1px rgba(0, 99, 65, 0.15); }
-.cv-actions { margin-top: 20px; }
-.cv-actions-two, .cv-actions-three { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+
+.cv-stepper-label {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.cv-stepper-track {
+  position: relative;
+  height: 6px;               /* un poco más gruesa */
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.cv-stepper-bar {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: #006341;
+  transition: width 0.3s ease;
+}
+
+/* Dots */
+.cv-stepper-dots { display: flex; gap: 6px; }
+
+.cv-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid #d1d5db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  color: #6b7280;
+  background: rgba(255,255,255,.9);
+}
+
+.cv-dot.is-active {
+  border-color: #006341;
+  color: #006341;
+  font-weight: 700;
+}
+
+.cv-dot.is-done {
+  border-color: #006341;
+  background: #006341;
+  color: #ffffff;
+}
+
+/* Contenido */
+.cv-content { margin-top: 6px; }
+
+.cv-section-title {
+  font-size: 1.06rem;
+  margin-bottom: 4px;
+  color: #111827;
+  font-weight: 800;
+}
+
+.cv-section-subtitle {
+  font-size: 0.92rem;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+/* Bloques */
+.cv-block {
+  margin-top: 16px;
+  padding: 14px 14px 10px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.cv-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cv-block-title {
+  font-size: 0.95rem;
+  margin: 0;
+  font-weight: 800;
+}
+
+/* Inputs */
+.cv-card .form-label {
+  font-size: 0.86rem;
+  margin-bottom: 4px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.cv-card .form-control,
+.cv-card .form-select {
+  font-size: 0.92rem;
+  padding: 0.50rem 0.80rem;
+  border-radius: 10px;
+  border-color: #d1d5db;
+}
+
+.cv-card .form-control:focus,
+.cv-card .form-select:focus {
+  border-color: #006341;
+  box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.12);
+}
+
+/* Acciones */
+.cv-actions { margin-top: 18px; }
+
+.cv-actions-two,
+.cv-actions-three {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .cv-actions-three .btn { flex: 1 1 auto; }
-.cv-card .btn-primary { background: #006341; border-color: #006341; }
-.cv-card .btn-primary:hover { background: #004b2e; border-color: #004b2e; }
-.cv-card .btn-outline-primary { color: #006341; border-color: #006341; }
-.cv-card .btn-outline-primary:hover { background: #006341; color: #ffffff; border-color: #006341; }
-.cv-card .btn-success { background: #0b8450; border-color: #0b8450; }
-.cv-card .btn-success:hover { background: #08663e; border-color: #08663e; }
-.cv-card .btn-link { color: #006341; text-decoration: none; }
-.cv-card .btn-link:hover { color: #004b2e; text-decoration: underline; }
-.cv-link-add { font-size: 0.88rem; font-weight: 500; }
+
+/* Botones */
+.cv-card .btn-primary {
+  background: #006341;
+  border-color: #006341;
+}
+
+.cv-card .btn-primary:hover {
+  background: #004b2e;
+  border-color: #004b2e;
+}
+
+.cv-card .btn-outline-primary {
+  color: #006341;
+  border-color: #006341;
+}
+
+.cv-card .btn-outline-primary:hover {
+  background: #006341;
+  color: #ffffff;
+  border-color: #006341;
+}
+
+.cv-card .btn-success {
+  background: #0b8450;
+  border-color: #0b8450;
+}
+
+.cv-card .btn-success:hover {
+  background: #08663e;
+  border-color: #08663e;
+}
+
+.cv-card .btn-link {
+  color: #006341;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.cv-card .btn-link:hover {
+  color: #004b2e;
+  text-decoration: underline;
+}
+
+.cv-link-add { font-size: 0.90rem; }
 .cv-link-remove { text-decoration: none; }
+
+/* Responsive */
 @media (max-width: 576px) {
-  .cv-card { padding: 18px 16px 22px; }
+  .cv-wrapper { padding: 8px 4px; }
+  .cv-card { padding: 16px 14px 18px; border-radius: 16px; }
   .cv-stepper { flex-direction: column; align-items: flex-start; }
   .cv-stepper-dots { margin-left: 2px; }
 }

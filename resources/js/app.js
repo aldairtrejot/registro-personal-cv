@@ -2,6 +2,10 @@
 import { createApp } from 'vue'
 import axiosInstance from '@axios'
 
+// ✅ Bootstrap (para que exista window.bootstrap y funcione bootstrap.Modal)
+import * as bootstrap from 'bootstrap'
+window.bootstrap = bootstrap
+
 // Exponer axios instance global (por compatibilidad con código viejo)
 window.axios = axiosInstance
 

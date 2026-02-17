@@ -263,8 +263,8 @@ class ReporteCvController extends Controller
 
             $sheetMain->setCellValue("S{$rowMain}", null);
 
-            $sheetMain->getStyle("B{$rowMain}:C{$rowMain}")->getNumberFormat()->setFormatCode('mm-dd-yy');
-            $sheetMain->getStyle("R{$rowMain}")->getNumberFormat()->setFormatCode('mm-dd-yy');
+            $sheetMain->getStyle("B{$rowMain}:C{$rowMain}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+            $sheetMain->getStyle("R{$rowMain}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
             $this->applyThinBorder($sheetMain, "A{$rowMain}:S{$rowMain}");
 
@@ -286,7 +286,7 @@ class ReporteCvController extends Controller
                 $campo = (string)($exp->campo_experiencia ?? '');
                 $sheetExp->setCellValue("F{$rowExp}", $this->excelText(mb_substr($campo, 0, 200)));
 
-                $sheetExp->getStyle("B{$rowExp}:C{$rowExp}")->getNumberFormat()->setFormatCode('mm-dd-yy');
+                $sheetExp->getStyle("B{$rowExp}:C{$rowExp}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
                 $this->applyThinBorder($sheetExp, "A{$rowExp}:F{$rowExp}");
 
