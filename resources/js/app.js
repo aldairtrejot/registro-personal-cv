@@ -1,10 +1,9 @@
 // resources/js/app.js
-import { createApp } from 'vue'
-import axiosInstance from '@axios'
-
-// ✅ Bootstrap (para que exista window.bootstrap y funcione bootstrap.Modal)
 import * as bootstrap from 'bootstrap'
 window.bootstrap = bootstrap
+
+import { createApp } from 'vue'
+import axiosInstance from '@axios'
 
 // Exponer axios instance global (por compatibilidad con código viejo)
 window.axios = axiosInstance
@@ -104,15 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Inyecta props desde Blade para los módulos de Follow
     let props = {}
-    if (selector === '#blade_follow_dashboard' && window.FOLLOW_PROPS) {
-      props = window.FOLLOW_PROPS
-    }
-    if (selector === '#blade_form_update_follow' && window.FOLLOW_UPDATE_PROPS) {
-      props = window.FOLLOW_UPDATE_PROPS
-    }
+    if (selector === '#blade_follow_dashboard' && window.FOLLOW_PROPS) props = window.FOLLOW_PROPS
+    if (selector === '#blade_form_update_follow' && window.FOLLOW_UPDATE_PROPS) props = window.FOLLOW_UPDATE_PROPS
 
     const app = createApp(component, props)
     app.mount(el)
-    el.__vue_app__ = app // evita doble montaje (HMR)
+    el.__vue_app__ = app
   })
 })

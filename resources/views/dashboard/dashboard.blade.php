@@ -122,13 +122,35 @@
         </div>
     </div>
 
+    {{-- ✅ TOAST (mensaje emergente) --}}
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+        <div id="toast_cv_reporte"
+             class="toast align-items-center text-bg-danger border-0"
+             role="alert" aria-live="assertive" aria-atomic="true"
+             data-bs-delay="4500">
+            <div class="d-flex">
+                <div class="toast-body">
+                    No hay CV aprobados para exportar con el rango de fecha seleccionado.
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                        data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
     <script>
         (function () {
             function nowYear() { return new Date().getFullYear(); }
             function nowQuarter() { return Math.floor((new Date().getMonth()) / 3) + 1; }
 
+            function showNoDataToast(){
+                const el = document.getElementById('toast_cv_reporte');
+                if (!el) return;
+                const toast = bootstrap.Toast.getOrCreateInstance(el);
+                toast.show();
+            }
+
             window.openReporteCvModal = function () {
-                // set defaults
                 const y = nowYear();
                 const q = nowQuarter();
 
@@ -138,35 +160,25 @@
                 if (inYear && !inYear.value) inYear.value = y;
                 if (inQ && !inQ.value) inQ.value = String(q);
 
-                // limpiar errores
                 document.getElementById('err_rep_ejercicio')?.classList.add('d-none');
                 document.getElementById('err_rep_trimestre')?.classList.add('d-none');
 
-                // abrir modal (Tabler/Bootstrap)
                 const el = document.getElementById('modal_reporte_cv');
                 const modal = new bootstrap.Modal(el);
                 modal.show();
             }
 
-            window.descargarReporteCv = function () {
+            window.descargarReporteCv = async function () {
                 const y = (document.getElementById('rep_ejercicio')?.value || '').trim();
                 const q = (document.getElementById('rep_trimestre')?.value || '').trim();
 
                 let ok = true;
 
-                if (!y) {
-                    document.getElementById('err_rep_ejercicio')?.classList.remove('d-none');
-                    ok = false;
-                } else {
-                    document.getElementById('err_rep_ejercicio')?.classList.add('d-none');
-                }
+                if (!y) { document.getElementById('err_rep_ejercicio')?.classList.remove('d-none'); ok = false; }
+                else    { document.getElementById('err_rep_ejercicio')?.classList.add('d-none'); }
 
-                if (!q) {
-                    document.getElementById('err_rep_trimestre')?.classList.remove('d-none');
-                    ok = false;
-                } else {
-                    document.getElementById('err_rep_trimestre')?.classList.add('d-none');
-                }
+                if (!q) { document.getElementById('err_rep_trimestre')?.classList.remove('d-none'); ok = false; }
+                else    { document.getElementById('err_rep_trimestre')?.classList.add('d-none'); }
 
                 if (!ok) return;
 
@@ -178,8 +190,42 @@
                 const inst = bootstrap.Modal.getInstance(el);
                 if (inst) inst.hide();
 
-                // descargar
-                window.location.href = url;
+                // ✅ Intentar descargar sin cambiar de página.
+                // Si el backend responde 404, mostramos el toast.
+                try {
+                    const resp = await fetch(url, {
+                        method: 'GET',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+
+                    if (!resp.ok) {
+                        // 404 -> no hay datos
+                        showNoDataToast();
+                        return;
+                    }
+
+                    const blob = await resp.blob();
+
+                    // Obtener filename del header si viene
+                    let filename = 'reporte_cv.xlsx';
+                    const cd = resp.headers.get('Content-Disposition') || resp.headers.get('content-disposition') || '';
+                    const match = cd.match(/filename="([^"]+)"/i);
+                    if (match && match[1]) filename = match[1];
+
+                    const a = document.createElement('a');
+                    const objectUrl = window.URL.createObjectURL(blob);
+                    a.href = objectUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(objectUrl);
+
+                } catch (e) {
+                    console.error(e);
+                    // si falla, igual mostramos el toast genérico
+                    showNoDataToast();
+                }
             }
         })();
     </script>

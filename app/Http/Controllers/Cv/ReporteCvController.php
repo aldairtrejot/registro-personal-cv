@@ -28,34 +28,76 @@ class ReporteCvController extends Controller
         @set_time_limit(0);
         @ini_set('memory_limit', '1024M');
 
-        // ============================================================
-        // 1) Defaults automáticos
-        //    - ejercicio: año actual
-        //    - trimestre: trimestre actual
-        // ============================================================
         $now = Carbon::now();
 
+        // ============================================================
+        // 1) Parámetros (ejercicio/trimestre)
+        // ============================================================
         $ejercicio = (int)($request->query('ejercicio', $now->year));
         $trimestre = (int)($request->query('trimestre', $this->trimestreActual($now)));
 
-        if ($ejercicio < 2000 || $ejercicio > 2100) {
-            $ejercicio = (int)$now->year;
-        }
-        if (!in_array($trimestre, [1, 2, 3, 4], true)) {
-            $trimestre = $this->trimestreActual($now);
-        }
+        if ($ejercicio < 2000 || $ejercicio > 2100) $ejercicio = (int)$now->year;
+        if (!in_array($trimestre, [1, 2, 3, 4], true)) $trimestre = $this->trimestreActual($now);
 
-        [$inicio, $fin] = $this->periodoPorTrimestre($ejercicio, $trimestre);
+        [$inicioTrim, $finTrim] = $this->periodoPorTrimestre($ejercicio, $trimestre);
+        $inicioTrim = $inicioTrim->copy()->startOfDay();
+        $finTrim    = $finTrim->copy()->endOfDay();
 
-        // Fecha actualización = fecha de descarga
-        $fechaActualizacion = $now->copy()->startOfDay();
+        // Fecha actualización (en el excel) = fecha de descarga
+        $fechaActualizacionExcel = $now->copy()->startOfDay();
 
         // ============================================================
-        // 2) Traer datos (solo aprobados)
+        // 2) Campo de fecha para filtrar (TU TABLA: creado_en/actualizado_en)
+        // ============================================================
+        // actualizado (default) = actualizado_en
+        // creado = creado_en
+        $campoFecha = (string)$request->query('campo_fecha', 'actualizado'); // 'creado' | 'actualizado'
+        $colFecha = match ($campoFecha) {
+            'creado' => 'creado_en',
+            default  => 'actualizado_en',
+        };
+
+        // ============================================================
+        // 3) (Opcional) rango manual extra: fecha_inicio/fecha_fin (YYYY-MM-DD)
+        //     -> se intersecta con el trimestre
+        // ============================================================
+        $fechaInicioParam = $request->query('fecha_inicio');
+        $fechaFinParam    = $request->query('fecha_fin');
+
+        $iniFiltroFinal = $inicioTrim->copy();
+        $finFiltroFinal = $finTrim->copy();
+
+        if ($fechaInicioParam && $fechaFinParam) {
+            try {
+                $iniManual = Carbon::createFromFormat('Y-m-d', (string)$fechaInicioParam)->startOfDay();
+                $finManual = Carbon::createFromFormat('Y-m-d', (string)$fechaFinParam)->endOfDay();
+
+                // Intersección con el trimestre
+                if ($iniManual->gt($iniFiltroFinal)) $iniFiltroFinal = $iniManual;
+                if ($finManual->lt($finFiltroFinal)) $finFiltroFinal = $finManual;
+
+            } catch (\Throwable $e) {
+                return response('Rango de fechas inválido. Usa formato YYYY-MM-DD.', 422, [
+                    'Content-Type' => 'text/plain; charset=UTF-8'
+                ]);
+            }
+        }
+
+        // Si no hay traslape
+        if ($iniFiltroFinal->gt($finFiltroFinal)) {
+            return response('No hay CV aprobados en el rango seleccionado.', 404, [
+                'Content-Type' => 'text/plain; charset=UTF-8'
+            ]);
+        }
+
+        // ============================================================
+        // 4) Traer datos (SOLO APROBADOS) + FILTRO OBLIGATORIO POR TRIMESTRE
         // ============================================================
         $empleados = Empleado::query()
             ->with(['puesto'])
             ->where('estatus_cv', 3)
+            ->whereNotNull($colFecha) // por si actualizado_en viene null
+            ->whereBetween($colFecha, [$iniFiltroFinal, $finFiltroFinal]) // ✅ clave
             ->orderBy('id_tbl_empleados')
             ->get();
 
@@ -80,7 +122,7 @@ class ReporteCvController extends Controller
             ->keyBy('id_tbl_empleados');
 
         // ============================================================
-        // 3) Crear Excel
+        // 5) Crear Excel
         // ============================================================
         $spreadsheet = new Spreadsheet();
 
@@ -103,7 +145,7 @@ class ReporteCvController extends Controller
         $spreadsheet->addSheet($sheetExp);
 
         // ============================================================
-        // 4) Catálogos hidden
+        // 6) Catálogos hidden
         // ============================================================
         $hidden1->setCellValue('A1', 'Hombre');
         $hidden1->setCellValue('A2', 'Mujer');
@@ -123,14 +165,14 @@ class ReporteCvController extends Controller
         $hidden3->setCellValue('A2', 'No');
 
         // ============================================================
-        // 5) NamedRanges
+        // 7) NamedRanges
         // ============================================================
         $spreadsheet->addNamedRange(new NamedRange('Hidden_18',  $hidden1, '$A$1:$A$2'));
         $spreadsheet->addNamedRange(new NamedRange('Hidden_210', $hidden2, '$A$1:$A$10'));
         $spreadsheet->addNamedRange(new NamedRange('Hidden_314', $hidden3, '$A$1:$A$2'));
 
         // ============================================================
-        // 6) Encabezados main
+        // 8) Encabezados main
         // ============================================================
         $headersMain = [
             'Ejercicio',
@@ -156,35 +198,18 @@ class ReporteCvController extends Controller
         $sheetMain->fromArray([$headersMain], null, 'A1');
 
         $widthsMain = [
-            'A' => 8.0,
-            'B' => 36.42578125,
-            'C' => 38.5703125,
-            'D' => 56.28515625,
-            'E' => 90.0,
-            'F' => 28.5703125,
-            'G' => 13.5703125,
-            'H' => 15.42578125,
-            'I' => 58.140625,
-            'J' => 70.85546875,
-            'K' => 53.0,
-            'L' => 56.85546875,
-            'M' => 46.0,
-            'N' => 81.5703125,
-            'O' => 74.0,
-            'P' => 62.85546875,
-            'Q' => 73.140625,
-            'R' => 20.0,
-            'S' => 8.0,
+            'A' => 8.0,'B' => 36.42578125,'C' => 38.5703125,'D' => 56.28515625,'E' => 90.0,
+            'F' => 28.5703125,'G' => 13.5703125,'H' => 15.42578125,'I' => 58.140625,'J' => 70.85546875,
+            'K' => 53.0,'L' => 56.85546875,'M' => 46.0,'N' => 81.5703125,'O' => 74.0,'P' => 62.85546875,
+            'Q' => 73.140625,'R' => 20.0,'S' => 8.0,
         ];
-        foreach ($widthsMain as $col => $w) {
-            $sheetMain->getColumnDimension($col)->setWidth($w);
-        }
+        foreach ($widthsMain as $col => $w) $sheetMain->getColumnDimension($col)->setWidth($w);
 
         $sheetMain->getRowDimension(1)->setRowHeight(26.25);
         $this->styleHeaderMain($sheetMain, 'A1:S1');
 
         // ============================================================
-        // 7) Encabezados experiencia
+        // 9) Encabezados experiencia
         // ============================================================
         $headersExp = [
             'ID',
@@ -197,20 +222,14 @@ class ReporteCvController extends Controller
         $sheetExp->fromArray([$headersExp], null, 'A1');
 
         $widthsExp = [
-            'A' => 7.0,
-            'B' => 28.5703125,
-            'C' => 31.140625,
-            'D' => 60.28515625,
-            'E' => 54.85546875,
-            'F' => 60.5703125,
+            'A' => 7.0,'B' => 28.5703125,'C' => 31.140625,'D' => 60.28515625,'E' => 54.85546875,'F' => 60.5703125,
         ];
-        foreach ($widthsExp as $col => $w) {
-            $sheetExp->getColumnDimension($col)->setWidth($w);
-        }
+        foreach ($widthsExp as $col => $w) $sheetExp->getColumnDimension($col)->setWidth($w);
+
         $this->styleHeaderExp($sheetExp, 'A1:F1');
 
         // ============================================================
-        // 8) Validaciones (listas)
+        // 10) Validaciones (listas)
         // ============================================================
         $maxRowValid = 5000;
         $this->applyListValidation($sheetMain, "I2:I{$maxRowValid}", '=Hidden_18');
@@ -218,7 +237,7 @@ class ReporteCvController extends Controller
         $this->applyListValidation($sheetMain, "O2:O{$maxRowValid}", '=Hidden_314');
 
         // ============================================================
-        // 9) Llenar datos
+        // 11) Llenar datos
         // ============================================================
         $rowMain = 2;
         $rowExp  = 2;
@@ -234,8 +253,9 @@ class ReporteCvController extends Controller
 
             $sheetMain->setCellValue("A{$rowMain}", $ejercicio);
 
-            $sheetMain->setCellValue("B{$rowMain}", ExcelDate::PHPToExcel($inicio));
-            $sheetMain->setCellValue("C{$rowMain}", ExcelDate::PHPToExcel($fin));
+            // Visual del periodo del trimestre
+            $sheetMain->setCellValue("B{$rowMain}", ExcelDate::PHPToExcel($inicioTrim->copy()->startOfDay()));
+            $sheetMain->setCellValue("C{$rowMain}", ExcelDate::PHPToExcel($finTrim->copy()->startOfDay()));
 
             $sheetMain->setCellValue("D{$rowMain}", $this->excelText($puesto));
             $sheetMain->setCellValue("E{$rowMain}", $this->excelText($puesto));
@@ -253,21 +273,22 @@ class ReporteCvController extends Controller
 
             $sheetMain->setCellValue("M{$rowMain}", $tablaId);
 
-            $sheetMain->setCellValue("N{$rowMain}", null); // sin hipervínculo
-            $sheetMain->setCellValue("O{$rowMain}", 'No'); // siempre No
-            $sheetMain->setCellValue("P{$rowMain}", null); // sin hipervínculo
+            $sheetMain->setCellValue("N{$rowMain}", null);
+            $sheetMain->setCellValue("O{$rowMain}", 'No');
+            $sheetMain->setCellValue("P{$rowMain}", null);
 
             $sheetMain->setCellValue("Q{$rowMain}", $areaResponsable);
 
-            $sheetMain->setCellValue("R{$rowMain}", ExcelDate::PHPToExcel($fechaActualizacion));
-
+            $sheetMain->setCellValue("R{$rowMain}", ExcelDate::PHPToExcel($fechaActualizacionExcel));
             $sheetMain->setCellValue("S{$rowMain}", null);
 
+            // ✅ FORMATO FECHAS dd/mm/yyyy (como pediste)
             $sheetMain->getStyle("B{$rowMain}:C{$rowMain}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
             $sheetMain->getStyle("R{$rowMain}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
             $this->applyThinBorder($sheetMain, "A{$rowMain}:S{$rowMain}");
 
+            // Experiencias
             $exps = $experienciasByEmp->get($emp->id_tbl_empleados, collect());
             foreach ($exps as $exp) {
                 $sheetExp->getRowDimension($rowExp)->setRowHeight(16.5);
@@ -286,6 +307,7 @@ class ReporteCvController extends Controller
                 $campo = (string)($exp->campo_experiencia ?? '');
                 $sheetExp->setCellValue("F{$rowExp}", $this->excelText(mb_substr($campo, 0, 200)));
 
+                // ✅ dd/mm/yyyy también aquí
                 $sheetExp->getStyle("B{$rowExp}:C{$rowExp}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
                 $this->applyThinBorder($sheetExp, "A{$rowExp}:F{$rowExp}");
@@ -298,7 +320,7 @@ class ReporteCvController extends Controller
         }
 
         // ============================================================
-        // 10) Descargar
+        // 12) Descargar
         // ============================================================
         $filename = '17_LGT_Art_70_Fr_XVII_' . $ejercicio . '_T' . $trimestre . '_' . Carbon::now()->format('Ymd_His') . '.xlsx';
 
