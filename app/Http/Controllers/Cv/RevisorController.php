@@ -11,6 +11,7 @@ use App\Models\Cv\CvCursosCapacitaciones;
 use App\Models\Cv\CvTokenAcceso;
 use App\Services\Cv\CvFolioService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RevisorController extends Controller
 {
@@ -52,7 +53,7 @@ class RevisorController extends Controller
                     'nombre' => trim("{$e->nombre} {$e->primer_apellido} {$e->segundo_apellido}"),
                     'curp' => $e->curp,
                     'area' => $e->area_adscripcion,
-                    'puesto' => $e->puesto_label, // ✅ aquí ya va el correcto
+                    'puesto' => $e->puesto_label,
                     'fechaActualizacion' => optional($e->updated_at)->format('d/m/Y H:i'),
                     'status' => $this->cvStatusLabel($e->estatus_cv),
                 ];
@@ -60,37 +61,93 @@ class RevisorController extends Controller
 
         return response()->json($empleados);
     }
-public function show($id)
-{
-    $empleado = Empleado::with(['puesto'])->findOrFail($id);
 
-    // ✅ puesto correcto
-    $empleado->setAttribute('puesto_actual', $empleado->puesto_label);
+    public function show($id)
+    {
+        $empleado = Empleado::with(['puesto'])->findOrFail($id);
 
-    // ✅ fecha bonita para el revisor (dd/mm/YYYY)
-    $empleado->setAttribute(
-        'fecha_inicio_puesto',
-        $empleado->fecha_inicio_puesto ? $empleado->fecha_inicio_puesto->format('d/m/Y') : null
-    );
+        // Para el revisor mostramos texto listo:
+        $empleado->setAttribute('puesto_actual', $empleado->puesto_label);
 
-    $experiencias = CvExperienciaLaboral::where('id_tbl_empleados', $id)
-        ->orderBy('orden')
-        ->get();
+        // fecha bonita
+        $empleado->setAttribute(
+            'fecha_inicio_puesto',
+            $empleado->fecha_inicio_puesto ? $empleado->fecha_inicio_puesto->format('d/m/Y') : null
+        );
 
-    $estudios = CvEstudiosAcademicos::where('id_tbl_empleados', $id)->first();
+        $experiencias = CvExperienciaLaboral::where('id_tbl_empleados', $id)
+            ->orderBy('orden')
+            ->get();
 
-    $cursos = CvCursosCapacitaciones::where('id_tbl_empleados', $id)
-        ->orderBy('orden')
-        ->get();
+        $estudios = CvEstudiosAcademicos::where('id_tbl_empleados', $id)->first();
 
-    return response()->json([
-        'empleado' => $empleado,
-        'experiencias' => $experiencias,
-        'estudios' => $estudios,
-        'cursos' => $cursos,
-    ]);
-}
+        $cursos = CvCursosCapacitaciones::where('id_tbl_empleados', $id)
+            ->orderBy('orden')
+            ->get();
 
+        return response()->json([
+            'empleado' => $empleado,
+            'experiencias' => $experiencias,
+            'estudios' => $estudios,
+            'cursos' => $cursos,
+        ]);
+    }
+
+    /**
+     * ✅ NUEVO: catálogo de puestos (para combo)
+     * GET /api/revisor/catalogos/puestos
+     */
+    public function catalogoPuestos()
+    {
+        $puestos = DB::table('profesionalizacion.cat_puestos')
+            ->select('id_puesto', 'nombre')
+            ->orderBy('id_puesto', 'asc')
+            ->get();
+
+        return response()->json($puestos);
+    }
+
+    /**
+     * ✅ NUEVO: actualizar puesto por id_puesto (desde combo)
+     * POST /api/revisor/empleados/{id}/puesto
+     */
+    public function updatePuesto(Request $request, $id)
+    {
+        $data = $request->validate([
+            'id_puesto' => 'required|integer|min:1',
+        ], [
+            'id_puesto.required' => 'Selecciona un puesto.',
+            'id_puesto.integer' => 'El puesto seleccionado no es válido.',
+        ]);
+
+        $empleado = Empleado::with(['puesto'])->findOrFail($id);
+
+        $puesto = DB::table('profesionalizacion.cat_puestos')
+            ->select('id_puesto', 'nombre')
+            ->where('id_puesto', (int)$data['id_puesto'])
+            ->first();
+
+        if (!$puesto) {
+            return response()->json([
+                'message' => 'El puesto seleccionado no existe en el catálogo.',
+            ], 422);
+        }
+
+        // ✅ Guardamos el id_puesto real
+        $empleado->id_puesto = (int)$puesto->id_puesto;
+
+        // ✅ Opcional pero recomendado: guardar el texto para que "se vea" inmediato
+        // (si tu tabla tbl_empleados tiene columna puesto_actual)
+        $empleado->puesto_actual = $puesto->nombre;
+
+        $empleado->save();
+
+        return response()->json([
+            'ok' => true,
+            'id_puesto' => (int)$empleado->id_puesto,
+            'puesto_actual' => $puesto->nombre,
+        ]);
+    }
 
     public function updateStatus(Request $request, $id, CvFolioService $folioSvc)
     {
@@ -160,13 +217,11 @@ public function show($id)
             <p>Tu registro de CV fue <strong>rechazado</strong> durante el proceso de revisión.</p>
             <p><strong>Motivo:</strong><br>{$motivoSafe}</p>
             <p>Por favor, ingresa nuevamente al sistema para corregir tu información y volver a enviarla.</p>
-            <p>Para continuar con la corrección, ingresa al siguiente enlace y solicita un nuevo código de acceso con tu CURP:</p>
             <p>
                 <a href=\"" . route('registro.wizard') . "\" target=\"_blank\">
                     Ir al registro de CV
                 </a>
             </p>
-            <p>Una vez que hayas corregido tus datos, recuerda finalizar y enviar el CV para que pueda ser revisado nuevamente.</p>
         ";
 
         $mailData = [

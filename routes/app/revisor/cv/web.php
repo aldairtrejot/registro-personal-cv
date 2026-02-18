@@ -97,4 +97,7 @@ Route::middleware(['auth', 'role:1,3'])->group(function () {
     // Excel aprobados
     Route::get('/cv/reportes/empleados-terminados', [ReporteCvController::class, 'exportTerminados'])
         ->name('cv.reportes.empleados_terminados');
+
+        Route::get('/catalogos/puestos', [RevisorController::class, 'catalogoPuestos']);
+Route::post('/empleados/{id}/puesto', [RevisorController::class, 'updatePuesto']);
 });
