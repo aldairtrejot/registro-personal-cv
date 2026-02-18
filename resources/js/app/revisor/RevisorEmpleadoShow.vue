@@ -148,7 +148,7 @@
           </div>
         </div>
 
-        <!-- CONTENIDO (igual que tu vista) -->
+        <!-- CONTENIDO -->
         <div class="row g-3" v-if="empleado">
           <div class="col-12 col-lg-4">
             <div class="card imss-card mb-3">
@@ -305,7 +305,52 @@
           </div>
         </div>
 
-        <!-- El modal de rechazo queda igual (si ya lo tienes) -->
+        <!-- ✅ MODAL RECHAZO (NO SE QUITA) -->
+        <div
+          class="modal fade"
+          id="modalRechazoCv"
+          tabindex="-1"
+          aria-labelledby="modalRechazoCvLabel"
+          aria-hidden="true"
+          ref="modalRechazoRef"
+        >
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 14px;">
+              <div class="modal-header">
+                <h5 class="modal-title" id="modalRechazoCvLabel">Rechazar CV</h5>
+                <button type="button" class="btn-close" @click="cerrarModalRechazo" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-2 text-muted small">
+                  Escribe el motivo. Este se enviará al empleado por correo.
+                </div>
+
+                <label class="form-label fw-semibold">Motivo de rechazo *</label>
+                <textarea
+                  class="form-control"
+                  rows="4"
+                  v-model="motivoRechazo"
+                  placeholder="Ej: Falta adjuntar información / corregir fechas / etc."
+                  :disabled="loading"
+                ></textarea>
+
+                <div v-if="errorMotivo" class="text-danger small mt-2">
+                  {{ errorMotivo }}
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary imss-btn-fixed" @click="cerrarModalRechazo" :disabled="loading">
+                  Cancelar
+                </button>
+                <button type="button" class="btn btn-imss-danger imss-btn-fixed" @click="confirmarRechazo" :disabled="loading">
+                  <span v-if="!loading">Confirmar rechazo</span>
+                  <span v-else>Procesando…</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /MODAL -->
       </div>
     </div>
   </div>
@@ -337,6 +382,11 @@ export default {
       editandoPuesto: false,
       puestoIdEdit: 0,
       loadingPuesto: false,
+
+      // ✅ modal rechazo
+      motivoRechazo: '',
+      errorMotivo: '',
+      modalRechazo: null,
 
       loading: false,
     }
@@ -394,17 +444,6 @@ export default {
         case 4: return 'rechazado'
         default: return 'sin_cv'
       }
-    },
-
-    // ✅ NUEVO: fallback por si no existe dataset en el blade
-    getEmpleadoId() {
-      const el = document.getElementById('blade_revisor_empleado_show')
-      const idDataset = el?.dataset?.empleadoId
-      if (idDataset) return idDataset
-
-      // fallback: /revisor/empleados/{id}
-      const m = window.location.pathname.match(/\/revisor\/empleados\/(\d+)(\/)?$/)
-      return m ? m[1] : null
     },
 
     async cargarCatalogoPuestos() {
@@ -478,18 +517,111 @@ export default {
       }
     },
 
-    // Si tus botones de aprobar/rechazar ya existían, déjalos igual.
-    async cambiarStatus() {},
-    abrirModalRechazo() {},
+    // ✅ APROBAR (no toca modal)
+    async cambiarStatus(status) {
+      try {
+        if (!this.empleado) return
+        const id = this.empleado.id_tbl_empleados ?? this.empleado.id
+
+        this.loading = true
+        const { data } = await axios.post(`/api/revisor/empleados/${id}/estatus`, { status })
+
+        this.statusLocal = status
+
+        if (status === 'aprobado' && data?.folio) {
+          this.mensaje = { tipo: 'ok', texto: `CV aprobado. Folio: ${data.folio}` }
+        } else {
+          this.mensaje = { tipo: 'ok', texto: `Estatus actualizado: ${this.statusLabel(status)}` }
+        }
+
+        await this.cargarDetalle(id)
+        setTimeout(() => { this.mensaje = null }, 4000)
+      } catch (e) {
+        const msg = e?.response?.data?.message || 'No se pudo actualizar el estatus.'
+        this.mensaje = { tipo: 'error', texto: msg }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // ✅ MODAL RECHAZO (restaurado correctamente)
+    abrirModalRechazo() {
+      this.mensaje = null
+      this.errorMotivo = ''
+      this.motivoRechazo = ''
+
+      if (this.modalRechazo) {
+        this.modalRechazo.show()
+      }
+    },
+    cerrarModalRechazo() {
+      if (this.modalRechazo) {
+        this.modalRechazo.hide()
+      }
+    },
+
+    async confirmarRechazo() {
+      try {
+        if (!this.empleado) return
+
+        const motivo = String(this.motivoRechazo || '').trim()
+        if (!motivo) {
+          this.errorMotivo = 'El motivo es obligatorio.'
+          return
+        }
+
+        const id = this.empleado.id_tbl_empleados ?? this.empleado.id
+
+        this.loading = true
+        await axios.post(`/api/revisor/empleados/${id}/estatus`, {
+          status: 'rechazado',
+          motivo,
+        })
+
+        this.statusLocal = 'rechazado'
+        this.cerrarModalRechazo()
+
+        this.mensaje = { tipo: 'ok', texto: 'CV rechazado y notificación enviada.' }
+        await this.cargarDetalle(id)
+        setTimeout(() => { this.mensaje = null }, 4000)
+      } catch (e) {
+        const msg = e?.response?.data?.message || 'No se pudo rechazar el CV.'
+        this.mensaje = { tipo: 'error', texto: msg }
+      } finally {
+        this.loading = false
+      }
+    },
   },
   async mounted() {
-    const id = this.getEmpleadoId()
+    const el = document.getElementById('blade_revisor_empleado_show')
+    const id = el?.dataset?.empleadoId
 
-    // ✅ puedes cargar catálogo desde el inicio para que sea instantáneo al dar editar
+    // ✅ bootstrap modal (sin romper si no existe bootstrap en algún entorno)
+    try {
+      const bootstrap = await import('bootstrap/dist/js/bootstrap.bundle.min.js')
+      const Modal = bootstrap?.Modal || bootstrap?.default?.Modal
+      if (Modal && this.$refs.modalRechazoRef) {
+        this.modalRechazo = new Modal(this.$refs.modalRechazoRef, {
+          backdrop: 'static',
+          keyboard: false,
+        })
+      }
+    } catch (e) {
+      // Si tu proyecto ya carga bootstrap global, esto no afecta.
+      // El modal seguirá funcionando si bootstrap ya está en window.bootstrap
+      try {
+        const Modal = window?.bootstrap?.Modal
+        if (Modal && this.$refs.modalRechazoRef) {
+          this.modalRechazo = new Modal(this.$refs.modalRechazoRef, {
+            backdrop: 'static',
+            keyboard: false,
+          })
+        }
+      } catch (_) {}
+    }
+
     this.cargarCatalogoPuestos()
-
     if (id) this.cargarDetalle(id)
-    else this.mensaje = { tipo: 'error', texto: 'No se detectó el ID del empleado en la URL.' }
   },
 }
 </script>

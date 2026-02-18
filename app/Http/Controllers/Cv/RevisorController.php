@@ -23,9 +23,9 @@ class RevisorController extends Controller
 
         if ($request->filled('status')) {
             $map = [
-                'edicion' => 1,
-                'enviado' => 2,
-                'aprobado' => 3,
+                'edicion'   => 1,
+                'enviado'   => 2,
+                'aprobado'  => 3,
                 'rechazado' => 4,
             ];
             if (isset($map[$request->status])) {
@@ -66,13 +66,17 @@ class RevisorController extends Controller
     {
         $empleado = Empleado::with(['puesto'])->findOrFail($id);
 
-        // Para el revisor mostramos texto listo:
-        $empleado->setAttribute('puesto_actual', $empleado->puesto_label);
+        // ✅ Asegurar que en UI exista algo para mostrar como "puesto_actual"
+        // - NO tocamos id_puesto
+        // - Si puesto_actual viene vacío, mostramos el label del catálogo
+        if (empty($empleado->puesto_actual)) {
+            $empleado->setAttribute('puesto_actual', $empleado->puesto_label);
+        }
 
-        // fecha bonita
+        // ✅ Formato de fecha como pediste: YYYY-MM-DD
         $empleado->setAttribute(
             'fecha_inicio_puesto',
-            $empleado->fecha_inicio_puesto ? $empleado->fecha_inicio_puesto->format('d/m/Y') : null
+            $empleado->fecha_inicio_puesto ? $empleado->fecha_inicio_puesto->format('Y-m-d') : null
         );
 
         $experiencias = CvExperienciaLaboral::where('id_tbl_empleados', $id)
@@ -104,7 +108,6 @@ class RevisorController extends Controller
             ->orderBy('id_puesto', 'asc')
             ->get();
 
-        // ✅ Regresamos array plano porque tu Vue hace: Array.isArray(data) ? data : []
         return response()->json($puestos);
     }
 
@@ -135,16 +138,17 @@ class RevisorController extends Controller
         }
 
         // ✅ Guardamos el id_puesto real
-        $empleado->id_puesto = (int)$puesto->id_puesto;
+        $empleado->id_puesto = (int) $puesto->id_puesto;
 
-        // ✅ Guardar texto para que se refleje inmediato (si existe la columna)
+        // ✅ Guardar texto (si tu tbl_empleados trae la columna puesto_actual)
+        // Esto ayuda a que se vea inmediato y a tu export, etc.
         $empleado->puesto_actual = $puesto->nombre;
 
         $empleado->save();
 
         return response()->json([
             'ok' => true,
-            'id_puesto' => (int)$empleado->id_puesto,
+            'id_puesto' => (int) $empleado->id_puesto,
             'puesto_actual' => $puesto->nombre,
         ]);
     }
@@ -159,9 +163,9 @@ class RevisorController extends Controller
         $empleado = Empleado::findOrFail($id);
 
         $map = [
-            'edicion' => 1,
-            'enviado' => 2,
-            'aprobado' => 3,
+            'edicion'   => 1,
+            'enviado'   => 2,
+            'aprobado'  => 3,
             'rechazado' => 4,
         ];
 
