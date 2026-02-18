@@ -396,6 +396,17 @@ export default {
       }
     },
 
+    // ✅ NUEVO: fallback por si no existe dataset en el blade
+    getEmpleadoId() {
+      const el = document.getElementById('blade_revisor_empleado_show')
+      const idDataset = el?.dataset?.empleadoId
+      if (idDataset) return idDataset
+
+      // fallback: /revisor/empleados/{id}
+      const m = window.location.pathname.match(/\/revisor\/empleados\/(\d+)(\/)?$/)
+      return m ? m[1] : null
+    },
+
     async cargarCatalogoPuestos() {
       try {
         this.loadingCatalogoPuestos = true
@@ -429,7 +440,6 @@ export default {
       this.editandoPuesto = !this.editandoPuesto
 
       if (this.editandoPuesto) {
-        // Carga catálogo si no está cargado
         if (!this.puestos.length) {
           await this.cargarCatalogoPuestos()
         }
@@ -473,13 +483,13 @@ export default {
     abrirModalRechazo() {},
   },
   async mounted() {
-    const el = document.getElementById('blade_revisor_empleado_show')
-    const id = el?.dataset?.empleadoId
+    const id = this.getEmpleadoId()
 
     // ✅ puedes cargar catálogo desde el inicio para que sea instantáneo al dar editar
     this.cargarCatalogoPuestos()
 
     if (id) this.cargarDetalle(id)
+    else this.mensaje = { tipo: 'error', texto: 'No se detectó el ID del empleado en la URL.' }
   },
 }
 </script>

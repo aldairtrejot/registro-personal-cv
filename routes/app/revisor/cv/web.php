@@ -92,12 +92,13 @@ Route::middleware(['auth', 'role:1,3'])->group(function () {
         Route::get('/empleados',               [RevisorController::class, 'index']);
         Route::get('/empleados/{id}',          [RevisorController::class, 'show']);
         Route::post('/empleados/{id}/estatus', [RevisorController::class, 'updateStatus']);
+
+        // ✅ NUEVAS (para combo de puesto actual)
+        Route::get('/catalogos/puestos',       [RevisorController::class, 'catalogoPuestos']);
+        Route::post('/empleados/{id}/puesto',  [RevisorController::class, 'updatePuesto']);
     });
 
     // Excel aprobados
     Route::get('/cv/reportes/empleados-terminados', [ReporteCvController::class, 'exportTerminados'])
         ->name('cv.reportes.empleados_terminados');
-
-        Route::get('/catalogos/puestos', [RevisorController::class, 'catalogoPuestos']);
-Route::post('/empleados/{id}/puesto', [RevisorController::class, 'updatePuesto']);
 });

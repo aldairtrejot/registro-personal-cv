@@ -94,7 +94,7 @@ class RevisorController extends Controller
     }
 
     /**
-     * ✅ NUEVO: catálogo de puestos (para combo)
+     * ✅ Catálogo de puestos (para combo)
      * GET /api/revisor/catalogos/puestos
      */
     public function catalogoPuestos()
@@ -104,11 +104,12 @@ class RevisorController extends Controller
             ->orderBy('id_puesto', 'asc')
             ->get();
 
+        // ✅ Regresamos array plano porque tu Vue hace: Array.isArray(data) ? data : []
         return response()->json($puestos);
     }
 
     /**
-     * ✅ NUEVO: actualizar puesto por id_puesto (desde combo)
+     * ✅ Actualizar puesto por id_puesto (desde combo)
      * POST /api/revisor/empleados/{id}/puesto
      */
     public function updatePuesto(Request $request, $id)
@@ -136,8 +137,7 @@ class RevisorController extends Controller
         // ✅ Guardamos el id_puesto real
         $empleado->id_puesto = (int)$puesto->id_puesto;
 
-        // ✅ Opcional pero recomendado: guardar el texto para que "se vea" inmediato
-        // (si tu tabla tbl_empleados tiene columna puesto_actual)
+        // ✅ Guardar texto para que se refleje inmediato (si existe la columna)
         $empleado->puesto_actual = $puesto->nombre;
 
         $empleado->save();
