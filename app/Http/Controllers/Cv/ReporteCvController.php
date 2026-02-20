@@ -247,7 +247,14 @@ class ReporteCvController extends Controller
 
         foreach ($empleados as $emp) {
             $est = $estudiosByEmp->get($emp->id_tbl_empleados);
+
+            // puesto base (comportamiento actual)
             $puesto = $emp->puesto_label ?? $emp->puesto_actual ?? null;
+
+            // ✅ MODIFICACIÓN SOLICITADA:
+            // D = puesto con perspectiva de género (si existe relación)
+            // E = puesto normal (sin género)
+            $puestoGenero = $this->puestoConGeneroSiExiste($puesto);
 
             $sheetMain->getRowDimension($rowMain)->setRowHeight(16.5);
 
@@ -257,7 +264,7 @@ class ReporteCvController extends Controller
             $sheetMain->setCellValue("B{$rowMain}", ExcelDate::PHPToExcel($inicioTrim->copy()->startOfDay()));
             $sheetMain->setCellValue("C{$rowMain}", ExcelDate::PHPToExcel($finTrim->copy()->startOfDay()));
 
-            $sheetMain->setCellValue("D{$rowMain}", $this->excelText($puesto));
+            $sheetMain->setCellValue("D{$rowMain}", $this->excelText($puestoGenero));
             $sheetMain->setCellValue("E{$rowMain}", $this->excelText($puesto));
 
             $sheetMain->setCellValue("F{$rowMain}", $this->excelText($emp->nombre));
@@ -467,5 +474,49 @@ class ReporteCvController extends Controller
         $dv->setFormula1($formula);
 
         $sheet->setDataValidation($range, $dv);
+    }
+
+    // ============================================================
+    // ✅ MODIFICACIÓN SOLICITADA (sin Excel / sin BD):
+    // Catálogo pequeño hardcodeado.
+    // D: Denominación de puesto (con perspectiva de género) -> usa mapeo si existe
+    // E: Denominación del cargo -> siempre el puesto normal
+    // ============================================================
+    private function puestoConGeneroSiExiste(?string $puesto): ?string
+    {
+        if ($puesto === null) return null;
+
+        // Claves normalizadas (sin acentos, sin dobles espacios, uppercase)
+        $map = [
+            'JEFE DEPARTAMENTAL' => 'JEFE (A) DEPARTAMENTAL',
+            'JEFE DE AREA ADMINISTRATIVA' => 'JEFE (A) DE AREA ADMINISTRATIVA',
+            'SUPERVISOR DE PROCESOS' => 'SUPERVISOR (A) DE PROCESOS',
+            'SUPERVISOR ACCION COMUNITARIA REGIONAL' => 'SUPERVISOR (A) ACCION COMUNITARIA REGIONAL',
+            'SUPERVISOR CONSERVACION REGIONAL' => 'SUPERVISOR (A) CONSERVACION REGIONAL',
+            'SUPERVISOR ADMINISTRATIVO REGIONAL' => 'SUPERVISOR (A) ADMINISTRATIVO REGIONAL',
+            'JEFE DE OFICINA' => 'JEFE (A) DE OFICINA',
+            'JEFE DE AREA ENFERMERIA' => 'JEFE (A) AREA ENFERMERIA',
+            'JEFE DE AREA MEDICA' => 'JEFE (A) AREA MEDICA',
+            'JEFE AREA ENFERMERIA' => 'JEFE (A) AREA ENFERMERIA',
+        ];
+
+        $key = $this->normKey($puesto);
+
+        return $map[$key] ?? $puesto;
+    }
+
+    private function normKey(string $s): string
+    {
+        $s = str_replace("\xC2\xA0", ' ', $s);  // NBSP
+        $s = trim($s);
+        $s = preg_replace('/\s+/u', ' ', $s);  // colapsa espacios
+
+        // Quita acentos para que "ÁREA" == "AREA"
+        $t = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+        if ($t !== false) {
+            $s = $t;
+        }
+
+        return mb_strtoupper($s, 'UTF-8');
     }
 }
