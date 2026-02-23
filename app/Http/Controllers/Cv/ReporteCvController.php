@@ -273,7 +273,12 @@ class ReporteCvController extends Controller
 
             $sheetMain->setCellValue("I{$rowMain}", $this->sexoDesdeCurp($emp->curp));
 
-            $sheetMain->setCellValue("J{$rowMain}", $this->excelText($emp->area_adscripcion));
+            // ✅ CAMBIO SOLICITADO (columna J: Área de adscripción):
+            // - Si viene "X - Y" y Y != "N/A" -> mostrar Y
+            // - Si viene "X - N/A" -> mostrar X
+            $sheetMain->setCellValue("J{$rowMain}", $this->excelText(
+                $this->areaAdscripcionFormato($emp->area_adscripcion)
+            ));
 
             $sheetMain->setCellValue("K{$rowMain}", $this->excelText($est?->nivel));
             $sheetMain->setCellValue("L{$rowMain}", $this->excelText($est?->carrera_generica));
@@ -474,6 +479,38 @@ class ReporteCvController extends Controller
         $dv->setFormula1($formula);
 
         $sheet->setDataValidation($range, $dv);
+    }
+
+    // ============================================================
+    // ✅ CAMBIO SOLICITADO (columna J: Área de adscripción):
+    // - Si viene "X - Y" y Y != "N/A" -> mostrar Y
+    // - Si viene "X - N/A" -> mostrar X
+    // ============================================================
+    private function areaAdscripcionFormato(?string $texto): ?string
+    {
+        if ($texto === null) return null;
+
+        $s = str_replace("\xC2\xA0", ' ', $texto);  // NBSP
+        $s = trim($s);
+        if ($s === '') return null;
+
+        // Soporta "-", "–", "—" y separa solo en 2 partes (antes/después del primer separador)
+        $parts = preg_split('/\s*[–—-]\s*/u', $s, 2);
+
+        if (!$parts || count($parts) < 2) {
+            return $s;
+        }
+
+        $left  = trim((string)$parts[0]);
+        $right = trim((string)$parts[1]);
+
+        // Detecta N/A (ignora espacios y mayúsculas)
+        if ($right !== '' && mb_strtoupper($right, 'UTF-8') === 'N/A') {
+            return $left !== '' ? $left : null;
+        }
+
+        // Caso normal: devolver lo que viene después del guion
+        return $right !== '' ? $right : ($left !== '' ? $left : null);
     }
 
     // ============================================================
