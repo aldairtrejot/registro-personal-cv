@@ -8,171 +8,143 @@ use Illuminate\Support\Facades\Schema;
 class CvFolioService
 {
     /**
-     * Devuelve el folio consecutivo "limpio" (1,2,3...) a partir de cualquier formato:
-     * - "3" -> 3
-     * - "2026000003" -> 3
-     * - "CV-2026-000003" -> 3
+     * Devuelve folio numérico (solo números).
+     * Mantiene nombre/método por compatibilidad con tu sistema.
      */
     public function parseConsecutivo($raw): int
     {
-        $raw = (string)($raw ?? '');
-        $digits = preg_replace('/\D+/', '', $raw);
-        $digits = trim($digits);
+        if ($raw === null) return 0;
 
-        if ($digits === '') return 0;
+        $s = trim((string) $raw);
+        if ($s === '') return 0;
 
-        // Si empieza con año (2000-2099), quita el año (primeros 4) y deja el resto
-        if (strlen($digits) >= 5) {
-            $year = (int)substr($digits, 0, 4);
-            if ($year >= 2000 && $year <= 2099) {
-                $rest = ltrim(substr($digits, 4), '0');
-                return (int)($rest === '' ? 0 : $rest);
-            }
-        }
+        // Solo números
+        if (!preg_match('/^[0-9]+$/', $s)) return 0;
 
-        // Si no trae año, es directo
-        return (int)ltrim($digits, '0') ?: (int)$digits;
+        // Maneja ceros a la izquierda
+        $n = (int) ltrim($s, '0');
+        if ($n > 0) return $n;
+
+        return (int) $s; // "0" o "000"
     }
 
     /**
-     * Se usa al aprobar:
-     * - Si folio está vacío -> asigna (maxConsecutivo + 1)
-     * - Si folio está en formato viejo (ej 2026000003) -> lo normaliza a 3, si está libre
-     * - Si ya está correcto (ej 3) -> lo deja
+     * Asigna folio al aprobar con control y trazabilidad:
+     * - Control consecutivo: profesionalizacion.cv_folio_sequences (name='cv')
+     * - Trazabilidad: profesionalizacion.cv_folios (unique folio, unique empleado_id)
+     * - Compatibilidad: profesionalizacion.tbl_empleados.folio_cv y folio_generado_en
      */
     public function asignarONormalizarAlAprobar(int $empleadoId): int
     {
-        $table = $this->resolveEmpleadosTable();
+        $empleadosTable = $this->resolveEmpleadosTable();
 
-        return (int) DB::transaction(function () use ($table, $empleadoId) {
-            $this->lockFolioSequence();
+        return (int) DB::transaction(function () use ($empleadosTable, $empleadoId) {
 
-            // Bloquea fila del empleado
-            $row = $this->fromTable($table)
-                ->select(['folio_cv'])
+            // 1) Bloquear fila del empleado
+            $rowEmp = $this->fromTable($empleadosTable)
+                ->select(['id_tbl_empleados', 'folio_cv'])
                 ->where('id_tbl_empleados', $empleadoId)
                 ->lockForUpdate()
                 ->first();
 
-            if (!$row) {
+            if (!$rowEmp) {
                 throw new \RuntimeException("No se encontró el empleado id_tbl_empleados={$empleadoId}.");
             }
 
-            $actualRaw = $row->folio_cv ?? null;
-            $actualConsec = $this->parseConsecutivo($actualRaw);
+            $actual = $this->parseConsecutivo($rowEmp->folio_cv ?? null);
 
-            // 1) Si NO tiene folio -> asigna siguiente consecutivo
-            if ($actualConsec <= 0) {
-                $max = $this->getMaxConsecutivo($table);
-                $next = $max + 1;
+            // 2) Si ya tiene folio numérico, asegurar trazabilidad y regresar
+            if ($actual > 0) {
+                $this->ensureFolioRow($actual, $empleadoId, 'aprobacion_existente');
 
-                $this->fromTable($table)
-                    ->where('id_tbl_empleados', $empleadoId)
-                    ->update(['folio_cv' => $next]);
-
-                return $next;
-            }
-
-            // 2) Si ya tiene algo, pero viene "viejo" (ej 2026000003) -> normaliza a 3
-            //    Detectamos "viejo" si el raw NO es igual al consecutivo (como string)
-            $rawStr = trim((string)$actualRaw);
-            if ($rawStr !== '' && $rawStr !== (string)$actualConsec) {
-                // Solo normaliza si ese consecutivo no está usado por otro empleado
-                if (!$this->existeConsecutivoEnOtroEmpleado($table, $actualConsec, $empleadoId)) {
-                    $this->fromTable($table)
+                // Limpia folio_cv si venía con ceros/espacios (sin afectar el número)
+                $raw = trim((string)($rowEmp->folio_cv ?? ''));
+                if ($raw !== (string)$actual) {
+                    $this->fromTable($empleadosTable)
                         ->where('id_tbl_empleados', $empleadoId)
-                        ->update(['folio_cv' => $actualConsec]);
-
-                    return $actualConsec;
+                        ->update([
+                            'folio_cv' => $actual,
+                            'folio_generado_en' => DB::raw("COALESCE(folio_generado_en, NOW())"),
+                        ]);
                 }
 
-                // Si ya existe en otro, asigna uno nuevo (max+1)
-                $max = $this->getMaxConsecutivo($table);
-                $next = $max + 1;
-
-                $this->fromTable($table)
-                    ->where('id_tbl_empleados', $empleadoId)
-                    ->update(['folio_cv' => $next]);
-
-                return $next;
+                return $actual;
             }
 
-            // 3) Ya estaba bien (ej 3)
-            return $actualConsec;
+            // 3) Asegurar que exista fila de secuencia (por si BD quedó a medias)
+            $seqRow = DB::table('profesionalizacion.cv_folio_sequences')
+                ->where('name', 'cv')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$seqRow) {
+                DB::table('profesionalizacion.cv_folio_sequences')->insert([
+                    'name' => 'cv',
+                    'current_value' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $seqRow = DB::table('profesionalizacion.cv_folio_sequences')
+                    ->where('name', 'cv')
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if (!$seqRow) {
+                throw new \RuntimeException("No se pudo inicializar la secuencia 'cv' en profesionalizacion.cv_folio_sequences.");
+            }
+
+            // 4) Siguiente consecutivo
+            $next = ((int)$seqRow->current_value) + 1;
+
+            DB::table('profesionalizacion.cv_folio_sequences')
+                ->where('name', 'cv')
+                ->update([
+                    'current_value' => $next,
+                    'updated_at' => now(),
+                ]);
+
+            // 5) Registrar trazabilidad
+            $this->ensureFolioRow($next, $empleadoId, 'revisor');
+
+            // 6) Guardar en empleados
+            $this->fromTable($empleadosTable)
+                ->where('id_tbl_empleados', $empleadoId)
+                ->update([
+                    'folio_cv' => $next,
+                    'folio_generado_en' => now(),
+                ]);
+
+            return $next;
         });
     }
 
-    private function existeConsecutivoEnOtroEmpleado(string $table, int $consec, int $excludeEmpleadoId): bool
+    private function ensureFolioRow(int $folio, int $empleadoId, ?string $origen): void
     {
-        if ($consec <= 0) return false;
-
-        // Compara usando el mismo parseo (en SQL) para cubrir formatos viejos
-        if (DB::getDriverName() === 'pgsql') {
-            $sql = "
-                SELECT 1
-                FROM {$table}
-                WHERE id_tbl_empleados <> ?
-                AND (
-                    CASE
-                        WHEN folio_cv IS NULL THEN 0
-                        ELSE
-                            CASE
-                                WHEN length(regexp_replace(folio_cv::text, '\\D', '', 'g')) >= 5
-                                     AND left(regexp_replace(folio_cv::text, '\\D', '', 'g'), 4)::int BETWEEN 2000 AND 2099
-                                THEN COALESCE(NULLIF(ltrim(substring(regexp_replace(folio_cv::text, '\\D', '', 'g') from 5), '0'), '')::int, 0)
-                                ELSE COALESCE(NULLIF(ltrim(regexp_replace(folio_cv::text, '\\D', '', 'g'), '0'), '')::int, 0)
-                            END
-                    END
-                ) = ?
-                LIMIT 1
-            ";
-
-            $r = DB::selectOne($sql, [$excludeEmpleadoId, $consec]);
-            return !empty($r);
-        }
-
-        // Otros motores: fallback simple (si ya guardas folios limpios, basta)
-        return $this->fromTable($table)
-            ->where('id_tbl_empleados', '<>', $excludeEmpleadoId)
-            ->where('folio_cv', $consec)
-            ->exists();
-    }
-
-    private function getMaxConsecutivo(string $table): int
-    {
-        if (DB::getDriverName() === 'pgsql') {
-            $sql = "
-                SELECT COALESCE(MAX(
-                    CASE
-                        WHEN folio_cv IS NULL THEN 0
-                        ELSE
-                            CASE
-                                WHEN length(regexp_replace(folio_cv::text, '\\D', '', 'g')) >= 5
-                                     AND left(regexp_replace(folio_cv::text, '\\D', '', 'g'), 4)::int BETWEEN 2000 AND 2099
-                                THEN COALESCE(NULLIF(ltrim(substring(regexp_replace(folio_cv::text, '\\D', '', 'g') from 5), '0'), '')::int, 0)
-                                ELSE COALESCE(NULLIF(ltrim(regexp_replace(folio_cv::text, '\\D', '', 'g'), '0'), '')::int, 0)
-                            END
-                    END
-                ), 0) AS max_folio
-                FROM {$table}
-            ";
-
-            $r = DB::selectOne($sql);
-            return (int)($r->max_folio ?? 0);
-        }
-
-        // Otros motores
-        $max = $this->fromTable($table)->whereNotNull('folio_cv')->max('folio_cv');
-        return (int)($max ?? 0);
-    }
-
-    private function lockFolioSequence(): void
-    {
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("SELECT pg_advisory_xact_lock(923415781)");
+        try {
+            DB::table('profesionalizacion.cv_folios')->updateOrInsert(
+                ['empleado_id' => $empleadoId],
+                [
+                    'folio' => $folio,
+                    'asignado_en' => now(),
+                    'origen' => $origen,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        } catch (\Throwable $e) {
+            // Si UNIQUE(folio) tronó, te damos un error entendible
+            throw new \RuntimeException(
+                "No se pudo registrar el folio {$folio} para empleado_id={$empleadoId}. " .
+                "Es probable que ese folio ya esté asignado a otro empleado. Detalle: " . $e->getMessage()
+            );
         }
     }
 
+    // ==========================================================
+    // Compatibilidad con tu proyecto (mismos helpers)
+    // ==========================================================
     private function resolveEmpleadosTable(): string
     {
         $schemas = ['profesionalizacion', 'public', 'cv', 'administracion'];

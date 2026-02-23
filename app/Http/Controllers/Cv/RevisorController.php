@@ -66,14 +66,10 @@ class RevisorController extends Controller
     {
         $empleado = Empleado::with(['puesto'])->findOrFail($id);
 
-        // ✅ Asegurar que en UI exista algo para mostrar como "puesto_actual"
-        // - NO tocamos id_puesto
-        // - Si puesto_actual viene vacío, mostramos el label del catálogo
         if (empty($empleado->puesto_actual)) {
             $empleado->setAttribute('puesto_actual', $empleado->puesto_label);
         }
 
-        // ✅ Formato de fecha como pediste: YYYY-MM-DD
         $empleado->setAttribute(
             'fecha_inicio_puesto',
             $empleado->fecha_inicio_puesto ? $empleado->fecha_inicio_puesto->format('Y-m-d') : null
@@ -97,10 +93,6 @@ class RevisorController extends Controller
         ]);
     }
 
-    /**
-     * ✅ Catálogo de puestos (para combo)
-     * GET /api/revisor/catalogos/puestos
-     */
     public function catalogoPuestos()
     {
         $puestos = DB::table('profesionalizacion.cat_puestos')
@@ -111,10 +103,6 @@ class RevisorController extends Controller
         return response()->json($puestos);
     }
 
-    /**
-     * ✅ Actualizar puesto por id_puesto (desde combo)
-     * POST /api/revisor/empleados/{id}/puesto
-     */
     public function updatePuesto(Request $request, $id)
     {
         $data = $request->validate([
@@ -137,13 +125,8 @@ class RevisorController extends Controller
             ], 422);
         }
 
-        // ✅ Guardamos el id_puesto real
         $empleado->id_puesto = (int) $puesto->id_puesto;
-
-        // ✅ Guardar texto (si tu tbl_empleados trae la columna puesto_actual)
-        // Esto ayuda a que se vea inmediato y a tu export, etc.
         $empleado->puesto_actual = $puesto->nombre;
-
         $empleado->save();
 
         return response()->json([
