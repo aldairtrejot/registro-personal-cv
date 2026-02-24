@@ -256,6 +256,16 @@ class ReporteCvController extends Controller
             // E = puesto normal (sin género)
             $puestoGenero = $this->puestoConGeneroSiExiste($puesto);
 
+            // ============================================================
+            // ✅ CAMBIO NUEVO: El "ID" de Excel debe ser el folio (solo número)
+            // - Hoja 1: Columna M
+            // - Hoja 2: Columna A
+            // ============================================================
+            $folioId = (int)($emp->folio_cv ?? 0);
+
+            // Fallback por seguridad (no debería pasar si estatus_cv=3 siempre trae folio)
+            $idExcel = $folioId > 0 ? $folioId : $tablaId;
+
             $sheetMain->getRowDimension($rowMain)->setRowHeight(16.5);
 
             $sheetMain->setCellValue("A{$rowMain}", $ejercicio);
@@ -283,7 +293,8 @@ class ReporteCvController extends Controller
             $sheetMain->setCellValue("K{$rowMain}", $this->excelText($est?->nivel));
             $sheetMain->setCellValue("L{$rowMain}", $this->excelText($est?->carrera_generica));
 
-            $sheetMain->setCellValue("M{$rowMain}", $tablaId);
+            // ✅ AQUÍ ES DONDE VA EL FOLIO EN HOJA 1 (Columna M)
+            $sheetMain->setCellValue("M{$rowMain}", $idExcel);
 
             $sheetMain->setCellValue("N{$rowMain}", null);
             $sheetMain->setCellValue("O{$rowMain}", 'No');
@@ -305,7 +316,8 @@ class ReporteCvController extends Controller
             foreach ($exps as $exp) {
                 $sheetExp->getRowDimension($rowExp)->setRowHeight(16.5);
 
-                $sheetExp->setCellValue("A{$rowExp}", $tablaId);
+                // ✅ AQUÍ ES DONDE VA EL FOLIO EN HOJA 2 (Columna A)
+                $sheetExp->setCellValue("A{$rowExp}", $idExcel);
 
                 $ini = $this->toCarbonSafe($exp->fecha_inicio);
                 $finExp = $this->toCarbonSafe($exp->fecha_termino);

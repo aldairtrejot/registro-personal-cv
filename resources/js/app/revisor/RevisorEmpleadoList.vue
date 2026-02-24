@@ -3,7 +3,7 @@
     <div class="row justify-content-center">
       <div class="col-12">
         <div class="card imss-card">
-          <!-- HEADER (TÍTULO + ACCIONES) -->
+          <!-- HEADER -->
           <div class="card-header imss-card-header">
             <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 w-100">
               <div class="min-w-0">
@@ -15,10 +15,17 @@
               </div>
 
               <div class="imss-actions">
-                <a :href="zipAprobadosUrl" class="btn btn-imss btn-sm imss-btn-fixed">
+                <!-- ✅ ZIP (modal) -->
+                <button
+                  type="button"
+                  class="btn btn-imss btn-sm imss-btn-fixed"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalZipAprobados"
+                >
                   Descargar ZIP aprobados
-                </a>
+                </button>
 
+                <!-- ✅ CURP -->
                 <div class="imss-curp-box">
                   <label class="imss-label">Descarga por CURP</label>
                   <div class="d-flex gap-2 align-items-center">
@@ -82,7 +89,6 @@
             <table class="table align-middle mb-0 imss-table">
               <thead>
                 <tr>
-                  <th style="width:70px;">#</th>
                   <th>Nombre</th>
                   <th style="width:170px;">CURP</th>
                   <th>Área</th>
@@ -93,18 +99,14 @@
 
               <tbody>
                 <tr v-if="empleadosFiltrados.length === 0">
-                  <td colspan="6" class="text-center py-4 text-muted">
+                  <td colspan="5" class="text-center py-4 text-muted">
                     No hay registros que coincidan con los filtros.
                   </td>
                 </tr>
 
-                <tr v-for="(emp, index) in empleadosFiltrados" :key="getId(emp)">
-                  <td class="text-muted">{{ index + 1 }}</td>
-
+                <tr v-for="(emp, index) in empleadosFiltrados" :key="rowKey(emp, index)">
                   <td>
-                    <div class="fw-semibold imss-name">
-                      {{ emp.nombre || 'N/D' }}
-                    </div>
+                    <div class="fw-semibold imss-name">{{ emp.nombre || 'N/D' }}</div>
                   </td>
 
                   <td>
@@ -151,6 +153,80 @@
         <!-- /card -->
       </div>
     </div>
+
+    <!-- ✅ MODAL ZIP (mismo estilo que tu sistema) -->
+    <div class="modal modal-blur fade" id="modalZipAprobados" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Descargar ZIP aprobados</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+
+          <div class="modal-body">
+            <div class="alert alert-info">
+              Selecciona el <b>ejercicio</b> y el <b>trimestre</b> para descargar.
+            </div>
+
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label">Ejercicio (año)</label>
+                <input type="number" class="form-control" v-model.number="zipFiltro.ejercicio" min="2000" max="2100" />
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Trimestre</label>
+                <select class="form-select" v-model.number="zipFiltro.trimestre">
+                  <option :value="1">1 (Ene–Mar)</option>
+                  <option :value="2">2 (Abr–Jun)</option>
+                  <option :value="3">3 (Jul–Sep)</option>
+                  <option :value="4">4 (Oct–Dic)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="mt-3 text-muted small">
+              * Si no hay aprobados para ese rango, te avisaremos.
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn me-auto" data-bs-dismiss="modal" :disabled="zipDescargando">Cancelar</button>
+            <button type="button" class="btn btn-success" @click="descargarZipAprobados" :disabled="zipDescargando">
+              <span v-if="zipDescargando">Descargando…</span>
+              <span v-else>Descargar ZIP</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /modal -->
+
+    <!-- ✅ TOAST Bootstrap (idéntico al Blade) -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+      <div
+        id="toast_cv_zip"
+        ref="toastEl"
+        class="toast align-items-center text-bg-danger border-0"
+        role="alert"
+        aria-live="assertive"
+        aria-atomic="true"
+        data-bs-delay="4500"
+      >
+        <div class="d-flex">
+          <div class="toast-body">
+            {{ toastMsg || 'No hay CV aprobados para exportar con el rango de fecha seleccionado.' }}
+          </div>
+          <button
+            type="button"
+            class="btn-close btn-close-white me-2 m-auto"
+            data-bs-dismiss="toast"
+            aria-label="Close"
+          ></button>
+        </div>
+      </div>
+    </div>
+    <!-- /toast -->
   </div>
 </template>
 
@@ -158,54 +234,138 @@
 import axios from '@axios'
 import { BASE_URL } from '@/components/url.js'
 
+const EJ_MIN = 2000
+const EJ_MAX = 2100
+const TRIM_OK = [1, 2, 3, 4]
+
 export default {
   name: 'RevisorEmpleadoList',
   data() {
+    const now = new Date()
+    const month = now.getMonth() + 1
+    const trimestreActual = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4
+
     return {
       BASE_URL,
-      filtros: {
-        busqueda: '',
-        status: '',
-      },
+
+      filtros: { busqueda: '', status: '' },
       empleados: [],
       curpDescarga: '',
+
+      zipFiltro: { ejercicio: now.getFullYear(), trimestre: trimestreActual },
+      zipDescargando: false,
+
+      // Toast
+      toastMsg: '',
+      _toastInstance: null,
+
+      // estabilidad
+      _empReqId: 0,
+      _debounceTimer: null,
+      _debounceMs: 250,
     }
   },
+
   computed: {
-    zipAprobadosUrl() {
-      return `${this.BASE_URL}/revisor/pdf/aprobados.zip`
-    },
     curpValida() {
-      const c = (this.curpDescarga || '').trim().toUpperCase()
+      const c = String(this.curpDescarga || '').trim().toUpperCase()
       return c.length === 18
     },
+
     empleadosFiltrados() {
-      const texto = (this.filtros.busqueda || '').trim().toLowerCase()
+      const texto = String(this.filtros.busqueda || '').trim().toLowerCase()
       const status = this.filtros.status
 
-      return this.empleados.filter((e) => {
+      return (this.empleados || []).filter((e) => {
         const st = this.statusKey(e)
+
+        const nombre = String((e && e.nombre) || '').toLowerCase()
+        const curp = String((e && e.curp) || '').toLowerCase()
+        const area = String((e && (e.area_adscripcion || e.area)) || '').toLowerCase()
+        const puesto = String((e && e.puesto_actual) || '').toLowerCase()
 
         const coincideTexto =
           !texto ||
-          ((e.nombre || '').toLowerCase().includes(texto)) ||
-          ((e.curp || '').toLowerCase().includes(texto)) ||
-          ((e.area_adscripcion || e.area || '').toLowerCase().includes(texto)) ||
-          ((e.puesto_actual || '').toLowerCase().includes(texto))
+          nombre.includes(texto) ||
+          curp.includes(texto) ||
+          area.includes(texto) ||
+          puesto.includes(texto)
 
         const coincideStatus = !status || st === status
         return coincideTexto && coincideStatus
       })
     },
   },
+
   methods: {
+    // -----------------------------
+    // URLs (respeta BASE_URL)
+    // -----------------------------
+    _joinUrl(base, path) {
+      const b = String(base || '').replace(/\/+$/, '')
+      const p = String(path || '')
+      if (!b) return p
+      return b + (p.startsWith('/') ? p : '/' + p)
+    },
+
+    _url(path) {
+      if (this.BASE_URL) return this._joinUrl(this.BASE_URL, path)
+      return path
+    },
+
+    // -----------------------------
+    // Toast Bootstrap (igual Blade)
+    // -----------------------------
+    _getToastCtor() {
+      const b = window && window.bootstrap ? window.bootstrap : null
+      return b && b.Toast ? b.Toast : null
+    },
+
+    showToast(message) {
+      this.toastMsg = message || ''
+
+      this.$nextTick(() => {
+        const Toast = this._getToastCtor()
+        const el = this.$refs.toastEl
+        if (!Toast || !el) return
+
+        try {
+          if (this._toastInstance) {
+            this._toastInstance.dispose()
+            this._toastInstance = null
+          }
+        } catch (_) {}
+
+        try {
+          this._toastInstance = Toast.getOrCreateInstance(el)
+          this._toastInstance.show()
+        } catch (_) {}
+      })
+    },
+
+    // -----------------------------
+    // Helpers
+    // -----------------------------
     getId(emp) {
-      return emp?.id_tbl_empleados ?? emp?.id
+      if (emp && typeof emp === 'object') {
+        if (emp.id_tbl_empleados != null) return emp.id_tbl_empleados
+        if (emp.id != null) return emp.id
+      }
+      return null
+    },
+
+    rowKey(emp, index) {
+      const id = this.getId(emp)
+      if (id != null) return String(id)
+      const curp = emp && emp.curp ? String(emp.curp) : ''
+      if (curp) return curp
+      return 'row-' + String(index)
     },
 
     statusKey(emp) {
-      if (emp?.status) return emp.status
-      const n = Number(emp?.estatus_cv)
+      if (emp && emp.status) return emp.status
+      const n = Number(emp && emp.estatus_cv != null ? emp.estatus_cv : null)
+
       switch (n) {
         case 1: return 'edicion'
         case 2: return 'enviado'
@@ -236,51 +396,272 @@ export default {
     },
 
     detalleUrl(id) {
-      return `${this.BASE_URL}/revisor/empleados/${id}`
+      if (id == null) return '#'
+      return this._url('/revisor/empleados/' + encodeURIComponent(String(id)))
     },
 
     pdfEmpleadoUrl(id) {
-      return `${this.BASE_URL}/revisor/empleados/${id}/pdf`
+      if (id == null) return '#'
+      return this._url('/revisor/empleados/' + encodeURIComponent(String(id)) + '/pdf')
     },
 
     descargarPdfPorCurp() {
-      const curp = (this.curpDescarga || '').trim().toUpperCase()
+      const curp = String(this.curpDescarga || '').trim().toUpperCase()
       if (curp.length !== 18) return
-      window.location.href = `${this.BASE_URL}/revisor/pdf/curp/${encodeURIComponent(curp)}`
+      window.location.href = this._url('/revisor/pdf/curp/' + encodeURIComponent(curp))
+    },
+
+    // -----------------------------
+    // Modal safe close + unlock
+    // -----------------------------
+    _getModalCtor() {
+      const b = window && window.bootstrap ? window.bootstrap : null
+      return b && b.Modal ? b.Modal : null
+    },
+
+    _forceUnlockModals() {
+      try {
+        document.body.classList.remove('modal-open')
+        document.body.style.removeProperty('overflow')
+        document.body.style.removeProperty('padding-right')
+      } catch (_) {}
+
+      try {
+        const backdrops = document.querySelectorAll('.modal-backdrop')
+        for (let i = 0; i < backdrops.length; i++) {
+          try { backdrops[i].remove() } catch (_) {}
+        }
+      } catch (_) {}
+    },
+
+    _closeZipModalSafe() {
+      const el = document.getElementById('modalZipAprobados')
+      if (!el) return
+
+      const Modal = this._getModalCtor()
+      try {
+        if (Modal && typeof Modal.getInstance === 'function') {
+          const inst = Modal.getInstance(el)
+          if (inst && typeof inst.hide === 'function') inst.hide()
+        } else {
+          const btn = el.querySelector('[data-bs-dismiss="modal"]')
+          if (btn && typeof btn.click === 'function') btn.click()
+        }
+      } catch (_) {}
+
+      window.setTimeout(() => this._forceUnlockModals(), 250)
+    },
+
+    // -----------------------------
+    // ZIP helpers (para detectar "sin registros" aunque sea 200)
+    // -----------------------------
+    _isZipContentType(ct = '') {
+      const t = String(ct || '').toLowerCase()
+      return (
+        t.includes('application/zip') ||
+        t.includes('application/x-zip-compressed') ||
+        t.includes('application/octet-stream')
+      )
+    },
+
+    // -----------------------------
+    // ZIP: fetch -> "sin registros" => toast (aunque sea 200), ok => download
+    // -----------------------------
+    _zipUrl(ejercicio, trimestre) {
+      const base = this._url('/revisor/pdf/aprobados.zip')
+      return (
+        base +
+        '?ejercicio=' + encodeURIComponent(String(ejercicio)) +
+        '&trimestre=' + encodeURIComponent(String(trimestre)) +
+        '&_ts=' + encodeURIComponent(String(Date.now()))
+      )
+    },
+
+    async descargarZipAprobados() {
+      if (this.zipDescargando) return
+
+      const ejercicio = Number(this.zipFiltro.ejercicio || new Date().getFullYear())
+      const trimestre = Number(this.zipFiltro.trimestre || 1)
+
+      if (!(ejercicio >= EJ_MIN && ejercicio <= EJ_MAX)) {
+        this.showToast('Ejercicio inválido. Debe estar entre ' + EJ_MIN + ' y ' + EJ_MAX + '.')
+        return
+      }
+
+      if (TRIM_OK.indexOf(trimestre) === -1) {
+        this.showToast('Trimestre inválido. Debe ser 1, 2, 3 o 4.')
+        return
+      }
+
+      this.zipDescargando = true
+      const url = this._zipUrl(ejercicio, trimestre)
+
+      // cerrar modal primero
+      this._closeZipModalSafe()
+
+      try {
+        const resp = await fetch(url, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+
+        // ✅ backend manda error http (ideal)
+        if (!resp.ok) {
+          if (resp.status === 404) {
+            this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+          } else if (resp.status === 422) {
+            this.showToast('Parámetros inválidos. Verifica ejercicio y trimestre.')
+          } else {
+            this.showToast('No se pudo generar el ZIP. Revisa el servidor.')
+          }
+          return
+        }
+
+        // ✅ 204 no content => sin registros
+        if (resp.status === 204) {
+          this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+          return
+        }
+
+        const ct = (resp.headers.get('Content-Type') || resp.headers.get('content-type') || '').toLowerCase()
+
+        // ✅ a veces el backend responde JSON con "sin datos"
+        if (ct.includes('application/json')) {
+          let payload = null
+          try { payload = await resp.json() } catch (_) {}
+          const msg =
+            payload?.message ||
+            payload?.mensaje ||
+            'No hay CV aprobados para exportar con el rango de fecha seleccionado.'
+          this.showToast(msg)
+          return
+        }
+
+        // ✅ a veces regresa HTML (login/error page)
+        if (ct.includes('text/html')) {
+          this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+          return
+        }
+
+        // ✅ si viene content-type raro (no zip) avisamos en vez de bajar basura
+        if (ct && !this._isZipContentType(ct)) {
+          this.showToast('No se encontró información para el rango seleccionado.')
+          return
+        }
+
+        const blob = await resp.blob()
+
+        // ✅ blob vacío o "zip vacío" muy pequeño
+        // (umbral conservador: si tu zip vacío pesa más, ajusta)
+        if (!blob || blob.size === 0 || blob.size < 200) {
+          this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+          return
+        }
+
+        // ✅ validar firma ZIP: "PK"
+        try {
+          const headBuf = await blob.slice(0, 2).arrayBuffer()
+          const sig = new Uint8Array(headBuf)
+          const isPK = sig[0] === 0x50 && sig[1] === 0x4b
+          if (!isPK) {
+            this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+            return
+          }
+        } catch (_) {
+          // si no pudimos validar, seguimos (pero rara vez pasa)
+        }
+
+        let filename = 'aprobados.zip'
+        const cd = resp.headers.get('Content-Disposition') || resp.headers.get('content-disposition') || ''
+        const match = cd.match(/filename="([^"]+)"/i)
+        if (match && match[1]) filename = match[1]
+
+        const a = document.createElement('a')
+        const objectUrl = window.URL.createObjectURL(blob)
+        a.href = objectUrl
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(objectUrl)
+
+      } catch (e) {
+        console.error(e)
+        this.showToast('No se pudo descargar el ZIP. Intenta nuevamente.')
+      } finally {
+        this.zipDescargando = false
+        this._forceUnlockModals()
+      }
+    },
+
+    // -----------------------------
+    // Data
+    // -----------------------------
+    scheduleCargarEmpleados() {
+      try { if (this._debounceTimer) clearTimeout(this._debounceTimer) } catch (_) {}
+      this._debounceTimer = setTimeout(() => {
+        this.cargarEmpleados()
+      }, this._debounceMs)
     },
 
     async cargarEmpleados() {
+      const reqId = ++this._empReqId
+
       try {
-        // ✅ CAMBIO IMPORTANTE: agregar "/" para que no se vuelva ruta relativa y truene
-        const { data } = await axios.get('/api/revisor/empleados', {
+        const apiUrl = this._url('/api/revisor/empleados')
+        const { data } = await axios.get(apiUrl, {
           params: {
             q: this.filtros.busqueda || undefined,
             status: this.filtros.status || undefined,
           },
         })
+
+        if (reqId !== this._empReqId) return
         this.empleados = Array.isArray(data) ? data : []
       } catch (e) {
+        if (reqId !== this._empReqId) return
         console.error('Error al cargar empleados:', e)
         this.empleados = []
       }
     },
+
+    _cleanupTimers() {
+      try { if (this._debounceTimer) clearTimeout(this._debounceTimer) } catch (_) {}
+      try {
+        if (this._toastInstance) {
+          this._toastInstance.dispose()
+          this._toastInstance = null
+        }
+      } catch (_) {}
+    },
   },
+
   watch: {
     filtros: {
       deep: true,
       handler() {
-        this.cargarEmpleados()
+        this.scheduleCargarEmpleados()
       },
     },
   },
+
   mounted() {
     this.cargarEmpleados()
+  },
+
+  beforeUnmount() {
+    this._cleanupTimers()
+  },
+
+  beforeDestroy() {
+    this._cleanupTimers()
   },
 }
 </script>
 
 <style scoped>
-/* ✅ Variables (AHORA SÍ FUNCIONAN EN scoped) */
+/* ✅ Variables */
 .imss-theme {
   --imss-green: #006341;
   --imss-green-2: #0b7a53;
@@ -359,9 +740,7 @@ export default {
   padding: 14px 18px;
 }
 
-.imss-input-wrap {
-  position: relative;
-}
+.imss-input-wrap { position: relative; }
 
 .imss-icon {
   position: absolute;
@@ -378,9 +757,7 @@ export default {
   border-color: var(--imss-border);
 }
 
-.imss-input-with-icon {
-  padding-left: 34px;
-}
+.imss-input-with-icon { padding-left: 34px; }
 
 .imss-input:focus,
 .imss-select:focus {
@@ -388,9 +765,7 @@ export default {
   box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.12);
 }
 
-.imss-table-wrap {
-  background: #ffffff;
-}
+.imss-table-wrap { background: #ffffff; }
 
 .imss-table thead th {
   background: #0f2f2a;
@@ -407,20 +782,9 @@ export default {
   border-color: var(--imss-border);
 }
 
-.imss-table tbody tr:hover {
-  background: var(--imss-soft);
-}
+.imss-table tbody tr:hover { background: var(--imss-soft); }
 
-.imss-name {
-  color: var(--imss-ink);
-  line-height: 1.2;
-}
-
-.imss-meta {
-  color: var(--imss-muted);
-  font-size: 0.82rem;
-  margin-top: 2px;
-}
+.imss-name { color: var(--imss-ink); line-height: 1.2; }
 
 .imss-code {
   background: #0b1120;
@@ -441,29 +805,10 @@ export default {
   border: 1px solid transparent;
 }
 
-.imss-badge-neutral {
-  background: #f3f4f6;
-  color: #374151;
-  border-color: #e5e7eb;
-}
-
-.imss-badge-warning {
-  background: #fff7ed;
-  color: #9a3412;
-  border-color: #fed7aa;
-}
-
-.imss-badge-success {
-  background: #ecfdf5;
-  color: #065f46;
-  border-color: #a7f3d0;
-}
-
-.imss-badge-danger {
-  background: #fef2f2;
-  color: #991b1b;
-  border-color: #fecaca;
-}
+.imss-badge-neutral { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
+.imss-badge-warning { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.imss-badge-success { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+.imss-badge-danger  { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
 
 .imss-footer {
   background: #ffffff;
@@ -471,7 +816,7 @@ export default {
   padding: 12px 18px;
 }
 
-/* ✅ Botones: SIEMPRE visibles (sin desaparecer en hover/active/focus) */
+/* Botones */
 .imss-btn-fixed {
   display: inline-flex;
   align-items: center;
@@ -499,9 +844,7 @@ export default {
   opacity: 1 !important;
 }
 
-.btn-imss:focus {
-  box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important;
-}
+.btn-imss:focus { box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important; }
 
 .btn-outline-imss {
   border-color: rgba(0, 99, 65, 0.55) !important;
@@ -520,21 +863,11 @@ export default {
   opacity: 1 !important;
 }
 
-.btn-outline-imss:focus {
-  box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important;
-}
+.btn-outline-imss:focus { box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important; }
 
 @media (max-width: 768px) {
-  .imss-curp-box {
-    width: 100%;
-    min-width: 0;
-  }
-  .imss-actions {
-    width: 100%;
-    justify-content: stretch;
-  }
-  .btn-imss.imss-btn-fixed {
-    width: 100%;
-  }
+  .imss-curp-box { width: 100%; min-width: 0; }
+  .imss-actions { width: 100%; justify-content: stretch; }
+  .btn-imss.imss-btn-fixed { width: 100%; }
 }
 </style>

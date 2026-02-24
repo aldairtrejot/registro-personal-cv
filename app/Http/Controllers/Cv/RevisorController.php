@@ -220,4 +220,29 @@ class RevisorController extends Controller
         $mailer = new MailHelper();
         $mailer->sendMail($mailData);
     }
+
+    public function updateFolio(Request $request, $id, CvFolioService $folioSvc)
+{
+    $data = $request->validate([
+        'folio' => 'required|integer|min:1',
+    ], [
+        'folio.required' => 'Captura un folio.',
+        'folio.integer'  => 'El folio debe ser numérico.',
+        'folio.min'      => 'El folio debe ser mayor a 0.',
+    ]);
+
+    $empleado = Empleado::findOrFail($id);
+
+    // ✅ Asignación manual con trazabilidad/uniqueness
+    $folio = $folioSvc->asignarFolioManual((int)$empleado->id_tbl_empleados, (int)$data['folio'], 'manual');
+
+    // Refresca en modelo por compatibilidad
+    $empleado->folio_cv = $folio;
+    $empleado->save();
+
+    return response()->json([
+        'ok' => true,
+        'folio' => $folio,
+    ]);
+}
 }

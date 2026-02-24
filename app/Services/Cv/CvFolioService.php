@@ -7,10 +7,6 @@ use Illuminate\Support\Facades\Schema;
 
 class CvFolioService
 {
-    /**
-     * Devuelve folio numérico (solo números).
-     * Mantiene nombre/método por compatibilidad con tu sistema.
-     */
     public function parseConsecutivo($raw): int
     {
         if ($raw === null) return 0;
@@ -18,21 +14,17 @@ class CvFolioService
         $s = trim((string) $raw);
         if ($s === '') return 0;
 
-        // Solo números
         if (!preg_match('/^[0-9]+$/', $s)) return 0;
 
-        // Maneja ceros a la izquierda
         $n = (int) ltrim($s, '0');
         if ($n > 0) return $n;
 
-        return (int) $s; // "0" o "000"
+        return (int) $s;
     }
 
     /**
-     * Asigna folio al aprobar con control y trazabilidad:
-     * - Control consecutivo: profesionalizacion.cv_folio_sequences (name='cv')
-     * - Trazabilidad: profesionalizacion.cv_folios (unique folio, unique empleado_id)
-     * - Compatibilidad: profesionalizacion.tbl_empleados.folio_cv y folio_generado_en
+     * Aprobación: si no tiene folio asigna siguiente consecutivo.
+     * Si ya tiene folio numérico, lo respeta y asegura trazabilidad.
      */
     public function asignarONormalizarAlAprobar(int $empleadoId): int
     {
@@ -40,7 +32,6 @@ class CvFolioService
 
         return (int) DB::transaction(function () use ($empleadosTable, $empleadoId) {
 
-            // 1) Bloquear fila del empleado
             $rowEmp = $this->fromTable($empleadosTable)
                 ->select(['id_tbl_empleados', 'folio_cv'])
                 ->where('id_tbl_empleados', $empleadoId)
@@ -53,11 +44,9 @@ class CvFolioService
 
             $actual = $this->parseConsecutivo($rowEmp->folio_cv ?? null);
 
-            // 2) Si ya tiene folio numérico, asegurar trazabilidad y regresar
             if ($actual > 0) {
                 $this->ensureFolioRow($actual, $empleadoId, 'aprobacion_existente');
 
-                // Limpia folio_cv si venía con ceros/espacios (sin afectar el número)
                 $raw = trim((string)($rowEmp->folio_cv ?? ''));
                 if ($raw !== (string)$actual) {
                     $this->fromTable($empleadosTable)
@@ -71,31 +60,16 @@ class CvFolioService
                 return $actual;
             }
 
-            // 3) Asegurar que exista fila de secuencia (por si BD quedó a medias)
+            // lock secuencia
             $seqRow = DB::table('profesionalizacion.cv_folio_sequences')
                 ->where('name', 'cv')
                 ->lockForUpdate()
                 ->first();
 
             if (!$seqRow) {
-                DB::table('profesionalizacion.cv_folio_sequences')->insert([
-                    'name' => 'cv',
-                    'current_value' => 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $seqRow = DB::table('profesionalizacion.cv_folio_sequences')
-                    ->where('name', 'cv')
-                    ->lockForUpdate()
-                    ->first();
+                throw new \RuntimeException("No existe la secuencia 'cv' en profesionalizacion.cv_folio_sequences.");
             }
 
-            if (!$seqRow) {
-                throw new \RuntimeException("No se pudo inicializar la secuencia 'cv' en profesionalizacion.cv_folio_sequences.");
-            }
-
-            // 4) Siguiente consecutivo
             $next = ((int)$seqRow->current_value) + 1;
 
             DB::table('profesionalizacion.cv_folio_sequences')
@@ -105,10 +79,8 @@ class CvFolioService
                     'updated_at' => now(),
                 ]);
 
-            // 5) Registrar trazabilidad
             $this->ensureFolioRow($next, $empleadoId, 'revisor');
 
-            // 6) Guardar en empleados
             $this->fromTable($empleadosTable)
                 ->where('id_tbl_empleados', $empleadoId)
                 ->update([
@@ -117,6 +89,77 @@ class CvFolioService
                 ]);
 
             return $next;
+        });
+    }
+
+    /**
+     * ✅ NUEVO: Asignación manual / reemplazo de folio
+     * - folio debe ser numérico > 0
+     * - debe ser único (cv_folios.folio unique)
+     * - se registra trazabilidad (origen=manual, asignado_en=now)
+     * - si el folio manual es mayor que current_value, se sube la secuencia para evitar colisiones futuras
+     */
+    public function asignarFolioManual(int $empleadoId, int $folio, string $origen = 'manual'): int
+    {
+        if ($folio <= 0) {
+            throw new \RuntimeException("El folio debe ser mayor a 0.");
+        }
+
+        $empleadosTable = $this->resolveEmpleadosTable();
+
+        return (int) DB::transaction(function () use ($empleadosTable, $empleadoId, $folio, $origen) {
+
+            // Bloquear empleado
+            $rowEmp = $this->fromTable($empleadosTable)
+                ->select(['id_tbl_empleados', 'folio_cv'])
+                ->where('id_tbl_empleados', $empleadoId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$rowEmp) {
+                throw new \RuntimeException("No se encontró el empleado id_tbl_empleados={$empleadoId}.");
+            }
+
+            // Verificar si el folio ya está asignado a OTRO empleado
+            $existsOther = DB::table('profesionalizacion.cv_folios')
+                ->where('folio', $folio)
+                ->where('empleado_id', '<>', $empleadoId)
+                ->exists();
+
+            if ($existsOther) {
+                throw new \RuntimeException("El folio {$folio} ya está asignado a otro empleado.");
+            }
+
+            // Guardar/actualizar trazabilidad por empleado
+            $this->ensureFolioRow($folio, $empleadoId, $origen);
+
+            // Si folio manual es mayor que la secuencia, subir secuencia
+            $seqRow = DB::table('profesionalizacion.cv_folio_sequences')
+                ->where('name', 'cv')
+                ->lockForUpdate()
+                ->first();
+
+            if ($seqRow) {
+                $current = (int)$seqRow->current_value;
+                if ($folio > $current) {
+                    DB::table('profesionalizacion.cv_folio_sequences')
+                        ->where('name', 'cv')
+                        ->update([
+                            'current_value' => $folio,
+                            'updated_at' => now(),
+                        ]);
+                }
+            }
+
+            // Actualizar tbl_empleados para compatibilidad
+            $this->fromTable($empleadosTable)
+                ->where('id_tbl_empleados', $empleadoId)
+                ->update([
+                    'folio_cv' => $folio,
+                    'folio_generado_en' => now(),
+                ]);
+
+            return $folio;
         });
     }
 
@@ -134,17 +177,12 @@ class CvFolioService
                 ]
             );
         } catch (\Throwable $e) {
-            // Si UNIQUE(folio) tronó, te damos un error entendible
             throw new \RuntimeException(
-                "No se pudo registrar el folio {$folio} para empleado_id={$empleadoId}. " .
-                "Es probable que ese folio ya esté asignado a otro empleado. Detalle: " . $e->getMessage()
+                "No se pudo registrar el folio {$folio} para empleado_id={$empleadoId}. Detalle: " . $e->getMessage()
             );
         }
     }
 
-    // ==========================================================
-    // Compatibilidad con tu proyecto (mismos helpers)
-    // ==========================================================
     private function resolveEmpleadosTable(): string
     {
         $schemas = ['profesionalizacion', 'public', 'cv', 'administracion'];

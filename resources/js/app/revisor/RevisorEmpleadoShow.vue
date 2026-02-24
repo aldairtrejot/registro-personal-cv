@@ -129,6 +129,16 @@
                       <span v-else>Procesando…</span>
                     </button>
 
+                    <!-- ✅ NUEVO BOTÓN: PERSONALIZAR FOLIO -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-imss btn-sm imss-btn-fixed"
+                      @click="abrirModalFolio"
+                      :disabled="loading"
+                    >
+                      Personalizar folio del CV
+                    </button>
+
                     <button
                       type="button"
                       class="btn btn-imss-danger btn-sm imss-btn-fixed"
@@ -351,6 +361,63 @@
           </div>
         </div>
         <!-- /MODAL -->
+
+        <!-- ✅ NUEVO MODAL: PERSONALIZAR FOLIO -->
+        <div
+          class="modal fade"
+          id="modalFolioCv"
+          tabindex="-1"
+          aria-labelledby="modalFolioCvLabel"
+          aria-hidden="true"
+          ref="modalFolioRef"
+        >
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 14px;">
+              <div class="modal-header">
+                <h5 class="modal-title" id="modalFolioCvLabel">Personalizar folio del CV</h5>
+                <button type="button" class="btn-close" @click="cerrarModalFolio" aria-label="Close"></button>
+              </div>
+
+              <div class="modal-body">
+                <div class="text-muted small mb-2">
+                  Usa esta opción solo si el CV fue registrado fuera del sistema y necesitas capturar el folio real.
+                  <br />
+                  <strong>El folio debe ser únicamente numérico</strong> y no puede repetirse.
+                </div>
+
+                <label class="form-label fw-semibold">Folio (solo número) *</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  v-model.number="folioManual"
+                  min="1"
+                  step="1"
+                  placeholder="Ej: 125"
+                  :disabled="loading"
+                />
+
+                <div v-if="errorFolio" class="text-danger small mt-2">
+                  {{ errorFolio }}
+                </div>
+
+                <div class="text-muted small mt-2">
+                  Folio actual: <strong>{{ empleado?.folio_cv || 'Sin folio' }}</strong>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary imss-btn-fixed" @click="cerrarModalFolio" :disabled="loading">
+                  Cancelar
+                </button>
+                <button type="button" class="btn btn-imss imss-btn-fixed" @click="confirmarFolioManual" :disabled="loading">
+                  <span v-if="!loading">Guardar folio</span>
+                  <span v-else>Procesando…</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /MODAL FOLIO -->
       </div>
     </div>
   </div>
@@ -387,6 +454,11 @@ export default {
       motivoRechazo: '',
       errorMotivo: '',
       modalRechazo: null,
+
+      // ✅ modal folio
+      folioManual: null,
+      errorFolio: '',
+      modalFolio: null,
 
       loading: false,
     }
@@ -517,7 +589,7 @@ export default {
       }
     },
 
-    // ✅ APROBAR (no toca modal)
+    // ✅ APROBAR
     async cambiarStatus(status) {
       try {
         if (!this.empleado) return
@@ -530,6 +602,8 @@ export default {
 
         if (status === 'aprobado' && data?.folio) {
           this.mensaje = { tipo: 'ok', texto: `CV aprobado. Folio: ${data.folio}` }
+          // refresca folio en UI
+          this.empleado.folio_cv = data.folio
         } else {
           this.mensaje = { tipo: 'ok', texto: `Estatus actualizado: ${this.statusLabel(status)}` }
         }
@@ -544,7 +618,7 @@ export default {
       }
     },
 
-    // ✅ MODAL RECHAZO (restaurado correctamente)
+    // ✅ MODAL RECHAZO
     abrirModalRechazo() {
       this.mensaje = null
       this.errorMotivo = ''
@@ -591,31 +665,85 @@ export default {
         this.loading = false
       }
     },
+
+    // ✅ MODAL FOLIO
+    abrirModalFolio() {
+      this.mensaje = null
+      this.errorFolio = ''
+      this.folioManual = this.empleado?.folio_cv ? Number(this.empleado.folio_cv) : null
+
+      if (this.modalFolio) {
+        this.modalFolio.show()
+      }
+    },
+    cerrarModalFolio() {
+      if (this.modalFolio) {
+        this.modalFolio.hide()
+      }
+    },
+    async confirmarFolioManual() {
+      try {
+        if (!this.empleado) return
+
+        const id = this.empleado.id_tbl_empleados ?? this.empleado.id
+        const folio = Number(this.folioManual || 0)
+
+        if (!folio || folio < 1 || !Number.isInteger(folio)) {
+          this.errorFolio = 'Captura un folio válido (solo número entero mayor a 0).'
+          return
+        }
+
+        this.loading = true
+        this.errorFolio = ''
+
+        const { data } = await axios.post(`/api/revisor/empleados/${id}/folio`, {
+          folio,
+        })
+
+        // Refleja en UI
+        this.empleado.folio_cv = data?.folio ?? folio
+
+        this.cerrarModalFolio()
+        this.mensaje = { tipo: 'ok', texto: `Folio actualizado correctamente: ${this.empleado.folio_cv}` }
+        setTimeout(() => { this.mensaje = null }, 4000)
+
+        await this.cargarDetalle(id)
+      } catch (e) {
+        const msg = e?.response?.data?.message || 'No se pudo actualizar el folio.'
+        this.errorFolio = msg
+        this.mensaje = { tipo: 'error', texto: msg }
+      } finally {
+        this.loading = false
+      }
+    },
   },
   async mounted() {
     const el = document.getElementById('blade_revisor_empleado_show')
     const id = el?.dataset?.empleadoId
 
-    // ✅ bootstrap modal (sin romper si no existe bootstrap en algún entorno)
+    // ✅ bootstrap modal
     try {
       const bootstrap = await import('bootstrap/dist/js/bootstrap.bundle.min.js')
       const Modal = bootstrap?.Modal || bootstrap?.default?.Modal
-      if (Modal && this.$refs.modalRechazoRef) {
-        this.modalRechazo = new Modal(this.$refs.modalRechazoRef, {
-          backdrop: 'static',
-          keyboard: false,
-        })
+
+      if (Modal) {
+        if (this.$refs.modalRechazoRef) {
+          this.modalRechazo = new Modal(this.$refs.modalRechazoRef, { backdrop: 'static', keyboard: false })
+        }
+        if (this.$refs.modalFolioRef) {
+          this.modalFolio = new Modal(this.$refs.modalFolioRef, { backdrop: 'static', keyboard: false })
+        }
       }
     } catch (e) {
-      // Si tu proyecto ya carga bootstrap global, esto no afecta.
-      // El modal seguirá funcionando si bootstrap ya está en window.bootstrap
       try {
         const Modal = window?.bootstrap?.Modal
-        if (Modal && this.$refs.modalRechazoRef) {
-          this.modalRechazo = new Modal(this.$refs.modalRechazoRef, {
-            backdrop: 'static',
-            keyboard: false,
-          })
+        if (Modal) {
+          if (this.$refs.modalRechazoRef) {
+            this.modalRechazo = new Modal(this.$refs.modalRechazoRef, { backdrop: 'static', keyboard: false })
+          }
+          if (this.$refs.modalFolioRef) {
+            this.modalFolio = new Modal(this.$refs.modalFolioRef, { backdrop: 'static', keyboard: false })
+          }
         }
       } catch (_) {}
     }
