@@ -9,29 +9,34 @@ use Illuminate\Support\Facades\Auth;
 class LogoutController extends Controller
 {
     /**
-     * The function closes the application session.
-     * @param \Illuminate\Http\Request $request
-     * @return mixed|\Illuminate\Http\JsonResponse
+     * Cierra sesión:
+     * - AJAX/JSON: responde {status:true}
+     * - Submit normal: redirige a /login
      */
     public function logout(Request $request)
     {
         try {
-            Auth::logout(); // Logs out the current authenticated user
+            Auth::logout();
 
-            $request->session()->invalidate(); // Invalidates the user's session
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
-            $request->session()->regenerateToken(); // Regenerates the CSRF token for security
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['status' => true], 200);
+            }
 
-            return response()->json([
-                'status' => true, // Return successful response
-            ], 200); // Respond with HTTP status 200
+            return redirect('/login');
+
         } catch (\Throwable $th) {
-            // \Log::info($th); // Optional: log the error for debugging
-            return response()->json([
-                'status' => false, // Return a JSON response with status false on error
-                'message' => __('default.error_message'), // Default error message from language file
-            ], 200); // Respond with HTTP status 200 even on error
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => __('default.error_message'),
+                ], 200);
+            }
+
+            return redirect('/login')->with('error', __('default.error_message'));
         }
     }
-
 }

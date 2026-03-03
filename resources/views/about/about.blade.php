@@ -9,7 +9,7 @@
                 <h4 class="display-6 fw-bold text-primary" style="color: #8A8A8A !important;">
                     Proceso Curricular
                 </h4>
-                <span class="badge badge-outline text-default">Version {{ config('app.version', '-') }}</span>
+                <span class="badge badge-outline text-default">Version {{ config('app.version', 'V1') }}</span>
             </div>
 
             <div class="card mt-4">
@@ -20,7 +20,7 @@
                     <div class="datagrid">
                         <div class="datagrid-item">
                             <div class="datagrid-title">Última Actualización</div>
-                            <div class="datagrid-content">-
+                            <div class="datagrid-content">03-03-2026
                             </div>
                         </div>
                         <div class="datagrid-item">

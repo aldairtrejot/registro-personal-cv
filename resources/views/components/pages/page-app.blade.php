@@ -22,6 +22,23 @@
     <link rel="stylesheet" href="{{ asset('assets/css/spinner.css') }}">
     <script src="{{ asset('assets/js/jquery.js') }}"></script>
 
+    <style>
+        .navbar-imss { background: rgb(122, 27, 50); }
+        .navbar-imss .nav-link { color: rgba(255, 255, 255, .95) !important; }
+        .navbar-imss .text-muted-white { color: rgba(255, 255, 255, .78) !important; }
+
+        .nav-badge {
+            position: absolute;
+            top: .15rem;
+            right: .15rem;
+            transform: translate(35%, -35%);
+            border: 2px solid rgba(122, 27, 50, 1);
+        }
+
+        .dropdown-menu { min-width: 16rem; }
+        .user-kicker { font-size: .72rem; text-transform: uppercase; letter-spacing: .02em; color: rgba(0,0,0,.55); }
+    </style>
+
     @vite(['resources/js/app.js'])
 </head>
 
@@ -33,10 +50,10 @@
     <div class="page">
 
         {{-- NAVBAR SUPERIOR --}}
-        <header class="navbar navbar-expand-md d-print-none" style="background:rgb(122, 27, 50)">
+        <header class="navbar navbar-expand-md d-print-none navbar-imss">
             <div class="container-xl">
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                        data-bs-target="#navbar-menu"
+                <button class="navbar-toggler" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#navbar-menu"
                         aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
@@ -45,85 +62,99 @@
                     <img src="{{ asset('assets/images/imss_logo.png') }}" style="width: 180px; height: auto;" />
                 </div>
 
-                <div class="navbar-nav flex-row order-md-last">
-                    {{-- NOTIFICACIONES (si las usas) --}}
-                    <div class="d-none d-md-flex">
-                        <div class="nav-item dropdown d-none d-md-flex">
-                            <a href="#" class="nav-link px-0" data-bs-toggle="dropdown" tabindex="-1"
-                               aria-label="Show notifications" data-bs-auto-close="outside" aria-expanded="false">
-                                <i class="ti ti-bell" style="font-size: 1.2rem; color:white"></i>
-                                <span class="badge bg-red"></span>
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-arrow dropdown-menu-end dropdown-menu-card">
-                                <div class="card">
-                                    <div class="card-header d-flex">
-                                        <h3 class="card-title">Notificaciones</h3>
-                                    </div>
-                                    <div class="list-group list-group-flush list-group-hoverable">
-                                        <div class="list-group-item">
-                                            <div class="row align-items-center">
-                                                <div class="col-auto">
-                                                    <span class="status-dot status-dot-animated bg-green d-block"></span>
-                                                </div>
-                                                <div class="col text-truncate">
-                                                    <a href="#" class="text-body d-block">Estatus de usuario</a>
-                                                    <div class="d-block text-secondary text-truncate mt-n1">Activo</div>
-                                                </div>
-                                                <div class="col-auto">
-                                                    <a href="#" class="list-group-item-actions">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                             viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                             stroke-width="2" stroke-linecap="round"
-                                                             stroke-linejoin="round"
-                                                             class="icon text-muted icon-2">
-                                                            <path
-                                                                d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />
-                                                        </svg>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div><!-- list-group -->
-                                </div><!-- card -->
-                            </div><!-- dropdown-menu -->
-                        </div>
-                    </div>
+                <div class="navbar-nav flex-row order-md-last align-items-center gap-1">
 
-                    {{-- USUARIO --}}
                     @php($user = Auth::user())
                     @php($displayName = $user?->nombre_completo ?? $user?->name ?? $user?->username ?? 'USUARIO')
                     @php($displayEmail = $user?->email ?? '')
 
+                    {{-- NOTIFICACIONES --}}
+                    @auth
+                    <div class="nav-item dropdown d-none d-md-flex">
+                        <a href="#" class="nav-link px-2 position-relative"
+                           data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                           role="button" aria-expanded="false" aria-label="Notificaciones">
+                            <i class="ti ti-bell" style="font-size: 1.25rem;"></i>
+                            <span id="notifBadge" class="badge bg-red nav-badge d-none">0</span>
+                        </a>
+
+                        <div class="dropdown-menu dropdown-menu-arrow dropdown-menu-end dropdown-menu-card">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title mb-0">Notificaciones</h3>
+                                    <div class="ms-auto small text-secondary">Sesión activa</div>
+                                </div>
+
+                                <div class="list-group list-group-flush list-group-hoverable">
+                                    <div class="list-group-item">
+                                        <div class="row align-items-center">
+                                            <div class="col-auto">
+                                                <span class="status-dot status-dot-animated bg-green d-block"></span>
+                                            </div>
+                                            <div class="col text-truncate">
+                                                <div class="text-body d-block">Estatus de usuario</div>
+                                                <div class="d-block text-secondary text-truncate mt-n1">
+                                                    Activo · {{ $displayEmail }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div><!-- card -->
+                        </div><!-- dropdown-menu -->
+                    </div>
+                    @endauth
+
+                    {{-- USUARIO --}}
                     <div class="nav-item dropdown">
-                        <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown"
-                           aria-label="Open user menu">
-                            <i style="font-size: 1.2rem; color:white" class="ti ti-user"></i>
+                        <a href="#" class="nav-link d-flex lh-1 p-0 px-2"
+                           data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-label="Menú usuario">
+                            <span class="avatar avatar-sm" style="background: rgba(255,255,255,.14); color: white;">
+                                <i class="ti ti-user" style="font-size: 1.05rem;"></i>
+                            </span>
+
                             <div class="d-none d-xl-block ps-2">
-                                <div style="color:white">
-                                    @if($user)
+                                <div class="fw-semibold" style="line-height: 1.1;">
+                                    @auth
                                         {{ strtoupper(collect(explode(' ', (string)$displayName))->take(2)->implode(' ')) }}
                                     @else
                                         INVITADO
-                                    @endif
+                                    @endauth
                                 </div>
-                                <div class="mt-1 small text-secondary" style="color: white !important">
-                                    @if($user)
-                                        {{ $displayEmail }}
-                                    @else
-                                        Sin sesión iniciada
-                                    @endif
+                                <div class="small text-muted-white" style="line-height: 1.1;">
+                                    @auth {{ $displayEmail }} @else Sin sesión iniciada @endauth
                                 </div>
                             </div>
                         </a>
+
                         <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                            @if($user)
-                                <form method="POST" action="{{ route('logout') }}">
+                            @auth
+                                <div class="dropdown-header">
+                                    <div class="user-kicker">Cuenta</div>
+                                    <div class="fw-semibold text-truncate">{{ $displayName }}</div>
+                                    <div class="small text-secondary text-truncate">{{ $displayEmail }}</div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+
+                                <a class="dropdown-item" href="#"
+                                   data-open-logout="1">
+                                    <i class="ti ti-logout me-2"></i> Cerrar sesión
+                                </a>
+
+                                <form id="logoutForm" method="POST" action="{{ route('logout') }}" class="d-none">
                                     @csrf
-                                    <button type="submit" class="dropdown-item">Salir</button>
                                 </form>
-                            @endif
+                            @endauth
+
+                            @guest
+                                <a class="dropdown-item" href="{{ url('/login') }}">
+                                    <i class="ti ti-login me-2"></i> Iniciar sesión
+                                </a>
+                            @endguest
                         </div>
                     </div>
+
                 </div><!-- navbar-nav -->
             </div><!-- container-xl -->
         </header>
@@ -163,7 +194,177 @@
 
     <div id="blade_logout"></div>
 
+    {{-- MODAL LOGOUT --}}
+    @auth
+    <div class="modal fade" id="modal_logout" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <h3 class="mb-1">Cerrar sesión</h3>
+                    <div class="text-secondary">¿Está seguro que desea cerrar la sesión?</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="logoutForm" class="btn btn-danger">
+                        <i class="ti ti-logout me-1"></i> Cerrar sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endauth
+
     <script src="{{ asset('assets/js/tabler.js') }}"></script>
+
+    {{-- ✅ FIX REAL: Dropdown/Modal robusto + data-bs-popper --}}
+    <script>
+        (function () {
+
+            function bsHasDropdown() {
+                return !!(window.bootstrap && window.bootstrap.Dropdown);
+            }
+            function bsHasModal() {
+                return !!(window.bootstrap && window.bootstrap.Modal);
+            }
+
+            function hideAllDropdowns() {
+                // Si hay bootstrap, ocultar instancias correctamente
+                if (bsHasDropdown()) {
+                    document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (t) {
+                        const inst = window.bootstrap.Dropdown.getInstance(t);
+                        if (inst) inst.hide();
+                    });
+                }
+
+                // Fallback: quitar clases + atributo data-bs-popper
+                document.querySelectorAll('.dropdown.show').forEach(function (dd) {
+                    dd.classList.remove('show');
+                });
+
+                document.querySelectorAll('.dropdown-menu.show').forEach(function (menu) {
+                    menu.classList.remove('show');
+                    menu.removeAttribute('data-bs-popper');
+                });
+
+                document.querySelectorAll('[data-bs-toggle="dropdown"][aria-expanded="true"]').forEach(function (t) {
+                    t.setAttribute('aria-expanded', 'false');
+                });
+            }
+
+            // DROPDOWNS
+            document.addEventListener('click', function (e) {
+                const toggle = e.target.closest('[data-bs-toggle="dropdown"]');
+                const insideMenu = e.target.closest('.dropdown-menu');
+
+                // Click en toggle => abrir/cerrar
+                if (toggle) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Si bootstrap existe, úsalo (mejor positioning)
+                    if (bsHasDropdown()) {
+                        const inst = window.bootstrap.Dropdown.getOrCreateInstance(toggle);
+                        inst.toggle();
+                        return;
+                    }
+
+                    // Fallback (sin bootstrap)
+                    const dd = toggle.closest('.dropdown');
+                    const menu = dd ? dd.querySelector('.dropdown-menu') : null;
+                    if (!dd || !menu) return;
+
+                    const isOpen = dd.classList.contains('show') || menu.classList.contains('show');
+                    hideAllDropdowns();
+
+                    if (!isOpen) {
+                        dd.classList.add('show');
+                        menu.classList.add('show');
+
+                        // ✅ CLAVE: esto hace que Bootstrap CSS posicione bien el dropdown (end/top/etc)
+                        menu.setAttribute('data-bs-popper', 'static');
+
+                        toggle.setAttribute('aria-expanded', 'true');
+                    }
+                    return;
+                }
+
+                // Click dentro del menú
+                if (insideMenu) {
+                    const dd = insideMenu.closest('.dropdown');
+                    const t = dd ? dd.querySelector('[data-bs-toggle="dropdown"]') : null;
+                    const autoClose = t ? (t.getAttribute('data-bs-auto-close') || 'true') : 'true';
+                    if (autoClose === 'outside') return;
+                    // si no es outside, cerramos
+                    hideAllDropdowns();
+                    return;
+                }
+
+                // Click fuera => cerrar
+                hideAllDropdowns();
+            }, true);
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') hideAllDropdowns();
+            });
+
+            // MODAL LOGOUT
+            document.addEventListener('click', function (e) {
+                const btn = e.target.closest('[data-open-logout="1"]');
+                if (!btn) return;
+
+                e.preventDefault();
+
+                const modalEl = document.getElementById('modal_logout');
+                if (!modalEl) return;
+
+                if (bsHasModal()) {
+                    window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                    return;
+                }
+
+                // Fallback modal (sin bootstrap)
+                modalEl.classList.add('show');
+                modalEl.style.display = 'block';
+                modalEl.removeAttribute('aria-hidden');
+                modalEl.setAttribute('aria-modal', 'true');
+                document.body.classList.add('modal-open');
+
+                const backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                backdrop.dataset.fallbackBackdrop = '1';
+                document.body.appendChild(backdrop);
+            }, true);
+
+            // Cerrar fallback modal
+            const modalEl = document.getElementById('modal_logout');
+            if (modalEl) {
+                modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach(function (b) {
+                    b.addEventListener('click', function (e) {
+                        if (bsHasModal()) return;
+
+                        e.preventDefault();
+                        modalEl.classList.remove('show');
+                        modalEl.style.display = 'none';
+                        modalEl.setAttribute('aria-hidden', 'true');
+                        document.body.classList.remove('modal-open');
+                        document.querySelectorAll('div.modal-backdrop[data-fallback-backdrop="1"]').forEach(x => x.remove());
+                    });
+                });
+
+                modalEl.addEventListener('click', function (e) {
+                    if (bsHasModal()) return;
+                    if (e.target !== modalEl) return;
+
+                    modalEl.classList.remove('show');
+                    modalEl.style.display = 'none';
+                    modalEl.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('modal-open');
+                    document.querySelectorAll('div.modal-backdrop[data-fallback-backdrop="1"]').forEach(x => x.remove());
+                });
+            }
+
+        })();
+    </script>
 </body>
 
 </html>
