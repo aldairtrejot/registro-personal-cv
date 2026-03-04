@@ -23,7 +23,6 @@ class CvPdfController extends Controller
         $pdfPath = $this->generarPdfEmpleado($empleado);
 
         $nombre = 'CV_' . ($empleado->curp ?? 'empleado') . '.pdf';
-
         return response()->download($pdfPath, $nombre)->deleteFileAfterSend(true);
     }
 
@@ -84,8 +83,8 @@ class CvPdfController extends Controller
 
     private function generarPdfEmpleado(Empleado $empleado): string
     {
-        $templatePath = config('cvpdf.template_path');
-        $soffice = config('cvpdf.soffice_path');
+        $templatePath = config('cvpdf.template_docx_path') ?: config('cvpdf.template_path');
+        $soffice = config('cvpdf.soffice_path', 'soffice');
 
         $tmpDir = config('cvpdf.tmp_dir');
         $pdfDir = config('cvpdf.pdf_dir');
@@ -94,7 +93,7 @@ class CvPdfController extends Controller
         File::ensureDirectoryExists($pdfDir);
 
         if (!File::exists($templatePath)) {
-            abort(500, "No se encontró la plantilla: {$templatePath}");
+            abort(500, "No se encontró la plantilla DOCX: {$templatePath}");
         }
 
         // Traer relaciones CV
@@ -112,43 +111,46 @@ class CvPdfController extends Controller
 
         $tp = new TemplateProcessor($templatePath);
 
-        $folio = $empleado->folio_cv ?: '';
+        // ====== Campos principales (placeholders nuevos) ======
+        $fullName = trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}");
+        $tp->setValue('fullName', $this->safe($fullName));
+        $tp->setValue('puesto', $this->safe($empleado->puesto_label ?? $empleado->puesto_actual ?? ''));
+        $tp->setValue('fechaInicioPuesto', $this->fmtFecha($empleado->fecha_inicio_puesto));
 
-        $tp->setValue('FOLIO', $this->safe($folio));
-        $tp->setValue('NOMBRE', $this->safe(trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}")));
-
-        // ✅ AQUÍ VA EL PUESTO CORRECTO
-        $tp->setValue('PUESTO_ACTUAL', $this->safe($empleado->puesto_label));
-
-        $tp->setValue('FECHA_INICIO', $this->fmtFecha($empleado->fecha_inicio_puesto));
-
+        // ====== Experiencias (3) ======
         for ($i = 1; $i <= 3; $i++) {
             $exp = $experiencias[$i - 1] ?? null;
 
-            $tp->setValue("EXP{$i}_PUESTO", $this->safe($exp?->puesto));
-            $tp->setValue("EXP{$i}_INST", $this->safe($exp?->institucion));
-            $tp->setValue("EXP{$i}_SECTOR", $this->safe($exp?->sector ? strtoupper($exp->sector) : ''));
-            $tp->setValue("EXP{$i}_FINI", $this->fmtFecha($exp?->fecha_inicio));
-            $tp->setValue("EXP{$i}_FFIN", $this->fmtFecha($exp?->fecha_termino));
-            $tp->setValue("EXP{$i}_CAMPO", $this->safe($exp?->campo_experiencia));
+            $tp->setValue("exp{$i}_puesto", $this->safe($exp?->puesto));
+            $tp->setValue("exp{$i}_institucion", $this->safe($exp?->institucion));
+            $tp->setValue("exp{$i}_sector", $this->safe($exp?->sector ? strtoupper($exp->sector) : ''));
+            $tp->setValue("exp{$i}_inicio", $this->fmtFecha($exp?->fecha_inicio));
+            $tp->setValue("exp{$i}_fin", $this->fmtFecha($exp?->fecha_termino));
+            $tp->setValue("exp{$i}_campo", $this->safe($exp?->campo_experiencia));
         }
 
-        $tp->setValue('INST', $this->safe($estudios?->institucion));
-        $tp->setValue('PAIS', $this->safe($estudios?->pais));
-        $tp->setValue('NIVEL', $this->safe($estudios?->nivel));
-        $tp->setValue('CEDULA', $this->safe($estudios?->numero_cedula));
-        $tp->setValue('CARRERA_ESP', $this->safe($estudios?->carrera_especifica));
-        $tp->setValue('CARRERA_GEN', $this->safe($estudios?->carrera_generica));
-        $tp->setValue('AREA_EST', $this->safe($estudios?->area_estudios));
+        // ====== Estudios ======
+        $tp->setValue('est_institucion', $this->safe($estudios?->institucion));
+        $tp->setValue('est_pais', $this->safe($estudios?->pais));
+        $tp->setValue('nivel', $this->safe($estudios?->nivel));
 
+        $cedula = trim((string)($estudios?->numero_cedula ?? ''));
+        $tp->setValue('grado_avance', $cedula !== '' ? 'TITULADO' : '');
+
+        $tp->setValue('area_estudios', $this->safe($estudios?->area_estudios));
+        // titulo_grado en plantilla = carrera específica (según tu mapeo)
+        $tp->setValue('titulo_grado', $this->safe($estudios?->carrera_especifica));
+        $tp->setValue('carrera_generica', $this->safe($estudios?->carrera_generica));
+
+        // ====== Cursos (5) ======
         for ($i = 1; $i <= 5; $i++) {
             $c = $cursos[$i - 1] ?? null;
-            $tp->setValue("CUR{$i}_PERIODO", $this->safe($c?->periodo));
-            $tp->setValue("CUR{$i}_NOMBRE", $this->safe($c?->nombre_curso));
-            $tp->setValue("CUR{$i}_INST", $this->safe($c?->institucion));
+            $tp->setValue("curso{$i}_periodo", $this->safe($c?->periodo));
+            $tp->setValue("curso{$i}_nombre", $this->safe($c?->nombre_curso));
+            $tp->setValue("curso{$i}_institucion", $this->safe($c?->institucion));
         }
 
-        $baseName = 'cv_' . ($empleado->curp ?: $empleado->id_tbl_empleados) . '_' . Carbon::now()->format('Ymd_His');
+        $baseName = 'cv_' . ($empleado->curp ?: $empleado->id_tbl_empleados) . '_' . Carbon::now()->format('Ymd_His_u') . '_' . mt_rand(1000, 9999);
         $docxPath = $tmpDir . DIRECTORY_SEPARATOR . $baseName . '.docx';
 
         $tp->saveAs($docxPath);
@@ -166,14 +168,18 @@ class CvPdfController extends Controller
         $process->setTimeout(120);
         $process->run();
 
+        @unlink($docxPath);
+
         if (!$process->isSuccessful()) {
-            @unlink($docxPath);
             abort(500, 'Error al convertir a PDF: ' . $process->getErrorOutput());
         }
 
         $pdfPath = $pdfDir . DIRECTORY_SEPARATOR . $baseName . '.pdf';
 
-        @unlink($docxPath);
+        if (!File::exists($pdfPath)) {
+            $pdfs = glob($pdfDir . DIRECTORY_SEPARATOR . $baseName . '*.pdf') ?: [];
+            if (!empty($pdfs)) $pdfPath = $pdfs[0];
+        }
 
         if (!File::exists($pdfPath)) {
             abort(500, 'No se generó el PDF.');
@@ -186,7 +192,7 @@ class CvPdfController extends Controller
     {
         $v = (string)($v ?? '');
         $v = preg_replace("/[\\x00-\\x1F\\x7F]/u", '', $v);
-        return $v;
+        return trim($v);
     }
 
     private function fmtFecha($v): string
