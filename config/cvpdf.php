@@ -1,131 +1,72 @@
 <?php
 
-// =============================
-// Helpers para rutas en Windows
-// =============================
 $resolvePath = function (?string $path, string $fallback) {
     $path = trim((string)($path ?? ''));
-    if ($path === '') return $fallback;
 
-    // Normaliza slashes
-    $path = str_replace(['\\'], '/', $path);
+    if ($path === '') {
+        return $fallback;
+    }
 
-    // Es ruta absoluta Windows? (C:/...)
+    $path = str_replace('\\', '/', $path);
+
+    // Ruta absoluta Windows
     if (preg_match('/^[A-Za-z]:\//', $path)) {
         return str_replace('/', DIRECTORY_SEPARATOR, $path);
     }
 
-    // Es absoluta Unix? (/var/...)
+    // Ruta absoluta Linux / Unix
     if (str_starts_with($path, '/')) {
         return str_replace('/', DIRECTORY_SEPARATOR, $path);
     }
 
-    // Si viene relativo (ej: storage/app/tmp) lo resolvemos desde base_path()
+    // Ruta relativa => resolver desde base_path
     return base_path(str_replace('/', DIRECTORY_SEPARATOR, $path));
 };
 
-// =============================
-// Valores (con env overrides)
-// =============================
-$tmpDir  = $resolvePath(env('CVPDF_TMP_DIR'), storage_path('app/tmp'));
-$pdfDir  = $resolvePath(env('CVPDF_PDF_DIR'), storage_path('app/tmp/pdf'));
+$tmpDir = $resolvePath(
+    env('CVPDF_TMP_DIR'),
+    storage_path('app/tmp')
+);
 
-// Plantilla DOCX: si CV_TEMPLATE_PATH viene relativo, lo resolvemos
-$templateDocx = $resolvePath(env('CV_TEMPLATE_PATH'), storage_path('app/templates/cv_template.docx'));
+$pdfDir = $resolvePath(
+    env('CVPDF_PDF_DIR'),
+    storage_path('app/tmp/pdf')
+);
 
-// LibreOffice: toma CVPDF_SOFFICE, si no existe toma SOFFICE_PATH, si no "soffice"
-$soffice = (string)(env('CVPDF_SOFFICE') ?: env('SOFFICE_PATH') ?: 'soffice');
-$soffice = trim($soffice);
+$loProfileDir = $resolvePath(
+    env('CVPDF_LO_PROFILE_DIR'),
+    storage_path('app/tmp/lo_profile')
+);
+
+$templateDocx = $resolvePath(
+    env('CVPDF_TEMPLATE_DOCX_PATH') ?: env('CV_TEMPLATE_PATH'),
+    storage_path('app/templates/cv_template.docx')
+);
+
+$soffice = trim((string)(
+    env('LIBREOFFICE_BINARY')
+    ?: env('CVPDF_SOFFICE')
+    ?: env('SOFFICE_PATH')
+    ?: ''
+));
+
 if ($soffice !== '' && $soffice !== 'soffice') {
-    $soffice = str_replace(['\\'], '/', $soffice);
+    $soffice = str_replace('\\', '/', $soffice);
     $soffice = $resolvePath($soffice, $soffice);
 }
 
 return [
-    // Carpeta temporal para archivos intermedios
     'tmp_dir' => $tmpDir,
-
-    // ✅ NUEVO: carpeta salida PDF (Word->PDF)
     'pdf_dir' => $pdfDir,
+    'lo_profile_dir' => $loProfileDir,
 
-    // ✅ NUEVO: plantilla Word (DOCX)
     'template_docx_path' => $templateDocx,
-
-    // ✅ ALIAS por compatibilidad (si algún código usa template_path)
     'template_path' => $templateDocx,
 
-    // ✅ NUEVO: LibreOffice (Windows: ruta real; Linux: "soffice")
     'soffice_path' => $soffice,
 
-    // (lo viejo TCPDF lo puedes dejar)
-    'template_pdf' => storage_path('app/templates/cv_template.pdf'),
-
-    // Imágenes de fondo (1-indexed por compatibilidad con tu código)
-    'template_images' => [
-        1 => storage_path('app/templates/cv_template_page1.png'),
-        2 => storage_path('app/templates/cv_template_page2.png'),
-    ],
-
-    /**
-     * Coordenadas en mm (TCPDF en unidad "mm")
-     * (Se quedan por si ocupas rollback, aunque con Word ya no se usan)
-     */
-    'coords' => [
-        'page1' => [
-            'fullName'          => ['x' => 46, 'y' => 47, 'w' => 160, 'h' => 5, 'size' => 11],
-            'puesto'            => ['x' => 58, 'y' => 52.5, 'w' => 160, 'h' => 5, 'size' => 9],
-            'fechaInicioPuesto' => ['x' => 59, 'y' => 57, 'w' => 80,  'h' => 5, 'size' => 11],
-
-            'exp1_puesto'       => ['x' => 46, 'y' => 74.1, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp1_institucion'  => ['x' => 70, 'y' => 78.9, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp1_sector'       => ['x' => 44, 'y' => 83.5, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp1_inicio'       => ['x' => 60, 'y' => 88.5, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp1_fin'          => ['x' => 64, 'y' => 93.4, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp1_campo'        => ['x' => 72, 'y' => 98,  'w' => 160, 'h' => 5, 'size' => 10],
-
-            'exp2_puesto'       => ['x' => 46, 'y' => 105.4, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp2_institucion'  => ['x' => 70, 'y' => 110.1, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp2_sector'       => ['x' => 44, 'y' => 114.3, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp2_inicio'       => ['x' => 60, 'y' => 119.75,'w' => 80,  'h' => 5, 'size' => 10],
-            'exp2_fin'          => ['x' => 64, 'y' => 124.5, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp2_campo'        => ['x' => 72, 'y' => 129.3, 'w' => 160, 'h' => 5, 'size' => 10],
-
-            'exp3_puesto'       => ['x' => 46, 'y' => 139.1, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp3_institucion'  => ['x' => 70, 'y' => 143.9, 'w' => 160, 'h' => 5, 'size' => 10],
-            'exp3_sector'       => ['x' => 44, 'y' => 148,   'w' => 160, 'h' => 5, 'size' => 10],
-            'exp3_inicio'       => ['x' => 60, 'y' => 153.49,'w' => 80,  'h' => 5, 'size' => 10],
-            'exp3_fin'          => ['x' => 64, 'y' => 158.1, 'w' => 80,  'h' => 5, 'size' => 10],
-            'exp3_campo'        => ['x' => 72, 'y' => 163.01,'w' => 160, 'h' => 5, 'size' => 10],
-
-            'est_institucion'   => ['x' => 53,  'y' => 178.3, 'w' => 135, 'h' => 5, 'size' => 10],
-            'est_pais'          => ['x' => 38,  'y' => 183.12,'w' => 135, 'h' => 5, 'size' => 10],
-            'nivel'             => ['x' => 64,  'y' => 188,   'w' => 135, 'h' => 5, 'size' => 10],
-            'grado_avance'      => ['x' => 64,  'y' => 192.52,'w' => 135, 'h' => 5, 'size' => 10],
-            'area_estudios'     => ['x' => 64,  'y' => 197.49,'w' => 135, 'h' => 5, 'size' => 10],
-            'titulo_grado'      => ['x' => 107, 'y' => 202.3, 'w' => 135, 'h' => 5, 'size' => 10],
-            'carrera_generica'  => ['x' => 64,  'y' => 207.1, 'w' => 135, 'h' => 5, 'size' => 10],
-        ],
-
-        'page2' => [
-            'curso1_periodo'     => ['x' => 46, 'y' => 44.7,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso1_nombre'      => ['x' => 90, 'y' => 49.4,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso1_institucion' => ['x' => 80, 'y' => 54.4,  'w' => 110, 'h' => 5, 'size' => 10],
-
-            'curso2_periodo'     => ['x' => 46, 'y' => 63.9,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso2_nombre'      => ['x' => 90, 'y' => 68.9,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso2_institucion' => ['x' => 80, 'y' => 74.28, 'w' => 110, 'h' => 5, 'size' => 10],
-
-            'curso3_periodo'     => ['x' => 46, 'y' => 85.4,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso3_nombre'      => ['x' => 90, 'y' => 90.8,  'w' => 110, 'h' => 5, 'size' => 10],
-            'curso3_institucion' => ['x' => 80, 'y' => 96.4,  'w' => 110, 'h' => 5, 'size' => 10],
-
-            'curso4_periodo'     => ['x' => 46, 'y' => 107.3, 'w' => 110, 'h' => 5, 'size' => 10],
-            'curso4_nombre'      => ['x' => 90, 'y' => 112.92,'w' => 110, 'h' => 5, 'size' => 10],
-            'curso4_institucion' => ['x' => 80, 'y' => 118.56,'w' => 110, 'h' => 5, 'size' => 10],
-
-            'curso5_periodo'     => ['x' => 46, 'y' => 129.50,'w' => 110, 'h' => 5, 'size' => 10],
-            'curso5_nombre'      => ['x' => 90, 'y' => 134.9, 'w' => 110, 'h' => 5, 'size' => 10],
-            'curso5_institucion' => ['x' => 80, 'y' => 140.5, 'w' => 110, 'h' => 5, 'size' => 10],
-        ],
-    ],
+    // Compatibilidad legacy
+    'template_pdf' => env('CVPDF_TEMPLATE_PDF_PATH')
+        ? $resolvePath(env('CVPDF_TEMPLATE_PDF_PATH'), storage_path('app/templates/cv_template.pdf'))
+        : storage_path('app/templates/cv_template.pdf'),
 ];
