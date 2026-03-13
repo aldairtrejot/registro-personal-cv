@@ -15,7 +15,7 @@
               </div>
 
               <div class="imss-actions">
-                <!-- ✅ ZIP (modal) -->
+                <!-- ZIP -->
                 <button
                   type="button"
                   class="btn btn-imss btn-sm imss-btn-fixed"
@@ -25,7 +25,7 @@
                   Descargar ZIP aprobados
                 </button>
 
-                <!-- ✅ CURP -->
+                <!-- CURP -->
                 <div class="imss-curp-box">
                   <label class="imss-label">Descarga por CURP</label>
                   <div class="d-flex gap-2 align-items-center">
@@ -98,13 +98,13 @@
               </thead>
 
               <tbody>
-                <tr v-if="empleadosFiltrados.length === 0">
+                <tr v-if="empleadosPaginados.length === 0">
                   <td colspan="5" class="text-center py-4 text-muted">
                     No hay registros que coincidan con los filtros.
                   </td>
                 </tr>
 
-                <tr v-for="(emp, index) in empleadosFiltrados" :key="rowKey(emp, index)">
+                <tr v-for="(emp, index) in empleadosPaginados" :key="rowKey(emp, index)">
                   <td>
                     <div class="fw-semibold imss-name">{{ emp.nombre || 'N/D' }}</div>
                   </td>
@@ -138,23 +138,77 @@
             </table>
           </div>
 
-          <!-- FOOTER -->
+          <!-- FOOTER / PAGINACIÓN -->
           <div class="card-footer imss-footer">
-            <div class="d-flex flex-column flex-md-row justify-content-between gap-2">
-              <div class="text-muted small">
-                Mostrando <strong>{{ empleadosFiltrados.length }}</strong> de <strong>{{ empleados.length }}</strong> registro(s).
+            <div class="imss-footer-grid">
+              <div class="imss-footer-left">
+                <label class="imss-footer-label">Mostrar</label>
+                <select
+                  v-model.number="rowsPerPage"
+                  class="form-select form-select-sm imss-select imss-select-footer"
+                  @change="onRowsPerPageChange"
+                >
+                  <option v-for="opt in perPageOptions" :key="opt" :value="opt">
+                    {{ opt }}
+                  </option>
+                </select>
+                <span class="imss-footer-label">registros</span>
               </div>
-              <div class="text-muted small">
-                * Datos cargados desde la base.
+
+              <div class="imss-footer-center text-muted small">
+                <template v-if="totalRegistrosFiltrados > 0">
+                  Mostrando <strong>{{ pageStart }}</strong> a <strong>{{ pageEnd }}</strong>
+                  de <strong>{{ totalRegistrosFiltrados }}</strong> registro(s) filtrado(s).
+                </template>
+                <template v-else>
+                  Mostrando <strong>0</strong> de <strong>0</strong> registro(s).
+                </template>
               </div>
+
+              <div class="imss-footer-right">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary imss-page-btn"
+                  @click="goToPreviousPage"
+                  :disabled="!canGoPrev"
+                >
+                  Anterior
+                </button>
+
+                <div class="imss-page-group">
+                  <button
+                    v-for="page in visiblePages"
+                    :key="page"
+                    type="button"
+                    class="btn btn-sm imss-page-btn"
+                    :class="page === currentPageSafe ? 'imss-page-btn-active' : 'btn-outline-secondary'"
+                    @click="goToPage(page)"
+                  >
+                    {{ page }}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary imss-page-btn"
+                  @click="goToNextPage"
+                  :disabled="!canGoNext"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-2 text-muted small">
+              Página <strong>{{ currentPageSafe }}</strong> de <strong>{{ totalPages }}</strong>.
+              Total cargado desde la base: <strong>{{ empleados.length }}</strong> registro(s).
             </div>
           </div>
         </div>
-        <!-- /card -->
       </div>
     </div>
 
-    <!-- ✅ MODAL ZIP (mismo estilo que tu sistema) -->
+    <!-- MODAL ZIP -->
     <div class="modal modal-blur fade" id="modalZipAprobados" tabindex="-1" role="dialog" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px;">
         <div class="modal-content">
@@ -171,7 +225,13 @@
             <div class="row g-3">
               <div class="col-12 col-md-6">
                 <label class="form-label">Ejercicio (año)</label>
-                <input type="number" class="form-control" v-model.number="zipFiltro.ejercicio" min="2000" max="2100" />
+                <input
+                  type="number"
+                  class="form-control"
+                  v-model.number="zipFiltro.ejercicio"
+                  min="2000"
+                  max="2100"
+                />
               </div>
 
               <div class="col-12 col-md-6">
@@ -191,7 +251,9 @@
           </div>
 
           <div class="modal-footer">
-            <button type="button" class="btn me-auto" data-bs-dismiss="modal" :disabled="zipDescargando">Cancelar</button>
+            <button type="button" class="btn me-auto" data-bs-dismiss="modal" :disabled="zipDescargando">
+              Cancelar
+            </button>
             <button type="button" class="btn btn-success" @click="descargarZipAprobados" :disabled="zipDescargando">
               <span v-if="zipDescargando">Descargando…</span>
               <span v-else>Descargar ZIP</span>
@@ -200,9 +262,8 @@
         </div>
       </div>
     </div>
-    <!-- /modal -->
 
-    <!-- ✅ TOAST Bootstrap (idéntico al Blade) -->
+    <!-- TOAST -->
     <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
       <div
         id="toast_cv_zip"
@@ -226,7 +287,6 @@
         </div>
       </div>
     </div>
-    <!-- /toast -->
   </div>
 </template>
 
@@ -237,9 +297,11 @@ import { BASE_URL } from '@/components/url.js'
 const EJ_MIN = 2000
 const EJ_MAX = 2100
 const TRIM_OK = [1, 2, 3, 4]
+const PER_PAGE_OPTIONS = [5, 10, 15, 20]
 
 export default {
   name: 'RevisorEmpleadoList',
+
   data() {
     const now = new Date()
     const month = now.getMonth() + 1
@@ -248,21 +310,34 @@ export default {
     return {
       BASE_URL,
 
-      filtros: { busqueda: '', status: '' },
+      filtros: {
+        busqueda: '',
+        status: '',
+      },
+
       empleados: [],
       curpDescarga: '',
 
-      zipFiltro: { ejercicio: now.getFullYear(), trimestre: trimestreActual },
+      zipFiltro: {
+        ejercicio: now.getFullYear(),
+        trimestre: trimestreActual,
+      },
+
       zipDescargando: false,
 
       // Toast
       toastMsg: '',
       _toastInstance: null,
 
-      // estabilidad
+      // Estabilidad
       _empReqId: 0,
       _debounceTimer: null,
       _debounceMs: 250,
+
+      // Paginación
+      currentPage: 1,
+      rowsPerPage: 5,
+      perPageOptions: PER_PAGE_OPTIONS,
     }
   },
 
@@ -292,15 +367,77 @@ export default {
           puesto.includes(texto)
 
         const coincideStatus = !status || st === status
+
         return coincideTexto && coincideStatus
       })
+    },
+
+    rowsPerPageSafe() {
+      const n = Number(this.rowsPerPage || 5)
+      return this.perPageOptions.includes(n) ? n : 5
+    },
+
+    totalRegistrosFiltrados() {
+      return Array.isArray(this.empleadosFiltrados) ? this.empleadosFiltrados.length : 0
+    },
+
+    totalPages() {
+      const total = Math.ceil(this.totalRegistrosFiltrados / this.rowsPerPageSafe)
+      return total > 0 ? total : 1
+    },
+
+    currentPageSafe() {
+      let page = Number(this.currentPage || 1)
+      if (!Number.isFinite(page) || page < 1) page = 1
+      if (page > this.totalPages) page = this.totalPages
+      return page
+    },
+
+    pageStart() {
+      if (this.totalRegistrosFiltrados === 0) return 0
+      return ((this.currentPageSafe - 1) * this.rowsPerPageSafe) + 1
+    },
+
+    pageEnd() {
+      if (this.totalRegistrosFiltrados === 0) return 0
+      return Math.min(this.currentPageSafe * this.rowsPerPageSafe, this.totalRegistrosFiltrados)
+    },
+
+    empleadosPaginados() {
+      const inicio = (this.currentPageSafe - 1) * this.rowsPerPageSafe
+      const fin = inicio + this.rowsPerPageSafe
+      return this.empleadosFiltrados.slice(inicio, fin)
+    },
+
+    canGoPrev() {
+      return this.currentPageSafe > 1
+    },
+
+    canGoNext() {
+      return this.currentPageSafe < this.totalPages
+    },
+
+    visiblePages() {
+      const total = this.totalPages
+      const current = this.currentPageSafe
+
+      let start = Math.max(1, current - 2)
+      let end = Math.min(total, start + 4)
+
+      start = Math.max(1, end - 4)
+
+      const pages = []
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+      return pages
     },
   },
 
   methods: {
-    // -----------------------------
-    // URLs (respeta BASE_URL)
-    // -----------------------------
+    // ---------------------------------
+    // URLs
+    // ---------------------------------
     _joinUrl(base, path) {
       const b = String(base || '').replace(/\/+$/, '')
       const p = String(path || '')
@@ -313,9 +450,9 @@ export default {
       return path
     },
 
-    // -----------------------------
-    // Toast Bootstrap (igual Blade)
-    // -----------------------------
+    // ---------------------------------
+    // Toast Bootstrap
+    // ---------------------------------
     _getToastCtor() {
       const b = window && window.bootstrap ? window.bootstrap : null
       return b && b.Toast ? b.Toast : null
@@ -343,9 +480,9 @@ export default {
       })
     },
 
-    // -----------------------------
+    // ---------------------------------
     // Helpers
-    // -----------------------------
+    // ---------------------------------
     getId(emp) {
       if (emp && typeof emp === 'object') {
         if (emp.id_tbl_empleados != null) return emp.id_tbl_empleados
@@ -364,34 +501,50 @@ export default {
 
     statusKey(emp) {
       if (emp && emp.status) return emp.status
+
       const n = Number(emp && emp.estatus_cv != null ? emp.estatus_cv : null)
 
       switch (n) {
-        case 1: return 'edicion'
-        case 2: return 'enviado'
-        case 3: return 'aprobado'
-        case 4: return 'rechazado'
-        default: return 'sin_cv'
+        case 1:
+          return 'edicion'
+        case 2:
+          return 'enviado'
+        case 3:
+          return 'aprobado'
+        case 4:
+          return 'rechazado'
+        default:
+          return 'sin_cv'
       }
     },
 
     statusLabel(status) {
       switch (status) {
-        case 'edicion': return 'En edición'
-        case 'enviado': return 'Enviado'
-        case 'aprobado': return 'Aprobado'
-        case 'rechazado': return 'Rechazado'
-        default: return 'Sin CV'
+        case 'edicion':
+          return 'En edición'
+        case 'enviado':
+          return 'Enviado'
+        case 'aprobado':
+          return 'Aprobado'
+        case 'rechazado':
+          return 'Rechazado'
+        default:
+          return 'Sin CV'
       }
     },
 
     badgeClass(status) {
       switch (status) {
-        case 'edicion': return 'imss-badge-neutral'
-        case 'enviado': return 'imss-badge-warning'
-        case 'aprobado': return 'imss-badge-success'
-        case 'rechazado': return 'imss-badge-danger'
-        default: return 'imss-badge-neutral'
+        case 'edicion':
+          return 'imss-badge-neutral'
+        case 'enviado':
+          return 'imss-badge-warning'
+        case 'aprobado':
+          return 'imss-badge-success'
+        case 'rechazado':
+          return 'imss-badge-danger'
+        default:
+          return 'imss-badge-neutral'
       }
     },
 
@@ -411,9 +564,58 @@ export default {
       window.location.href = this._url('/revisor/pdf/curp/' + encodeURIComponent(curp))
     },
 
-    // -----------------------------
+    // ---------------------------------
+    // Paginación
+    // ---------------------------------
+    _syncCurrentPage() {
+      if (!Number.isFinite(Number(this.currentPage))) {
+        this.currentPage = 1
+        return
+      }
+
+      if (this.currentPage < 1) {
+        this.currentPage = 1
+        return
+      }
+
+      if (this.currentPage > this.totalPages) {
+        this.currentPage = this.totalPages
+      }
+    },
+
+    onRowsPerPageChange() {
+      const n = Number(this.rowsPerPage || 5)
+      this.rowsPerPage = this.perPageOptions.includes(n) ? n : 5
+      this.currentPage = 1
+      this._syncCurrentPage()
+    },
+
+    goToPage(page) {
+      const target = Number(page || 1)
+      if (!Number.isFinite(target)) return
+
+      if (target < 1) {
+        this.currentPage = 1
+      } else if (target > this.totalPages) {
+        this.currentPage = this.totalPages
+      } else {
+        this.currentPage = target
+      }
+    },
+
+    goToPreviousPage() {
+      if (!this.canGoPrev) return
+      this.currentPage = this.currentPageSafe - 1
+    },
+
+    goToNextPage() {
+      if (!this.canGoNext) return
+      this.currentPage = this.currentPageSafe + 1
+    },
+
+    // ---------------------------------
     // Modal safe close + unlock
-    // -----------------------------
+    // ---------------------------------
     _getModalCtor() {
       const b = window && window.bootstrap ? window.bootstrap : null
       return b && b.Modal ? b.Modal : null
@@ -429,7 +631,9 @@ export default {
       try {
         const backdrops = document.querySelectorAll('.modal-backdrop')
         for (let i = 0; i < backdrops.length; i++) {
-          try { backdrops[i].remove() } catch (_) {}
+          try {
+            backdrops[i].remove()
+          } catch (_) {}
         }
       } catch (_) {}
     },
@@ -439,6 +643,7 @@ export default {
       if (!el) return
 
       const Modal = this._getModalCtor()
+
       try {
         if (Modal && typeof Modal.getInstance === 'function') {
           const inst = Modal.getInstance(el)
@@ -452,9 +657,9 @@ export default {
       window.setTimeout(() => this._forceUnlockModals(), 250)
     },
 
-    // -----------------------------
-    // ZIP helpers (para detectar "sin registros" aunque sea 200)
-    // -----------------------------
+    // ---------------------------------
+    // ZIP helpers
+    // ---------------------------------
     _isZipContentType(ct = '') {
       const t = String(ct || '').toLowerCase()
       return (
@@ -464,9 +669,6 @@ export default {
       )
     },
 
-    // -----------------------------
-    // ZIP: fetch -> "sin registros" => toast (aunque sea 200), ok => download
-    // -----------------------------
     _zipUrl(ejercicio, trimestre) {
       const base = this._url('/revisor/pdf/aprobados.zip')
       return (
@@ -496,17 +698,17 @@ export default {
       this.zipDescargando = true
       const url = this._zipUrl(ejercicio, trimestre)
 
-      // cerrar modal primero
       this._closeZipModalSafe()
 
       try {
         const resp = await fetch(url, {
           method: 'GET',
           credentials: 'same-origin',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+          },
         })
 
-        // ✅ backend manda error http (ideal)
         if (!resp.ok) {
           if (resp.status === 404) {
             this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
@@ -518,7 +720,6 @@ export default {
           return
         }
 
-        // ✅ 204 no content => sin registros
         if (resp.status === 204) {
           this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
           return
@@ -526,25 +727,26 @@ export default {
 
         const ct = (resp.headers.get('Content-Type') || resp.headers.get('content-type') || '').toLowerCase()
 
-        // ✅ a veces el backend responde JSON con "sin datos"
         if (ct.includes('application/json')) {
           let payload = null
-          try { payload = await resp.json() } catch (_) {}
+          try {
+            payload = await resp.json()
+          } catch (_) {}
+
           const msg =
             payload?.message ||
             payload?.mensaje ||
             'No hay CV aprobados para exportar con el rango de fecha seleccionado.'
+
           this.showToast(msg)
           return
         }
 
-        // ✅ a veces regresa HTML (login/error page)
         if (ct.includes('text/html')) {
           this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
           return
         }
 
-        // ✅ si viene content-type raro (no zip) avisamos en vez de bajar basura
         if (ct && !this._isZipContentType(ct)) {
           this.showToast('No se encontró información para el rango seleccionado.')
           return
@@ -552,25 +754,21 @@ export default {
 
         const blob = await resp.blob()
 
-        // ✅ blob vacío o "zip vacío" muy pequeño
-        // (umbral conservador: si tu zip vacío pesa más, ajusta)
         if (!blob || blob.size === 0 || blob.size < 200) {
           this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
           return
         }
 
-        // ✅ validar firma ZIP: "PK"
         try {
           const headBuf = await blob.slice(0, 2).arrayBuffer()
           const sig = new Uint8Array(headBuf)
           const isPK = sig[0] === 0x50 && sig[1] === 0x4b
+
           if (!isPK) {
             this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
             return
           }
-        } catch (_) {
-          // si no pudimos validar, seguimos (pero rara vez pasa)
-        }
+        } catch (_) {}
 
         let filename = 'aprobados.zip'
         const cd = resp.headers.get('Content-Disposition') || resp.headers.get('content-disposition') || ''
@@ -579,13 +777,14 @@ export default {
 
         const a = document.createElement('a')
         const objectUrl = window.URL.createObjectURL(blob)
+
         a.href = objectUrl
         a.download = filename
         document.body.appendChild(a)
         a.click()
         a.remove()
-        window.URL.revokeObjectURL(objectUrl)
 
+        window.URL.revokeObjectURL(objectUrl)
       } catch (e) {
         console.error(e)
         this.showToast('No se pudo descargar el ZIP. Intenta nuevamente.')
@@ -595,11 +794,14 @@ export default {
       }
     },
 
-    // -----------------------------
+    // ---------------------------------
     // Data
-    // -----------------------------
+    // ---------------------------------
     scheduleCargarEmpleados() {
-      try { if (this._debounceTimer) clearTimeout(this._debounceTimer) } catch (_) {}
+      try {
+        if (this._debounceTimer) clearTimeout(this._debounceTimer)
+      } catch (_) {}
+
       this._debounceTimer = setTimeout(() => {
         this.cargarEmpleados()
       }, this._debounceMs)
@@ -610,6 +812,7 @@ export default {
 
       try {
         const apiUrl = this._url('/api/revisor/empleados')
+
         const { data } = await axios.get(apiUrl, {
           params: {
             q: this.filtros.busqueda || undefined,
@@ -618,16 +821,27 @@ export default {
         })
 
         if (reqId !== this._empReqId) return
+
         this.empleados = Array.isArray(data) ? data : []
+        this.$nextTick(() => {
+          this._syncCurrentPage()
+        })
       } catch (e) {
         if (reqId !== this._empReqId) return
+
         console.error('Error al cargar empleados:', e)
         this.empleados = []
+        this.$nextTick(() => {
+          this._syncCurrentPage()
+        })
       }
     },
 
     _cleanupTimers() {
-      try { if (this._debounceTimer) clearTimeout(this._debounceTimer) } catch (_) {}
+      try {
+        if (this._debounceTimer) clearTimeout(this._debounceTimer)
+      } catch (_) {}
+
       try {
         if (this._toastInstance) {
           this._toastInstance.dispose()
@@ -641,6 +855,7 @@ export default {
     filtros: {
       deep: true,
       handler() {
+        this.currentPage = 1
         this.scheduleCargarEmpleados()
       },
     },
@@ -661,7 +876,6 @@ export default {
 </script>
 
 <style scoped>
-/* ✅ Variables */
 .imss-theme {
   --imss-green: #006341;
   --imss-green-2: #0b7a53;
@@ -740,7 +954,9 @@ export default {
   padding: 14px 18px;
 }
 
-.imss-input-wrap { position: relative; }
+.imss-input-wrap {
+  position: relative;
+}
 
 .imss-icon {
   position: absolute;
@@ -757,7 +973,9 @@ export default {
   border-color: var(--imss-border);
 }
 
-.imss-input-with-icon { padding-left: 34px; }
+.imss-input-with-icon {
+  padding-left: 34px;
+}
 
 .imss-input:focus,
 .imss-select:focus {
@@ -765,7 +983,9 @@ export default {
   box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.12);
 }
 
-.imss-table-wrap { background: #ffffff; }
+.imss-table-wrap {
+  background: #ffffff;
+}
 
 .imss-table thead th {
   background: #0f2f2a;
@@ -782,9 +1002,14 @@ export default {
   border-color: var(--imss-border);
 }
 
-.imss-table tbody tr:hover { background: var(--imss-soft); }
+.imss-table tbody tr:hover {
+  background: var(--imss-soft);
+}
 
-.imss-name { color: var(--imss-ink); line-height: 1.2; }
+.imss-name {
+  color: var(--imss-ink);
+  line-height: 1.2;
+}
 
 .imss-code {
   background: #0b1120;
@@ -805,10 +1030,29 @@ export default {
   border: 1px solid transparent;
 }
 
-.imss-badge-neutral { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
-.imss-badge-warning { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
-.imss-badge-success { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
-.imss-badge-danger  { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.imss-badge-neutral {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+
+.imss-badge-warning {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+
+.imss-badge-success {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.imss-badge-danger {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
 
 .imss-footer {
   background: #ffffff;
@@ -816,7 +1060,62 @@ export default {
   padding: 12px 18px;
 }
 
-/* Botones */
+.imss-footer-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.imss-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.imss-footer-center {
+  text-align: center;
+}
+
+.imss-footer-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.imss-footer-label {
+  font-size: 0.82rem;
+  color: var(--imss-muted);
+  font-weight: 600;
+}
+
+.imss-select-footer {
+  width: 84px;
+  min-width: 84px;
+}
+
+.imss-page-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.imss-page-btn {
+  min-width: 38px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.imss-page-btn-active {
+  background: var(--imss-green) !important;
+  border: 1px solid var(--imss-green) !important;
+  color: #ffffff !important;
+}
+
 .imss-btn-fixed {
   display: inline-flex;
   align-items: center;
@@ -844,7 +1143,9 @@ export default {
   opacity: 1 !important;
 }
 
-.btn-imss:focus { box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important; }
+.btn-imss:focus {
+  box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important;
+}
 
 .btn-outline-imss {
   border-color: rgba(0, 99, 65, 0.55) !important;
@@ -863,11 +1164,37 @@ export default {
   opacity: 1 !important;
 }
 
-.btn-outline-imss:focus { box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important; }
+.btn-outline-imss:focus {
+  box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important;
+}
+
+@media (max-width: 992px) {
+  .imss-footer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .imss-footer-center {
+    text-align: left;
+  }
+
+  .imss-footer-right {
+    justify-content: flex-start;
+  }
+}
 
 @media (max-width: 768px) {
-  .imss-curp-box { width: 100%; min-width: 0; }
-  .imss-actions { width: 100%; justify-content: stretch; }
-  .btn-imss.imss-btn-fixed { width: 100%; }
+  .imss-curp-box {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .imss-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .btn-imss.imss-btn-fixed {
+    width: 100%;
+  }
 }
 </style>
