@@ -40,7 +40,6 @@
                     </div>
                   </div>
 
-                  <!-- ✅ PUESTO ACTUAL EDITABLE CON COMBO -->
                   <div class="imss-header-item">
                     <div class="d-flex justify-content-between align-items-center gap-2">
                       <div class="imss-label mb-0">Puesto actual</div>
@@ -108,7 +107,6 @@
                       </div>
                     </div>
                   </div>
-                  <!-- /PUESTO -->
                 </div>
               </div>
 
@@ -129,7 +127,6 @@
                       <span v-else>Procesando…</span>
                     </button>
 
-                    <!-- ✅ NUEVO BOTÓN: PERSONALIZAR FOLIO -->
                     <button
                       type="button"
                       class="btn btn-outline-imss btn-sm imss-btn-fixed"
@@ -158,9 +155,25 @@
           </div>
         </div>
 
-        <!-- CONTENIDO -->
         <div class="row g-3" v-if="empleado">
           <div class="col-12 col-lg-4">
+            <div
+              v-if="statusLocal === 'rechazado'"
+              class="card imss-card imss-card-danger mb-3"
+            >
+              <div class="card-header imss-section-header imss-section-header-danger">
+                <h3 class="imss-section-title mb-0">Motivo de rechazo</h3>
+              </div>
+              <div class="card-body">
+                <div v-if="empleado.motivo_rechazo_cv" class="imss-rechazo-texto">
+                  {{ empleado.motivo_rechazo_cv }}
+                </div>
+                <div v-else class="text-muted">
+                  No hay motivo registrado.
+                </div>
+              </div>
+            </div>
+
             <div class="card imss-card mb-3">
               <div class="card-header imss-section-header">
                 <h3 class="imss-section-title mb-0">Datos personales</h3>
@@ -315,7 +328,6 @@
           </div>
         </div>
 
-        <!-- ✅ MODAL RECHAZO (NO SE QUITA) -->
         <div
           class="modal fade"
           id="modalRechazoCv"
@@ -332,7 +344,7 @@
               </div>
               <div class="modal-body">
                 <div class="mb-2 text-muted small">
-                  Escribe el motivo. Este se enviará al empleado por correo.
+                  Escribe el motivo. Este se enviará al empleado por correo y se guardará en el expediente.
                 </div>
 
                 <label class="form-label fw-semibold">Motivo de rechazo *</label>
@@ -340,6 +352,7 @@
                   class="form-control"
                   rows="4"
                   v-model="motivoRechazo"
+                  @input="errorMotivo = ''"
                   placeholder="Ej: Falta adjuntar información / corregir fechas / etc."
                   :disabled="loading"
                 ></textarea>
@@ -360,9 +373,7 @@
             </div>
           </div>
         </div>
-        <!-- /MODAL -->
 
-        <!-- ✅ NUEVO MODAL: PERSONALIZAR FOLIO -->
         <div
           class="modal fade"
           id="modalFolioCv"
@@ -417,7 +428,6 @@
             </div>
           </div>
         </div>
-        <!-- /MODAL FOLIO -->
       </div>
     </div>
   </div>
@@ -441,21 +451,17 @@ export default {
       estudios: null,
       cursos: [],
 
-      // ✅ catálogo puestos
       puestos: [],
       loadingCatalogoPuestos: false,
 
-      // ✅ edición puesto
       editandoPuesto: false,
       puestoIdEdit: 0,
       loadingPuesto: false,
 
-      // ✅ modal rechazo
       motivoRechazo: '',
       errorMotivo: '',
       modalRechazo: null,
 
-      // ✅ modal folio
       folioManual: null,
       errorFolio: '',
       modalFolio: null,
@@ -539,7 +545,6 @@ export default {
         this.cursos = data.cursos || []
         this.statusLocal = this.mapStatusFromInt(this.empleado.estatus_cv)
 
-        // ✅ set actual en el combo
         this.puestoIdEdit = Number(this.empleado?.id_puesto || 0)
       } catch (e) {
         this.mensaje = { tipo: 'error', texto: 'No se pudo cargar la información del empleado.' }
@@ -574,7 +579,6 @@ export default {
           id_puesto: idPuesto,
         })
 
-        // Refleja en UI
         this.empleado.id_puesto = data?.id_puesto ?? idPuesto
         this.empleado.puesto_actual = data?.puesto_actual ?? this.empleado.puesto_actual
 
@@ -589,7 +593,6 @@ export default {
       }
     },
 
-    // ✅ APROBAR
     async cambiarStatus(status) {
       try {
         if (!this.empleado) return
@@ -601,11 +604,16 @@ export default {
         this.statusLocal = status
 
         if (status === 'aprobado' && data?.folio) {
-          this.mensaje = { tipo: 'ok', texto: `CV aprobado. Folio: ${data.folio}` }
-          // refresca folio en UI
           this.empleado.folio_cv = data.folio
-        } else {
-          this.mensaje = { tipo: 'ok', texto: `Estatus actualizado: ${this.statusLabel(status)}` }
+        }
+
+        if (status !== 'rechazado' && this.empleado) {
+          this.empleado.motivo_rechazo_cv = null
+        }
+
+        this.mensaje = {
+          tipo: 'ok',
+          texto: data?.message || `Estatus actualizado: ${this.statusLabel(status)}`,
         }
 
         await this.cargarDetalle(id)
@@ -618,7 +626,6 @@ export default {
       }
     },
 
-    // ✅ MODAL RECHAZO
     abrirModalRechazo() {
       this.mensaje = null
       this.errorMotivo = ''
@@ -639,6 +646,8 @@ export default {
         if (!this.empleado) return
 
         const motivo = String(this.motivoRechazo || '').trim()
+        this.errorMotivo = ''
+
         if (!motivo) {
           this.errorMotivo = 'El motivo es obligatorio.'
           return
@@ -647,17 +656,22 @@ export default {
         const id = this.empleado.id_tbl_empleados ?? this.empleado.id
 
         this.loading = true
-        await axios.post(`/api/revisor/empleados/${id}/estatus`, {
+        const { data } = await axios.post(`/api/revisor/empleados/${id}/estatus`, {
           status: 'rechazado',
           motivo,
         })
 
         this.statusLocal = 'rechazado'
+        this.empleado.motivo_rechazo_cv = data?.motivo_rechazo_cv ?? motivo
         this.cerrarModalRechazo()
 
-        this.mensaje = { tipo: 'ok', texto: 'CV rechazado y notificación enviada.' }
+        this.mensaje = {
+          tipo: data?.correo_enviado === false ? 'error' : 'ok',
+          texto: data?.message || 'CV rechazado.',
+        }
+
         await this.cargarDetalle(id)
-        setTimeout(() => { this.mensaje = null }, 4000)
+        setTimeout(() => { this.mensaje = null }, 5000)
       } catch (e) {
         const msg = e?.response?.data?.message || 'No se pudo rechazar el CV.'
         this.mensaje = { tipo: 'error', texto: msg }
@@ -666,7 +680,6 @@ export default {
       }
     },
 
-    // ✅ MODAL FOLIO
     abrirModalFolio() {
       this.mensaje = null
       this.errorFolio = ''
@@ -681,6 +694,7 @@ export default {
         this.modalFolio.hide()
       }
     },
+
     async confirmarFolioManual() {
       try {
         if (!this.empleado) return
@@ -700,7 +714,6 @@ export default {
           folio,
         })
 
-        // Refleja en UI
         this.empleado.folio_cv = data?.folio ?? folio
 
         this.cerrarModalFolio()
@@ -717,11 +730,11 @@ export default {
       }
     },
   },
+
   async mounted() {
     const el = document.getElementById('blade_revisor_empleado_show')
     const id = el?.dataset?.empleadoId
 
-    // ✅ bootstrap modal
     try {
       const bootstrap = await import('bootstrap/dist/js/bootstrap.bundle.min.js')
       const Modal = bootstrap?.Modal || bootstrap?.default?.Modal
@@ -755,35 +768,217 @@ export default {
 </script>
 
 <style scoped>
-/* (Mantén tu CSS tal cual lo tenías; aquí solo lo mínimo para que no se rompa) */
-.imss-theme { --imss-border:#e5e7eb; --imss-bg:#f7f9fb; --imss-ink:#10312b; --imss-muted:#6b7280; --imss-green:#006341; --imss-green-2:#0b7a53; }
-.imss-card { border:1px solid var(--imss-border); border-radius:14px; overflow:hidden; box-shadow:0 10px 28px rgba(16,49,43,.06); }
-.imss-alert { border-radius:12px; border-left-width:4px; }
-.imss-header-body { background:#fff; padding:18px; }
-.imss-kicker { font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--imss-muted); margin-bottom:4px; }
-.imss-title { color:var(--imss-ink); font-weight:800; font-size:1.25rem; }
-.imss-header-grid { margin-top:10px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
-.imss-header-item { padding:10px 12px; border:1px solid var(--imss-border); background:var(--imss-bg); border-radius:12px; }
-.imss-label { font-size:.78rem; font-weight:800; color:var(--imss-ink); margin-bottom:6px; }
-.imss-value { font-size:.92rem; color:var(--imss-ink); font-weight:600; }
-.imss-code { background:#0b1120; color:#e5e7eb; border-radius:10px; padding:4px 10px; font-size:.78rem; }
-.imss-actions-panel { border:1px solid var(--imss-border); border-radius:14px; padding:14px; background:var(--imss-bg); }
-.imss-help { font-size:.8rem; color:var(--imss-muted); }
-.imss-section-header { background:#fff; border-bottom:1px solid var(--imss-border); padding:14px 16px; }
-.imss-section-title { color:var(--imss-ink); font-weight:800; font-size:1rem; }
-.imss-item { padding:12px 0; border-bottom:1px solid var(--imss-border); }
-.imss-item-last { border-bottom:0; padding-bottom:0; }
-.imss-badge { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:6px 10px; font-size:.78rem; font-weight:800; border:1px solid transparent; }
-.imss-badge-neutral { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
-.imss-badge-warning { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
-.imss-badge-success { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
-.imss-badge-danger { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
-.imss-btn-fixed { display:inline-flex; align-items:center; justify-content:center; white-space:nowrap; min-height:34px; }
-.btn-imss { background:var(--imss-green)!important; border-color:var(--imss-green)!important; color:#fff!important; border-radius:12px; font-weight:800; }
-.btn-imss:hover { background:var(--imss-green-2)!important; border-color:var(--imss-green-2)!important; }
-.btn-outline-imss { border-color:rgba(0,99,65,.55)!important; color:var(--imss-green)!important; border-radius:12px; font-weight:800; }
-.btn-outline-imss:hover { background:var(--imss-green)!important; border-color:var(--imss-green)!important; color:#fff!important; }
-.btn-imss-danger { background:#b91c1c!important; border-color:#b91c1c!important; color:#fff!important; border-radius:12px; font-weight:800; }
-.imss-select { border-radius:12px; border-color:var(--imss-border); }
-@media (max-width: 992px) { .imss-header-grid { grid-template-columns: 1fr; } }
+.imss-theme {
+  --imss-border:#e5e7eb;
+  --imss-bg:#f7f9fb;
+  --imss-ink:#10312b;
+  --imss-muted:#6b7280;
+  --imss-green:#006341;
+  --imss-green-2:#0b7a53;
+}
+
+.imss-card {
+  border:1px solid var(--imss-border);
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 10px 28px rgba(16,49,43,.06);
+}
+
+.imss-card-danger {
+  border-color:#fecaca;
+  box-shadow:0 10px 28px rgba(185,28,28,.08);
+}
+
+.imss-alert {
+  border-radius:12px;
+  border-left-width:4px;
+}
+
+.imss-header-body {
+  background:#fff;
+  padding:18px;
+}
+
+.imss-kicker {
+  font-size:.72rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--imss-muted);
+  margin-bottom:4px;
+}
+
+.imss-title {
+  color:var(--imss-ink);
+  font-weight:800;
+  font-size:1.25rem;
+}
+
+.imss-header-grid {
+  margin-top:10px;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.imss-header-item {
+  padding:10px 12px;
+  border:1px solid var(--imss-border);
+  background:var(--imss-bg);
+  border-radius:12px;
+}
+
+.imss-label {
+  font-size:.78rem;
+  font-weight:800;
+  color:var(--imss-ink);
+  margin-bottom:6px;
+}
+
+.imss-value {
+  font-size:.92rem;
+  color:var(--imss-ink);
+  font-weight:600;
+}
+
+.imss-code {
+  background:#0b1120;
+  color:#e5e7eb;
+  border-radius:10px;
+  padding:4px 10px;
+  font-size:.78rem;
+}
+
+.imss-actions-panel {
+  border:1px solid var(--imss-border);
+  border-radius:14px;
+  padding:14px;
+  background:var(--imss-bg);
+}
+
+.imss-help {
+  font-size:.8rem;
+  color:var(--imss-muted);
+}
+
+.imss-section-header {
+  background:#fff;
+  border-bottom:1px solid var(--imss-border);
+  padding:14px 16px;
+}
+
+.imss-section-header-danger {
+  background:#fef2f2;
+  border-bottom:1px solid #fecaca;
+}
+
+.imss-section-title {
+  color:var(--imss-ink);
+  font-weight:800;
+  font-size:1rem;
+}
+
+.imss-rechazo-texto {
+  white-space:pre-wrap;
+  color:#7f1d1d;
+  font-weight:600;
+  line-height:1.55;
+}
+
+.imss-item {
+  padding:12px 0;
+  border-bottom:1px solid var(--imss-border);
+}
+
+.imss-item-last {
+  border-bottom:0;
+  padding-bottom:0;
+}
+
+.imss-badge {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:.78rem;
+  font-weight:800;
+  border:1px solid transparent;
+}
+
+.imss-badge-neutral {
+  background:#f3f4f6;
+  color:#374151;
+  border-color:#e5e7eb;
+}
+
+.imss-badge-warning {
+  background:#fff7ed;
+  color:#9a3412;
+  border-color:#fed7aa;
+}
+
+.imss-badge-success {
+  background:#ecfdf5;
+  color:#065f46;
+  border-color:#a7f3d0;
+}
+
+.imss-badge-danger {
+  background:#fef2f2;
+  color:#991b1b;
+  border-color:#fecaca;
+}
+
+.imss-btn-fixed {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+  min-height:34px;
+}
+
+.btn-imss {
+  background:var(--imss-green)!important;
+  border-color:var(--imss-green)!important;
+  color:#fff!important;
+  border-radius:12px;
+  font-weight:800;
+}
+
+.btn-imss:hover {
+  background:var(--imss-green-2)!important;
+  border-color:var(--imss-green-2)!important;
+}
+
+.btn-outline-imss {
+  border-color:rgba(0,99,65,.55)!important;
+  color:var(--imss-green)!important;
+  border-radius:12px;
+  font-weight:800;
+}
+
+.btn-outline-imss:hover {
+  background:var(--imss-green)!important;
+  border-color:var(--imss-green)!important;
+  color:#fff!important;
+}
+
+.btn-imss-danger {
+  background:#b91c1c!important;
+  border-color:#b91c1c!important;
+  color:#fff!important;
+  border-radius:12px;
+  font-weight:800;
+}
+
+.imss-select {
+  border-radius:12px;
+  border-color:var(--imss-border);
+}
+
+@media (max-width: 992px) {
+  .imss-header-grid {
+    grid-template-columns:1fr;
+  }
+}
 </style>

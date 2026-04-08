@@ -28,6 +28,7 @@ class RevisorController extends Controller
                 'aprobado'  => 3,
                 'rechazado' => 4,
             ];
+
             if (isset($map[$request->status])) {
                 $query->where('estatus_cv', $map[$request->status]);
             }
@@ -116,7 +117,7 @@ class RevisorController extends Controller
 
         $puesto = DB::table('profesionalizacion.cat_puestos')
             ->select('id_puesto', 'nombre')
-            ->where('id_puesto', (int)$data['id_puesto'])
+            ->where('id_puesto', (int) $data['id_puesto'])
             ->first();
 
         if (!$puesto) {
@@ -140,10 +141,22 @@ class RevisorController extends Controller
     {
         $data = $request->validate([
             'status' => 'required|in:edicion,enviado,aprobado,rechazado',
-            'motivo' => 'required_if:status,rechazado|nullable|string|max:500',
+            'motivo' => 'nullable|string|max:1000',
+        ], [
+            'status.required' => 'El estatus es obligatorio.',
+            'status.in' => 'El estatus seleccionado no es válido.',
+            'motivo.string' => 'El motivo debe ser texto.',
+            'motivo.max' => 'El motivo no puede exceder 1000 caracteres.',
         ]);
 
-        $empleado = Empleado::findOrFail($id);
+        $status = $data['status'];
+        $motivo = trim((string) ($data['motivo'] ?? ''));
+
+        if ($status === 'rechazado' && $motivo === '') {
+            return response()->json([
+                'message' => 'El motivo de rechazo es obligatorio.',
+            ], 422);
+        }
 
         $map = [
             'edicion'   => 1,
@@ -152,25 +165,59 @@ class RevisorController extends Controller
             'rechazado' => 4,
         ];
 
-        $status = $data['status'];
-        $motivo = trim((string)($data['motivo'] ?? ''));
+        $empleado = Empleado::findOrFail($id);
 
-        $empleado->estatus_cv = $map[$status];
+        DB::beginTransaction();
 
-        if ($status === 'aprobado') {
-            $consec = $folioSvc->asignarONormalizarAlAprobar((int)$empleado->id_tbl_empleados);
-            $empleado->folio_cv = $consec;
+        try {
+            $empleado->estatus_cv = $map[$status];
+
+            if ($status === 'aprobado') {
+                $consec = $folioSvc->asignarONormalizarAlAprobar((int) $empleado->id_tbl_empleados);
+                $empleado->folio_cv = $consec;
+
+                // al aprobar se limpia motivo previo
+                $empleado->motivo_rechazo_cv = null;
+            } elseif ($status === 'rechazado') {
+                $empleado->motivo_rechazo_cv = $motivo;
+            } else {
+                // si vuelve a edición o enviado, limpia motivo previo
+                $empleado->motivo_rechazo_cv = null;
+            }
+
+            $empleado->save();
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e);
+
+            return response()->json([
+                'message' => 'No se pudo actualizar el estatus del CV.',
+            ], 500);
         }
 
-        $empleado->save();
+        $correoEnviado = null;
+        $message = 'Estatus actualizado correctamente.';
 
         if ($status === 'rechazado') {
-            $this->enviarCorreoRechazo($empleado, $motivo);
+            $correoEnviado = $this->enviarCorreoRechazo($empleado, $motivo);
+
+            $message = $correoEnviado
+                ? 'CV rechazado y notificación enviada.'
+                : 'CV rechazado, pero no se pudo enviar el correo.';
+        }
+
+        if ($status === 'aprobado') {
+            $message = 'CV aprobado correctamente.';
         }
 
         return response()->json([
             'ok' => true,
             'folio' => $empleado->folio_cv ?? null,
+            'correo_enviado' => $correoEnviado,
+            'message' => $message,
+            'motivo_rechazo_cv' => $empleado->motivo_rechazo_cv,
         ]);
     }
 
@@ -185,64 +232,76 @@ class RevisorController extends Controller
         };
     }
 
-    private function enviarCorreoRechazo(Empleado $empleado, string $motivo): void
+    private function enviarCorreoRechazo(Empleado $empleado, string $motivo): bool
     {
         $ultimoToken = CvTokenAcceso::where('curp', $empleado->curp)
             ->orderByDesc('creado_en')
             ->first();
 
-        if (!$ultimoToken || !$ultimoToken->correo) {
-            return;
+        $correo = null;
+
+        if ($ultimoToken && !empty($ultimoToken->correo)) {
+            $correo = $ultimoToken->correo;
+        } elseif (!empty($empleado->correo)) {
+            $correo = $empleado->correo;
         }
 
-        $correo = $ultimoToken->correo;
-        $nombreCompleto = trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}");
-        $motivoSafe = e($motivo);
+        if (!$correo) {
+            return false;
+        }
 
-        $html = "
-            <p>Hola <strong>{$nombreCompleto}</strong>,</p>
-            <p>Tu registro de CV fue <strong>rechazado</strong> durante el proceso de revisión.</p>
-            <p><strong>Motivo:</strong><br>{$motivoSafe}</p>
-            <p>Por favor, ingresa nuevamente al sistema para corregir tu información y volver a enviarla.</p>
-            <p>
-                <a href=\"" . route('registro.wizard') . "\" target=\"_blank\">
-                    Ir al registro de CV
-                </a>
-            </p>
-        ";
+        try {
+            $nombreCompleto = trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}");
+            $motivoSafe = nl2br(e($motivo));
 
-        $mailData = [
-            'affair' => 'Tu registro de CV requiere correcciones',
-            'mail' => $correo,
-            'content' => $html,
-        ];
+            $html = "
+                <p>Hola <strong>{$nombreCompleto}</strong>,</p>
+                <p>Tu registro de CV fue <strong>rechazado</strong> durante el proceso de revisión.</p>
+                <p><strong>Motivo:</strong><br>{$motivoSafe}</p>
+                <p>Por favor, ingresa nuevamente al sistema para corregir tu información y volver a enviarla.</p>
+                <p>
+                    <a href=\"" . route('registro.wizard') . "\" target=\"_blank\">
+                        Ir al registro de CV
+                    </a>
+                </p>
+            ";
 
-        $mailer = new MailHelper();
-        $mailer->sendMail($mailData);
+            $mailData = [
+                'affair' => 'Tu registro de CV requiere correcciones',
+                'mail' => $correo,
+                'content' => $html,
+            ];
+
+            $mailer = new MailHelper();
+            $mailer->sendMail($mailData);
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+            return false;
+        }
     }
 
     public function updateFolio(Request $request, $id, CvFolioService $folioSvc)
-{
-    $data = $request->validate([
-        'folio' => 'required|integer|min:1',
-    ], [
-        'folio.required' => 'Captura un folio.',
-        'folio.integer'  => 'El folio debe ser numérico.',
-        'folio.min'      => 'El folio debe ser mayor a 0.',
-    ]);
+    {
+        $data = $request->validate([
+            'folio' => 'required|integer|min:1',
+        ], [
+            'folio.required' => 'Captura un folio.',
+            'folio.integer'  => 'El folio debe ser numérico.',
+            'folio.min'      => 'El folio debe ser mayor a 0.',
+        ]);
 
-    $empleado = Empleado::findOrFail($id);
+        $empleado = Empleado::findOrFail($id);
 
-    // ✅ Asignación manual con trazabilidad/uniqueness
-    $folio = $folioSvc->asignarFolioManual((int)$empleado->id_tbl_empleados, (int)$data['folio'], 'manual');
+        $folio = $folioSvc->asignarFolioManual((int) $empleado->id_tbl_empleados, (int) $data['folio'], 'manual');
 
-    // Refresca en modelo por compatibilidad
-    $empleado->folio_cv = $folio;
-    $empleado->save();
+        $empleado->folio_cv = $folio;
+        $empleado->save();
 
-    return response()->json([
-        'ok' => true,
-        'folio' => $folio,
-    ]);
-}
+        return response()->json([
+            'ok' => true,
+            'folio' => $folio,
+        ]);
+    }
 }
