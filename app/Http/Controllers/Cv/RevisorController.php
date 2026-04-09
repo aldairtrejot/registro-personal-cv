@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Cv;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Helpers\MailController as MailHelper;
+use App\Mail\CvRechazadoMail;
 use App\Models\Cv\Empleado;
 use App\Models\Cv\CvExperienciaLaboral;
 use App\Models\Cv\CvEstudiosAcademicos;
@@ -12,6 +12,8 @@ use App\Models\Cv\CvTokenAcceso;
 use App\Services\Cv\CvFolioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class RevisorController extends Controller
 {
@@ -40,7 +42,8 @@ class RevisorController extends Controller
                 $qBuilder->whereRaw('LOWER(curp) LIKE ?', ["%{$q}%"])
                     ->orWhereRaw('LOWER(nombre) LIKE ?', ["%{$q}%"])
                     ->orWhereRaw('LOWER(primer_apellido) LIKE ?', ["%{$q}%"])
-                    ->orWhereRaw('LOWER(segundo_apellido) LIKE ?', ["%{$q}%"]);
+                    ->orWhereRaw('LOWER(segundo_apellido) LIKE ?', ["%{$q}%"])
+                    ->orWhereRaw('LOWER(area_adscripcion) LIKE ?', ["%{$q}%"]);
             });
         }
 
@@ -55,7 +58,9 @@ class RevisorController extends Controller
                     'curp' => $e->curp,
                     'area' => $e->area_adscripcion,
                     'puesto' => $e->puesto_label,
-                    'fechaActualizacion' => optional($e->updated_at)->format('d/m/Y H:i'),
+                    'fechaActualizacion' => $e->actualizado_en
+                        ? \Carbon\Carbon::parse($e->actualizado_en)->format('d/m/Y H:i')
+                        : null,
                     'status' => $this->cvStatusLabel($e->estatus_cv),
                 ];
             });
@@ -73,7 +78,9 @@ class RevisorController extends Controller
 
         $empleado->setAttribute(
             'fecha_inicio_puesto',
-            $empleado->fecha_inicio_puesto ? $empleado->fecha_inicio_puesto->format('Y-m-d') : null
+            $empleado->fecha_inicio_puesto
+                ? \Carbon\Carbon::parse($empleado->fecha_inicio_puesto)->format('Y-m-d')
+                : null
         );
 
         $experiencias = CvExperienciaLaboral::where('id_tbl_empleados', $id)
@@ -175,13 +182,10 @@ class RevisorController extends Controller
             if ($status === 'aprobado') {
                 $consec = $folioSvc->asignarONormalizarAlAprobar((int) $empleado->id_tbl_empleados);
                 $empleado->folio_cv = $consec;
-
-                // al aprobar se limpia motivo previo
                 $empleado->motivo_rechazo_cv = null;
             } elseif ($status === 'rechazado') {
                 $empleado->motivo_rechazo_cv = $motivo;
             } else {
-                // si vuelve a edición o enviado, limpia motivo previo
                 $empleado->motivo_rechazo_cv = null;
             }
 
@@ -239,45 +243,55 @@ class RevisorController extends Controller
             ->first();
 
         $correo = null;
+        $origenCorreo = null;
 
         if ($ultimoToken && !empty($ultimoToken->correo)) {
-            $correo = $ultimoToken->correo;
+            $correo = trim((string) $ultimoToken->correo);
+            $origenCorreo = 'cv_token_acceso';
         } elseif (!empty($empleado->correo)) {
-            $correo = $empleado->correo;
+            $correo = trim((string) $empleado->correo);
+            $origenCorreo = 'tbl_empleados';
         }
 
+        Log::info('Resolución de correo para rechazo CV', [
+            'empleado_id' => $empleado->id_tbl_empleados,
+            'curp' => $empleado->curp,
+            'correo_token' => $ultimoToken->correo ?? null,
+            'correo_tbl_empleados' => $empleado->correo ?? null,
+            'correo_final' => $correo,
+            'origen_correo' => $origenCorreo,
+        ]);
+
         if (!$correo) {
+            Log::warning('No se encontró correo destino para rechazo CV', [
+                'empleado_id' => $empleado->id_tbl_empleados,
+                'curp' => $empleado->curp,
+            ]);
             return false;
         }
 
         try {
-            $nombreCompleto = trim("{$empleado->nombre} {$empleado->primer_apellido} {$empleado->segundo_apellido}");
-            $motivoSafe = nl2br(e($motivo));
+            Mail::to($correo)->send(new CvRechazadoMail($empleado, $motivo));
 
-            $html = "
-                <p>Hola <strong>{$nombreCompleto}</strong>,</p>
-                <p>Tu registro de CV fue <strong>rechazado</strong> durante el proceso de revisión.</p>
-                <p><strong>Motivo:</strong><br>{$motivoSafe}</p>
-                <p>Por favor, ingresa nuevamente al sistema para corregir tu información y volver a enviarla.</p>
-                <p>
-                    <a href=\"" . route('registro.wizard') . "\" target=\"_blank\">
-                        Ir al registro de CV
-                    </a>
-                </p>
-            ";
-
-            $mailData = [
-                'affair' => 'Tu registro de CV requiere correcciones',
-                'mail' => $correo,
-                'content' => $html,
-            ];
-
-            $mailer = new MailHelper();
-            $mailer->sendMail($mailData);
+            Log::info('Correo de rechazo enviado con Mailable', [
+                'empleado_id' => $empleado->id_tbl_empleados,
+                'curp' => $empleado->curp,
+                'correo_final' => $correo,
+                'origen_correo' => $origenCorreo,
+            ]);
 
             return true;
         } catch (\Throwable $e) {
             report($e);
+
+            Log::error('Error enviando correo de rechazo con Mailable', [
+                'empleado_id' => $empleado->id_tbl_empleados,
+                'curp' => $empleado->curp,
+                'correo_final' => $correo,
+                'origen_correo' => $origenCorreo,
+                'error' => $e->getMessage(),
+            ]);
+
             return false;
         }
     }
