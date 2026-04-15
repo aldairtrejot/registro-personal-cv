@@ -5,6 +5,7 @@ namespace App\Services\Cv;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Symfony\Component\Process\Process;
@@ -19,15 +20,15 @@ class CvFichaPdfService
             throw new \RuntimeException('No se pudo identificar el ID del empleado.');
         }
 
-        $base = $this->cargarDatosEmpleadoBase((int)$empleadoId);
+        $base = $this->cargarDatosEmpleadoBase((int) $empleadoId);
 
-        $nombre = trim((string)($empleado->nombres ?? $empleado->nombre ?? $base['nombre'] ?? $base['nombres'] ?? ''));
-        $apPat  = trim((string)($empleado->apellido_paterno ?? $empleado->primer_apellido ?? $base['primer_apellido'] ?? $base['apellido_paterno'] ?? ''));
-        $apMat  = trim((string)($empleado->apellido_materno ?? $empleado->segundo_apellido ?? $base['segundo_apellido'] ?? $base['apellido_materno'] ?? ''));
+        $nombre = trim((string) ($empleado->nombres ?? $empleado->nombre ?? $base['nombre'] ?? $base['nombres'] ?? ''));
+        $apPat  = trim((string) ($empleado->apellido_paterno ?? $empleado->primer_apellido ?? $base['primer_apellido'] ?? $base['apellido_paterno'] ?? ''));
+        $apMat  = trim((string) ($empleado->apellido_materno ?? $empleado->segundo_apellido ?? $base['segundo_apellido'] ?? $base['apellido_materno'] ?? ''));
 
         $fullName = trim($nombre . ' ' . $apPat . ' ' . $apMat);
 
-        $puesto = trim((string)(
+        $puesto = trim((string) (
             $empleado->puesto_actual
             ?? $empleado->puesto
             ?? $empleado->nombre_puesto
@@ -54,42 +55,42 @@ class CvFichaPdfService
             'fechaInicioPuesto' => $fechaInicioPuesto,
         ];
 
-        $experiencias = $this->cargarExperiencias((int)$empleadoId);
+        $experiencias = $this->cargarExperiencias((int) $empleadoId);
 
         for ($i = 1; $i <= 3; $i++) {
             $e = $experiencias[$i - 1] ?? [];
 
-            $vars["exp{$i}_puesto"]      = (string)($e['puesto'] ?? '');
-            $vars["exp{$i}_institucion"] = (string)($e['institucion'] ?? '');
-            $vars["exp{$i}_sector"]      = (string)($e['sector'] ?? '');
+            $vars["exp{$i}_puesto"]      = (string) ($e['puesto'] ?? '');
+            $vars["exp{$i}_institucion"] = (string) ($e['institucion'] ?? '');
+            $vars["exp{$i}_sector"]      = (string) ($e['sector'] ?? '');
             $vars["exp{$i}_inicio"]      = $this->fmtFecha($e['inicio'] ?? null);
             $vars["exp{$i}_fin"]         = $this->fmtFecha($e['fin'] ?? null);
-            $vars["exp{$i}_campo"]       = (string)($e['campo'] ?? '');
+            $vars["exp{$i}_campo"]       = (string) ($e['campo'] ?? '');
         }
 
-        $est = $this->cargarEstudio((int)$empleadoId);
-        $cedula = trim((string)($est['cedula'] ?? ''));
+        $est = $this->cargarEstudio((int) $empleadoId);
+        $cedula = trim((string) ($est['cedula'] ?? ''));
 
-        $vars['grado_avance'] = $cedula !== '' ? 'TITULADO' : '';
-        $vars['est_institucion'] = (string)($est['institucion'] ?? '');
-        $vars['est_pais'] = (string)($est['pais'] ?? '');
-        $vars['nivel'] = (string)($est['nivel'] ?? '');
-        $vars['area_estudios'] = (string)($est['area_estudios'] ?? '');
-        $vars['titulo_grado'] = (string)($est['titulo_grado'] ?? '');
-        $vars['carrera_generica'] = (string)($est['carrera_generica'] ?? '');
+        $vars['grado_avance']     = $cedula !== '' ? 'TITULADO' : '';
+        $vars['est_institucion']  = (string) ($est['institucion'] ?? '');
+        $vars['est_pais']         = (string) ($est['pais'] ?? '');
+        $vars['nivel']            = (string) ($est['nivel'] ?? '');
+        $vars['area_estudios']    = (string) ($est['area_estudios'] ?? '');
+        $vars['titulo_grado']     = (string) ($est['titulo_grado'] ?? '');
+        $vars['carrera_generica'] = (string) ($est['carrera_generica'] ?? '');
 
-        $cursos = $this->cargarCursos((int)$empleadoId);
+        $cursos = $this->cargarCursos((int) $empleadoId);
 
         for ($i = 1; $i <= 5; $i++) {
             $c = $cursos[$i - 1] ?? [];
 
-            $vars["curso{$i}_periodo"]     = (string)($c['periodo'] ?? '');
-            $vars["curso{$i}_nombre"]      = (string)($c['nombre'] ?? '');
-            $vars["curso{$i}_institucion"] = (string)($c['institucion'] ?? '');
+            $vars["curso{$i}_periodo"]     = (string) ($c['periodo'] ?? '');
+            $vars["curso{$i}_nombre"]      = (string) ($c['nombre'] ?? '');
+            $vars["curso{$i}_institucion"] = (string) ($c['institucion'] ?? '');
         }
 
-        $curp = strtoupper(trim((string)($empleado->curp ?? $base['curp'] ?? '')));
-        $idForName = (string)($curp !== '' ? $curp : $empleadoId);
+        $curp = strtoupper(trim((string) ($empleado->curp ?? $base['curp'] ?? '')));
+        $idForName = (string) ($curp !== '' ? $curp : $empleadoId);
 
         return $this->generarPdfDesdeDocx($vars, $idForName);
     }
@@ -108,37 +109,53 @@ class CvFichaPdfService
         File::ensureDirectoryExists($pdfDir);
         File::ensureDirectoryExists($profileRoot);
 
+        $this->ensureWritableDir($tmpRoot, 'TMP_ROOT');
+        $this->ensureWritableDir($docxDir, 'DOCX_DIR');
+        $this->ensureWritableDir($pdfDir, 'PDF_DIR');
+        $this->ensureWritableDir($profileRoot, 'PROFILE_ROOT');
+
         if (!$templatePath || !File::exists($templatePath)) {
             throw new \RuntimeException("No se encontró la plantilla DOCX: {$templatePath}");
         }
 
+        if (!is_readable($templatePath)) {
+            throw new \RuntimeException("La plantilla DOCX existe pero no se puede leer: {$templatePath}");
+        }
+
         $soffice = $this->resolveSofficePath();
 
-        $baseName = 'cv_' . preg_replace('/[^A-Za-z0-9_]+/', '_', $idForName)
+        $safeIdForName = preg_replace('/[^A-Za-z0-9_]+/', '_', $idForName);
+        $safeIdForName = trim((string) $safeIdForName, '_');
+        if ($safeIdForName === '') {
+            $safeIdForName = 'empleado';
+        }
+
+        $baseName = 'cv_' . $safeIdForName
             . '_' . Carbon::now()->format('Ymd_His_u')
-            . '_' . mt_rand(1000, 9999);
+            . '_' . random_int(1000, 9999);
 
         $docxPath = $docxDir . DIRECTORY_SEPARATOR . $baseName . '.docx';
         $runProfileDir = $profileRoot . DIRECTORY_SEPARATOR . $baseName;
 
         File::ensureDirectoryExists($runProfileDir);
+        $this->ensureWritableDir($runProfileDir, 'RUN_PROFILE_DIR');
 
         $placeholders = [
             'fullName',
             'puesto',
             'fechaInicioPuesto',
 
-            'exp1_puesto','exp1_institucion','exp1_sector','exp1_inicio','exp1_fin','exp1_campo',
-            'exp2_puesto','exp2_institucion','exp2_sector','exp2_inicio','exp2_fin','exp2_campo',
-            'exp3_puesto','exp3_institucion','exp3_sector','exp3_inicio','exp3_fin','exp3_campo',
+            'exp1_puesto', 'exp1_institucion', 'exp1_sector', 'exp1_inicio', 'exp1_fin', 'exp1_campo',
+            'exp2_puesto', 'exp2_institucion', 'exp2_sector', 'exp2_inicio', 'exp2_fin', 'exp2_campo',
+            'exp3_puesto', 'exp3_institucion', 'exp3_sector', 'exp3_inicio', 'exp3_fin', 'exp3_campo',
 
-            'est_institucion','est_pais','nivel','grado_avance','area_estudios','titulo_grado','carrera_generica',
+            'est_institucion', 'est_pais', 'nivel', 'grado_avance', 'area_estudios', 'titulo_grado', 'carrera_generica',
 
-            'curso1_periodo','curso1_nombre','curso1_institucion',
-            'curso2_periodo','curso2_nombre','curso2_institucion',
-            'curso3_periodo','curso3_nombre','curso3_institucion',
-            'curso4_periodo','curso4_nombre','curso4_institucion',
-            'curso5_periodo','curso5_nombre','curso5_institucion',
+            'curso1_periodo', 'curso1_nombre', 'curso1_institucion',
+            'curso2_periodo', 'curso2_nombre', 'curso2_institucion',
+            'curso3_periodo', 'curso3_nombre', 'curso3_institucion',
+            'curso4_periodo', 'curso4_nombre', 'curso4_institucion',
+            'curso5_periodo', 'curso5_nombre', 'curso5_institucion',
         ];
 
         $tp = new TemplateProcessor($templatePath);
@@ -147,71 +164,228 @@ class CvFichaPdfService
             $tp->setValue($key, $this->safeDocx($vars[$key] ?? ''));
         }
 
-        $tp->saveAs($docxPath);
+        try {
+            $tp->saveAs($docxPath);
+        } catch (\Throwable $e) {
+            throw new \RuntimeException(
+                "Error al generar el DOCX temporal.\n" .
+                "DOCX: {$docxPath}\n" .
+                "ERROR: " . $e->getMessage(),
+                0,
+                $e
+            );
+        }
+
+        clearstatcache(true, $docxPath);
 
         if (!File::exists($docxPath)) {
             throw new \RuntimeException("No se generó el DOCX temporal: {$docxPath}");
         }
 
-        $process = new Process([
-            $soffice,
-            '--headless',
-            '--nologo',
-            '--nofirststartwizard',
-            '--nolockcheck',
-            '--nodefault',
-            '--convert-to',
-            'pdf:writer_pdf_Export',
-            '--outdir',
-            $pdfDir,
-            '-env:UserInstallation=' . $this->pathToFileUri($runProfileDir),
-            $docxPath,
-        ]);
+        if (!is_readable($docxPath)) {
+            throw new \RuntimeException("El DOCX temporal existe pero no se puede leer: {$docxPath}");
+        }
+
+        $docxSize = @filesize($docxPath);
+        if ($docxSize === false || $docxSize <= 0) {
+            throw new \RuntimeException(
+                "El DOCX temporal se generó vacío o no se pudo leer.\n" .
+                "DOCX: {$docxPath}\n" .
+                "SIZE: " . var_export($docxSize, true)
+            );
+        }
+
+        $startedAt = time();
+
+        $process = new Process(
+            [
+                $soffice,
+                '--headless',
+                '--nologo',
+                '--nofirststartwizard',
+                '--invisible',
+                '--norestore',
+                '--nolockcheck',
+                '--nodefault',
+                '-env:UserInstallation=' . $this->pathToFileUri($runProfileDir),
+                '--convert-to',
+                'pdf:writer_pdf_Export',
+                '--outdir',
+                $pdfDir,
+                $docxPath,
+            ],
+            null,
+            [
+                'HOME'        => $runProfileDir,
+                'USERPROFILE' => $runProfileDir,
+                'TMPDIR'      => $tmpRoot,
+                'TMP'         => $tmpRoot,
+                'TEMP'        => $tmpRoot,
+            ]
+        );
 
         $process->setTimeout(180);
         $process->run();
 
-        if (!$process->isSuccessful()) {
-            $stderr = trim($process->getErrorOutput());
-            $stdout = trim($process->getOutput());
+        $stdout = trim((string) $process->getOutput());
+        $stderr = trim((string) $process->getErrorOutput());
 
+        Log::info('CV PDF - Resultado conversión LibreOffice', [
+            'soffice'               => $soffice,
+            'exit_code'             => $process->getExitCode(),
+            'successful'            => $process->isSuccessful(),
+            'template_path'         => $templatePath,
+            'docx_path'             => $docxPath,
+            'docx_exists'           => File::exists($docxPath),
+            'docx_size'             => $docxSize,
+            'pdf_dir'               => $pdfDir,
+            'pdf_dir_writable'      => is_writable($pdfDir),
+            'profile_dir'           => $runProfileDir,
+            'profile_dir_writable'  => is_writable($runProfileDir),
+            'stdout'                => $stdout,
+            'stderr'                => $stderr,
+        ]);
+
+        if (!$process->isSuccessful()) {
             throw new \RuntimeException(
                 "Error al convertir a PDF.\n" .
                 "SOFFICE: {$soffice}\n" .
+                "TEMPLATE: {$templatePath}\n" .
                 "DOCX: {$docxPath}\n" .
+                "DOCX_SIZE: {$docxSize}\n" .
                 "PDF_DIR: {$pdfDir}\n" .
+                "PDF_DIR_WRITABLE: " . (is_writable($pdfDir) ? 'SI' : 'NO') . "\n" .
                 "PROFILE_DIR: {$runProfileDir}\n" .
+                "PROFILE_DIR_WRITABLE: " . (is_writable($runProfileDir) ? 'SI' : 'NO') . "\n" .
+                "EXIT_CODE: " . var_export($process->getExitCode(), true) . "\n" .
                 "STDERR: " . ($stderr !== '' ? $stderr : '[vacío]') . "\n" .
                 "STDOUT: " . ($stdout !== '' ? $stdout : '[vacío]')
             );
         }
 
-        $pdfPath = $pdfDir . DIRECTORY_SEPARATOR . $baseName . '.pdf';
+        clearstatcache();
 
-        if (!File::exists($pdfPath)) {
-            $pdfs = glob($pdfDir . DIRECTORY_SEPARATOR . $baseName . '*.pdf') ?: [];
-            if (!empty($pdfs)) {
-                $pdfPath = $pdfs[0];
-            }
-        }
+        $pdfPath = $this->findGeneratedPdf($pdfDir, $baseName, $startedAt);
 
-        if (!File::exists($pdfPath)) {
+        if (!$pdfPath) {
             throw new \RuntimeException(
                 "LibreOffice terminó sin error, pero no generó el PDF esperado.\n" .
                 "BaseName: {$baseName}\n" .
-                "PDF_DIR: {$pdfDir}"
+                "SOFFICE: {$soffice}\n" .
+                "TEMPLATE: {$templatePath}\n" .
+                "DOCX: {$docxPath}\n" .
+                "DOCX_SIZE: {$docxSize}\n" .
+                "PDF_DIR: {$pdfDir}\n" .
+                "PDF_DIR_WRITABLE: " . (is_writable($pdfDir) ? 'SI' : 'NO') . "\n" .
+                "PROFILE_DIR: {$runProfileDir}\n" .
+                "PROFILE_DIR_WRITABLE: " . (is_writable($runProfileDir) ? 'SI' : 'NO') . "\n" .
+                "STDERR: " . ($stderr !== '' ? $stderr : '[vacío]') . "\n" .
+                "STDOUT: " . ($stdout !== '' ? $stdout : '[vacío]') . "\n" .
+                "PDFS_ENCONTRADOS: " . json_encode(glob($pdfDir . DIRECTORY_SEPARATOR . '*.pdf') ?: [], JSON_UNESCAPED_UNICODE)
             );
         }
 
-        @unlink($docxPath);
-
-        try {
-            File::deleteDirectory($runProfileDir);
-        } catch (\Throwable $e) {
-            // Ignorar limpieza
-        }
+        $this->cleanupTempPaths($docxPath, $runProfileDir);
 
         return $pdfPath;
+    }
+
+    private function findGeneratedPdf(string $pdfDir, string $baseName, int $startedAt): ?string
+    {
+        $expected = $pdfDir . DIRECTORY_SEPARATOR . $baseName . '.pdf';
+
+        if (is_file($expected) && @filesize($expected) > 0) {
+            return $expected;
+        }
+
+        $baseMatches = glob($pdfDir . DIRECTORY_SEPARATOR . $baseName . '*.pdf') ?: [];
+        $baseMatches = array_values(array_filter($baseMatches, function ($path) {
+            return is_file($path) && @filesize($path) > 0;
+        }));
+
+        if (!empty($baseMatches)) {
+            usort($baseMatches, function ($a, $b) {
+                return (@filemtime($b) ?: 0) <=> (@filemtime($a) ?: 0);
+            });
+
+            return $baseMatches[0];
+        }
+
+        $recentMatches = glob($pdfDir . DIRECTORY_SEPARATOR . '*.pdf') ?: [];
+        $recentMatches = array_values(array_filter($recentMatches, function ($path) use ($startedAt) {
+            if (!is_file($path)) {
+                return false;
+            }
+
+            $size = @filesize($path);
+            $mtime = @filemtime($path);
+
+            if ($size === false || $size <= 0) {
+                return false;
+            }
+
+            if ($mtime === false) {
+                return false;
+            }
+
+            return $mtime >= ($startedAt - 15);
+        }));
+
+        if (!empty($recentMatches)) {
+            usort($recentMatches, function ($a, $b) {
+                return (@filemtime($b) ?: 0) <=> (@filemtime($a) ?: 0);
+            });
+
+            return $recentMatches[0];
+        }
+
+        return null;
+    }
+
+    private function cleanupTempPaths(?string $docxPath, ?string $runProfileDir): void
+    {
+        if ($docxPath && is_file($docxPath)) {
+            @unlink($docxPath);
+        }
+
+        if ($runProfileDir && is_dir($runProfileDir)) {
+            try {
+                File::deleteDirectory($runProfileDir);
+            } catch (\Throwable $e) {
+                Log::warning('CV PDF - No se pudo limpiar el profile temporal', [
+                    'profile_dir' => $runProfileDir,
+                    'error'       => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    private function ensureWritableDir(string $dir, string $label): void
+    {
+        if (!File::exists($dir)) {
+            throw new \RuntimeException("No existe el directorio {$label}: {$dir}");
+        }
+
+        if (!is_dir($dir)) {
+            throw new \RuntimeException("La ruta {$label} no es un directorio válido: {$dir}");
+        }
+
+        if (!is_readable($dir)) {
+            throw new \RuntimeException("El directorio {$label} no tiene permisos de lectura: {$dir}");
+        }
+
+        if (!is_writable($dir)) {
+            throw new \RuntimeException("El directorio {$label} no tiene permisos de escritura: {$dir}");
+        }
+
+        $probe = $dir . DIRECTORY_SEPARATOR . '.probe_' . str_replace('.', '_', uniqid('', true));
+
+        $written = @file_put_contents($probe, 'ok');
+        if ($written === false) {
+            throw new \RuntimeException("No se pudo escribir dentro del directorio {$label}: {$dir}");
+        }
+
+        @unlink($probe);
     }
 
     private function resolveSofficePath(): string
@@ -237,7 +411,11 @@ class CvFichaPdfService
         foreach ($candidates as $candidate) {
             $candidate = trim((string) $candidate);
 
-            if ($candidate !== '' && File::exists($candidate)) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            if (File::exists($candidate)) {
                 return $candidate;
             }
         }
@@ -300,7 +478,7 @@ class CvFichaPdfService
         $selects = [];
         foreach ($candidatas as $campo) {
             $real = $this->pickColumn($cols, [$campo]);
-            $selects[] = DB::raw(($real ? $this->qCol($real) : "NULL") . " as {$campo}");
+            $selects[] = DB::raw(($real ? $this->qCol($real) : 'NULL') . " as {$campo}");
         }
 
         $row = $this->fromTable($table)
@@ -323,13 +501,17 @@ class CvFichaPdfService
             return 'file:///' . ltrim($normalized, '/');
         }
 
+        if (!str_starts_with($normalized, '/')) {
+            $normalized = '/' . $normalized;
+        }
+
         return 'file://' . $normalized;
     }
 
     private function safeDocx($value): string
     {
-        $value = (string)($value ?? '');
-        $value = preg_replace("/[\\x00-\\x1F\\x7F]/u", '', $value);
+        $value = (string) ($value ?? '');
+        $value = preg_replace("/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u", '', $value);
         $value = str_replace(["\r\n", "\r"], "\n", $value);
         return trim($value);
     }
@@ -369,17 +551,17 @@ class CvFichaPdfService
         $q->addSelect(DB::raw(($colPuesto      ? $this->qCol($colPuesto)      : "''") . " as puesto"));
         $q->addSelect(DB::raw(($colInstitucion ? $this->qCol($colInstitucion) : "''") . " as institucion"));
         $q->addSelect(DB::raw(($colSector      ? $this->qCol($colSector)      : "''") . " as sector"));
-        $q->addSelect(DB::raw(($colInicio      ? $this->qCol($colInicio)      : "NULL") . " as inicio"));
-        $q->addSelect(DB::raw(($colFin         ? $this->qCol($colFin)         : "NULL") . " as fin"));
+        $q->addSelect(DB::raw(($colInicio      ? $this->qCol($colInicio)      : 'NULL') . " as inicio"));
+        $q->addSelect(DB::raw(($colFin         ? $this->qCol($colFin)         : 'NULL') . " as fin"));
         $q->addSelect(DB::raw(($colCampo       ? $this->qCol($colCampo)       : "''") . " as campo"));
 
-        return $q->get()->map(fn($r) => [
-            'puesto'      => (string)($r->puesto ?? ''),
-            'institucion' => (string)($r->institucion ?? ''),
-            'sector'      => (string)($r->sector ?? ''),
+        return $q->get()->map(fn ($r) => [
+            'puesto'      => (string) ($r->puesto ?? ''),
+            'institucion' => (string) ($r->institucion ?? ''),
+            'sector'      => (string) ($r->sector ?? ''),
             'inicio'      => $r->inicio ?? null,
             'fin'         => $r->fin ?? null,
-            'campo'       => (string)($r->campo ?? ''),
+            'campo'       => (string) ($r->campo ?? ''),
         ])->toArray();
     }
 
@@ -446,13 +628,13 @@ class CvFichaPdfService
         }
 
         return [
-            'institucion'      => (string)($r->institucion ?? ''),
-            'pais'             => (string)($r->pais ?? ''),
-            'nivel'            => (string)($r->nivel ?? ''),
-            'cedula'           => trim((string)($r->cedula ?? '')),
-            'area_estudios'    => (string)($r->area_estudios ?? ''),
-            'titulo_grado'     => (string)($r->titulo_grado ?? ''),
-            'carrera_generica' => (string)($r->carrera_generica ?? ''),
+            'institucion'      => (string) ($r->institucion ?? ''),
+            'pais'             => (string) ($r->pais ?? ''),
+            'nivel'            => (string) ($r->nivel ?? ''),
+            'cedula'           => trim((string) ($r->cedula ?? '')),
+            'area_estudios'    => (string) ($r->area_estudios ?? ''),
+            'titulo_grado'     => (string) ($r->titulo_grado ?? ''),
+            'carrera_generica' => (string) ($r->carrera_generica ?? ''),
         ];
     }
 
@@ -487,21 +669,21 @@ class CvFichaPdfService
         $q->addSelect(DB::raw(($colPeriodo     ? $this->qCol($colPeriodo)     : "''") . " as periodo"));
         $q->addSelect(DB::raw(($colNombre      ? $this->qCol($colNombre)      : "''") . " as nombre"));
         $q->addSelect(DB::raw(($colInstitucion ? $this->qCol($colInstitucion) : "''") . " as institucion"));
-        $q->addSelect(DB::raw(($colInicio      ? $this->qCol($colInicio)      : "NULL") . " as inicio"));
-        $q->addSelect(DB::raw(($colFin         ? $this->qCol($colFin)         : "NULL") . " as fin"));
+        $q->addSelect(DB::raw(($colInicio      ? $this->qCol($colInicio)      : 'NULL') . " as inicio"));
+        $q->addSelect(DB::raw(($colFin         ? $this->qCol($colFin)         : 'NULL') . " as fin"));
 
         return $q->get()->map(function ($r) {
             $ini = $this->fmtFecha($r->inicio ?? null);
             $fin = $this->fmtFecha($r->fin ?? null);
             $periodoFechas = trim($ini . ($fin ? " - {$fin}" : ''));
 
-            $periodoCapturado = trim((string)($r->periodo ?? ''));
+            $periodoCapturado = trim((string) ($r->periodo ?? ''));
             $periodo = $periodoCapturado !== '' ? $periodoCapturado : $periodoFechas;
 
             return [
                 'periodo'     => $periodo,
-                'nombre'      => (string)($r->nombre ?? ''),
-                'institucion' => (string)($r->institucion ?? ''),
+                'nombre'      => (string) ($r->nombre ?? ''),
+                'institucion' => (string) ($r->institucion ?? ''),
             ];
         })->toArray();
     }
@@ -515,7 +697,7 @@ class CvFichaPdfService
         try {
             return Carbon::parse($value)->format('d/m/Y');
         } catch (\Throwable $e) {
-            return (string)$value;
+            return (string) $value;
         }
     }
 
@@ -557,7 +739,7 @@ class CvFichaPdfService
     private function tableExists(string $name, string $driver): bool
     {
         if ($driver === 'pgsql') {
-            $r = DB::selectOne("select to_regclass(?) as reg", [$name]);
+            $r = DB::selectOne('select to_regclass(?) as reg', [$name]);
             return !empty($r?->reg);
         }
 
@@ -596,7 +778,7 @@ class CvFichaPdfService
                     [$schema, $name]
                 );
 
-                return array_map(fn($r) => $r->column_name, $rows);
+                return array_map(fn ($r) => $r->column_name, $rows);
             }
 
             $plain = str_contains($table, '.') ? explode('.', $table)[1] : $table;
@@ -606,4 +788,4 @@ class CvFichaPdfService
             return [];
         }
     }
-} 
+}
