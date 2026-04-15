@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Symfony\Component\Process\Process;
+use ZipArchive;
 
 class CvFichaPdfService
 {
@@ -103,16 +104,19 @@ class CvFichaPdfService
         $profileRoot  = config('cvpdf.lo_profile_dir', storage_path('app/tmp/lo_profile'));
 
         $docxDir = $tmpRoot . DIRECTORY_SEPARATOR . 'docx';
+        $workRoot = $tmpRoot . DIRECTORY_SEPARATOR . 'work';
 
         File::ensureDirectoryExists($tmpRoot);
         File::ensureDirectoryExists($docxDir);
         File::ensureDirectoryExists($pdfDir);
         File::ensureDirectoryExists($profileRoot);
+        File::ensureDirectoryExists($workRoot);
 
         $this->ensureWritableDir($tmpRoot, 'TMP_ROOT');
         $this->ensureWritableDir($docxDir, 'DOCX_DIR');
         $this->ensureWritableDir($pdfDir, 'PDF_DIR');
         $this->ensureWritableDir($profileRoot, 'PROFILE_ROOT');
+        $this->ensureWritableDir($workRoot, 'WORK_ROOT');
 
         if (!$templatePath || !File::exists($templatePath)) {
             throw new \RuntimeException("No se encontró la plantilla DOCX: {$templatePath}");
@@ -120,6 +124,11 @@ class CvFichaPdfService
 
         if (!is_readable($templatePath)) {
             throw new \RuntimeException("La plantilla DOCX existe pero no se puede leer: {$templatePath}");
+        }
+
+        $templateRealPath = realpath($templatePath);
+        if ($templateRealPath === false) {
+            throw new \RuntimeException("No se pudo resolver la ruta real de la plantilla DOCX: {$templatePath}");
         }
 
         $soffice = $this->resolveSofficePath();
@@ -136,9 +145,13 @@ class CvFichaPdfService
 
         $docxPath = $docxDir . DIRECTORY_SEPARATOR . $baseName . '.docx';
         $runProfileDir = $profileRoot . DIRECTORY_SEPARATOR . $baseName;
+        $workDir = $workRoot . DIRECTORY_SEPARATOR . $baseName;
 
         File::ensureDirectoryExists($runProfileDir);
+        File::ensureDirectoryExists($workDir);
+
         $this->ensureWritableDir($runProfileDir, 'RUN_PROFILE_DIR');
+        $this->ensureWritableDir($workDir, 'WORK_DIR');
 
         $placeholders = [
             'fullName',
@@ -158,7 +171,7 @@ class CvFichaPdfService
             'curso5_periodo', 'curso5_nombre', 'curso5_institucion',
         ];
 
-        $tp = new TemplateProcessor($templatePath);
+        $tp = new TemplateProcessor($templateRealPath);
 
         foreach ($placeholders as $key) {
             $tp->setValue($key, $this->safeDocx($vars[$key] ?? ''));
@@ -182,17 +195,71 @@ class CvFichaPdfService
             throw new \RuntimeException("No se generó el DOCX temporal: {$docxPath}");
         }
 
+        if (!is_file($docxPath)) {
+            throw new \RuntimeException("La ruta del DOCX temporal no es un archivo válido: {$docxPath}");
+        }
+
         if (!is_readable($docxPath)) {
             throw new \RuntimeException("El DOCX temporal existe pero no se puede leer: {$docxPath}");
         }
 
-        $docxSize = @filesize($docxPath);
+        $docxRealPath = realpath($docxPath);
+        if ($docxRealPath === false) {
+            throw new \RuntimeException("No se pudo resolver la ruta real del DOCX temporal: {$docxPath}");
+        }
+
+        $docxSize = @filesize($docxRealPath);
         if ($docxSize === false || $docxSize <= 0) {
             throw new \RuntimeException(
                 "El DOCX temporal se generó vacío o no se pudo leer.\n" .
-                "DOCX: {$docxPath}\n" .
+                "DOCX: {$docxRealPath}\n" .
                 "SIZE: " . var_export($docxSize, true)
             );
+        }
+
+        $zipDiag = $this->validateDocxZip($docxRealPath);
+        if (!$zipDiag['ok']) {
+            throw new \RuntimeException(
+                "El DOCX generado no es válido para conversión.\n" .
+                "DOCX: {$docxRealPath}\n" .
+                "DOCX_SIZE: {$docxSize}\n" .
+                "ZIP_ERROR: {$zipDiag['error']}\n" .
+                "HAS_[Content_Types].xml: " . ($zipDiag['has_content_types'] ? 'SI' : 'NO') . "\n" .
+                "HAS_word/document.xml: " . ($zipDiag['has_word_document'] ? 'SI' : 'NO')
+            );
+        }
+
+        $workDocxPath = $workDir . DIRECTORY_SEPARATOR . 'input.docx';
+        if (!@copy($docxRealPath, $workDocxPath)) {
+            throw new \RuntimeException(
+                "No se pudo copiar el DOCX temporal al directorio de trabajo.\n" .
+                "ORIGEN: {$docxRealPath}\n" .
+                "DESTINO: {$workDocxPath}"
+            );
+        }
+
+        clearstatcache(true, $workDocxPath);
+
+        if (!File::exists($workDocxPath) || !is_readable($workDocxPath)) {
+            throw new \RuntimeException(
+                "La copia del DOCX de trabajo no quedó accesible.\n" .
+                "WORK_DOCX: {$workDocxPath}"
+            );
+        }
+
+        $workDocxRealPath = realpath($workDocxPath);
+        if ($workDocxRealPath === false) {
+            throw new \RuntimeException("No se pudo resolver la ruta real del DOCX de trabajo: {$workDocxPath}");
+        }
+
+        $pdfDirRealPath = realpath($pdfDir);
+        if ($pdfDirRealPath === false) {
+            throw new \RuntimeException("No se pudo resolver la ruta real del directorio PDF: {$pdfDir}");
+        }
+
+        $runProfileRealPath = realpath($runProfileDir);
+        if ($runProfileRealPath === false) {
+            throw new \RuntimeException("No se pudo resolver la ruta real del profile de LibreOffice: {$runProfileDir}");
         }
 
         $startedAt = time();
@@ -200,6 +267,7 @@ class CvFichaPdfService
         $process = new Process(
             [
                 $soffice,
+                '-env:UserInstallation=' . $this->pathToFileUri($runProfileRealPath),
                 '--headless',
                 '--nologo',
                 '--nofirststartwizard',
@@ -207,17 +275,16 @@ class CvFichaPdfService
                 '--norestore',
                 '--nolockcheck',
                 '--nodefault',
-                '-env:UserInstallation=' . $this->pathToFileUri($runProfileDir),
                 '--convert-to',
                 'pdf:writer_pdf_Export',
                 '--outdir',
-                $pdfDir,
-                $docxPath,
+                $pdfDirRealPath,
+                $workDocxRealPath,
             ],
             null,
             [
-                'HOME'        => $runProfileDir,
-                'USERPROFILE' => $runProfileDir,
+                'HOME'        => $runProfileRealPath,
+                'USERPROFILE' => $runProfileRealPath,
                 'TMPDIR'      => $tmpRoot,
                 'TMP'         => $tmpRoot,
                 'TEMP'        => $tmpRoot,
@@ -231,32 +298,40 @@ class CvFichaPdfService
         $stderr = trim((string) $process->getErrorOutput());
 
         Log::info('CV PDF - Resultado conversión LibreOffice', [
-            'soffice'               => $soffice,
-            'exit_code'             => $process->getExitCode(),
-            'successful'            => $process->isSuccessful(),
-            'template_path'         => $templatePath,
-            'docx_path'             => $docxPath,
-            'docx_exists'           => File::exists($docxPath),
-            'docx_size'             => $docxSize,
-            'pdf_dir'               => $pdfDir,
-            'pdf_dir_writable'      => is_writable($pdfDir),
-            'profile_dir'           => $runProfileDir,
-            'profile_dir_writable'  => is_writable($runProfileDir),
-            'stdout'                => $stdout,
-            'stderr'                => $stderr,
+            'soffice'                  => $soffice,
+            'exit_code'                => $process->getExitCode(),
+            'successful'               => $process->isSuccessful(),
+            'template_path'            => $templateRealPath,
+            'docx_path'                => $docxRealPath,
+            'docx_work_path'           => $workDocxRealPath,
+            'docx_exists'              => File::exists($docxRealPath),
+            'docx_size'                => $docxSize,
+            'pdf_dir'                  => $pdfDirRealPath,
+            'pdf_dir_writable'         => is_writable($pdfDirRealPath),
+            'profile_dir'              => $runProfileRealPath,
+            'profile_dir_writable'     => is_writable($runProfileRealPath),
+            'zip_ok'                   => $zipDiag['ok'],
+            'zip_has_content_types'    => $zipDiag['has_content_types'],
+            'zip_has_word_document'    => $zipDiag['has_word_document'],
+            'stdout'                   => $stdout,
+            'stderr'                   => $stderr,
         ]);
 
         if (!$process->isSuccessful()) {
             throw new \RuntimeException(
                 "Error al convertir a PDF.\n" .
                 "SOFFICE: {$soffice}\n" .
-                "TEMPLATE: {$templatePath}\n" .
-                "DOCX: {$docxPath}\n" .
+                "TEMPLATE: {$templateRealPath}\n" .
+                "DOCX: {$docxRealPath}\n" .
+                "WORK_DOCX: {$workDocxRealPath}\n" .
                 "DOCX_SIZE: {$docxSize}\n" .
-                "PDF_DIR: {$pdfDir}\n" .
-                "PDF_DIR_WRITABLE: " . (is_writable($pdfDir) ? 'SI' : 'NO') . "\n" .
-                "PROFILE_DIR: {$runProfileDir}\n" .
-                "PROFILE_DIR_WRITABLE: " . (is_writable($runProfileDir) ? 'SI' : 'NO') . "\n" .
+                "PDF_DIR: {$pdfDirRealPath}\n" .
+                "PDF_DIR_WRITABLE: " . (is_writable($pdfDirRealPath) ? 'SI' : 'NO') . "\n" .
+                "PROFILE_DIR: {$runProfileRealPath}\n" .
+                "PROFILE_DIR_WRITABLE: " . (is_writable($runProfileRealPath) ? 'SI' : 'NO') . "\n" .
+                "ZIP_OK: " . ($zipDiag['ok'] ? 'SI' : 'NO') . "\n" .
+                "HAS_[Content_Types].xml: " . ($zipDiag['has_content_types'] ? 'SI' : 'NO') . "\n" .
+                "HAS_word/document.xml: " . ($zipDiag['has_word_document'] ? 'SI' : 'NO') . "\n" .
                 "EXIT_CODE: " . var_export($process->getExitCode(), true) . "\n" .
                 "STDERR: " . ($stderr !== '' ? $stderr : '[vacío]') . "\n" .
                 "STDOUT: " . ($stdout !== '' ? $stdout : '[vacío]')
@@ -265,29 +340,73 @@ class CvFichaPdfService
 
         clearstatcache();
 
-        $pdfPath = $this->findGeneratedPdf($pdfDir, $baseName, $startedAt);
+        $pdfPath = $this->findGeneratedPdf($pdfDirRealPath, 'input', $startedAt);
 
         if (!$pdfPath) {
             throw new \RuntimeException(
                 "LibreOffice terminó sin error, pero no generó el PDF esperado.\n" .
                 "BaseName: {$baseName}\n" .
                 "SOFFICE: {$soffice}\n" .
-                "TEMPLATE: {$templatePath}\n" .
-                "DOCX: {$docxPath}\n" .
+                "TEMPLATE: {$templateRealPath}\n" .
+                "DOCX: {$docxRealPath}\n" .
+                "WORK_DOCX: {$workDocxRealPath}\n" .
                 "DOCX_SIZE: {$docxSize}\n" .
-                "PDF_DIR: {$pdfDir}\n" .
-                "PDF_DIR_WRITABLE: " . (is_writable($pdfDir) ? 'SI' : 'NO') . "\n" .
-                "PROFILE_DIR: {$runProfileDir}\n" .
-                "PROFILE_DIR_WRITABLE: " . (is_writable($runProfileDir) ? 'SI' : 'NO') . "\n" .
+                "PDF_DIR: {$pdfDirRealPath}\n" .
+                "PDF_DIR_WRITABLE: " . (is_writable($pdfDirRealPath) ? 'SI' : 'NO') . "\n" .
+                "PROFILE_DIR: {$runProfileRealPath}\n" .
+                "PROFILE_DIR_WRITABLE: " . (is_writable($runProfileRealPath) ? 'SI' : 'NO') . "\n" .
+                "ZIP_OK: " . ($zipDiag['ok'] ? 'SI' : 'NO') . "\n" .
+                "HAS_[Content_Types].xml: " . ($zipDiag['has_content_types'] ? 'SI' : 'NO') . "\n" .
+                "HAS_word/document.xml: " . ($zipDiag['has_word_document'] ? 'SI' : 'NO') . "\n" .
                 "STDERR: " . ($stderr !== '' ? $stderr : '[vacío]') . "\n" .
                 "STDOUT: " . ($stdout !== '' ? $stdout : '[vacío]') . "\n" .
-                "PDFS_ENCONTRADOS: " . json_encode(glob($pdfDir . DIRECTORY_SEPARATOR . '*.pdf') ?: [], JSON_UNESCAPED_UNICODE)
+                "PDFS_ENCONTRADOS: " . json_encode(glob($pdfDirRealPath . DIRECTORY_SEPARATOR . '*.pdf') ?: [], JSON_UNESCAPED_UNICODE)
             );
         }
 
-        $this->cleanupTempPaths($docxPath, $runProfileDir);
+        $finalPdfPath = $pdfDirRealPath . DIRECTORY_SEPARATOR . $baseName . '.pdf';
+
+        if ($pdfPath !== $finalPdfPath) {
+            @rename($pdfPath, $finalPdfPath);
+            if (is_file($finalPdfPath) && @filesize($finalPdfPath) > 0) {
+                $pdfPath = $finalPdfPath;
+            }
+        }
+
+        $this->cleanupTempPaths($docxRealPath, $runProfileRealPath, $workDir);
 
         return $pdfPath;
+    }
+
+    private function validateDocxZip(string $docxPath): array
+    {
+        $zip = new ZipArchive();
+
+        $result = [
+            'ok' => false,
+            'error' => '',
+            'has_content_types' => false,
+            'has_word_document' => false,
+        ];
+
+        $open = $zip->open($docxPath);
+
+        if ($open !== true) {
+            $result['error'] = 'ZipArchive::open devolvió: ' . var_export($open, true);
+            return $result;
+        }
+
+        $result['has_content_types'] = $zip->locateName('[Content_Types].xml') !== false;
+        $result['has_word_document'] = $zip->locateName('word/document.xml') !== false;
+        $result['ok'] = $result['has_content_types'] && $result['has_word_document'];
+
+        if (!$result['ok']) {
+            $result['error'] = 'Faltan entradas internas obligatorias del DOCX.';
+        }
+
+        $zip->close();
+
+        return $result;
     }
 
     private function findGeneratedPdf(string $pdfDir, string $baseName, int $startedAt): ?string
@@ -328,7 +447,7 @@ class CvFichaPdfService
                 return false;
             }
 
-            return $mtime >= ($startedAt - 15);
+            return $mtime >= ($startedAt - 20);
         }));
 
         if (!empty($recentMatches)) {
@@ -342,7 +461,7 @@ class CvFichaPdfService
         return null;
     }
 
-    private function cleanupTempPaths(?string $docxPath, ?string $runProfileDir): void
+    private function cleanupTempPaths(?string $docxPath, ?string $runProfileDir, ?string $workDir = null): void
     {
         if ($docxPath && is_file($docxPath)) {
             @unlink($docxPath);
@@ -355,6 +474,17 @@ class CvFichaPdfService
                 Log::warning('CV PDF - No se pudo limpiar el profile temporal', [
                     'profile_dir' => $runProfileDir,
                     'error'       => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($workDir && is_dir($workDir)) {
+            try {
+                File::deleteDirectory($workDir);
+            } catch (\Throwable $e) {
+                Log::warning('CV PDF - No se pudo limpiar el directorio de trabajo temporal', [
+                    'work_dir' => $workDir,
+                    'error'    => $e->getMessage(),
                 ]);
             }
         }
