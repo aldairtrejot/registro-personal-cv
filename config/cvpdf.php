@@ -1,7 +1,7 @@
 <?php
 
 $resolvePath = function (?string $path, string $fallback) {
-    $path = trim((string)($path ?? ''));
+    $path = trim((string) ($path ?? ''));
 
     if ($path === '') {
         return $fallback;
@@ -43,14 +43,23 @@ $templateDocx = $resolvePath(
     storage_path('app/templates/cv_template.docx')
 );
 
-$soffice = trim((string)(
+$soffice = trim((string) (
     env('LIBREOFFICE_BINARY')
     ?: env('CVPDF_SOFFICE')
     ?: env('SOFFICE_PATH')
     ?: ''
 ));
 
-if ($soffice !== '' && $soffice !== 'soffice') {
+/*
+|--------------------------------------------------------------------------
+| Importante
+|--------------------------------------------------------------------------
+| - Si mandas una ruta absoluta en .env, se usa tal cual.
+| - Si mandas "soffice" o "libreoffice", se deja así para que el servicio
+|   pueda resolverlo por PATH del sistema.
+| - Si no mandas nada, el servicio buscará en sus rutas candidatas.
+*/
+if ($soffice !== '' && $soffice !== 'soffice' && $soffice !== 'libreoffice') {
     $soffice = str_replace('\\', '/', $soffice);
     $soffice = $resolvePath($soffice, $soffice);
 }
@@ -61,7 +70,7 @@ return [
     'lo_profile_dir' => $loProfileDir,
 
     'template_docx_path' => $templateDocx,
-    'template_path' => $templateDocx,
+    'template_path'      => $templateDocx,
 
     'soffice_path' => $soffice,
 
