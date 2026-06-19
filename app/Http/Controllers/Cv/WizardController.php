@@ -314,40 +314,67 @@ class WizardController extends Controller
     }
 
     public function saveCursos(Request $request)
-    {
-        $data = $request->validate([
-            'curp' => 'required|string|max:18',
-            'cursos' => 'required|array|min:1|max:5',
-            'cursos.*.periodo' => 'nullable|string|max:100',
-            'cursos.*.nombre' => 'nullable|string|max:200',
-            'cursos.*.institucion' => 'nullable|string|max:200',
-            'enviar' => 'nullable|boolean',
-        ]);
+{
+    $data = $request->validate([
+        'curp' => 'required|string|max:18',
 
-        $curp = $this->normalizeCurp($data['curp']);
-        $this->assertCurpFormato($curp);
+        // ✅ Cursos ahora es OPCIONAL
+        'cursos' => 'nullable|array|max:5',
+        'cursos.*.periodo' => 'nullable|string|max:100',
+        'cursos.*.nombre' => 'nullable|string|max:200',
+        'cursos.*.institucion' => 'nullable|string|max:200',
 
-        $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
+        'enviar' => 'nullable|boolean',
+    ]);
 
-        CvCursosCapacitaciones::where('id_tbl_empleados', $empleado->id_tbl_empleados)->delete();
+    $curp = $this->normalizeCurp($data['curp']);
+    $this->assertCurpFormato($curp);
 
-        foreach ($data['cursos'] as $i => $curso) {
-            CvCursosCapacitaciones::create([
-                'id_tbl_empleados' => $empleado->id_tbl_empleados,
-                'periodo' => $this->upper($curso['periodo'] ?? null),
-                'nombre_curso' => $this->upper($curso['nombre'] ?? null),
-                'institucion' => $this->upper($curso['institucion'] ?? null),
-                'orden' => $i + 1,
-            ]);
+    $empleado = Empleado::whereRaw('UPPER(curp) = ?', [$curp])->firstOrFail();
+
+    // ✅ Filtra cursos vacíos para no guardar registros en blanco
+    $cursos = collect($data['cursos'] ?? [])
+        ->filter(function ($curso) {
+            return !empty(trim($curso['periodo'] ?? '')) ||
+                   !empty(trim($curso['nombre'] ?? '')) ||
+                   !empty(trim($curso['institucion'] ?? ''));
+        })
+        ->values();
+
+    // ✅ Si el usuario captura un curso, debe estar completo
+    foreach ($cursos as $index => $curso) {
+        if (
+            empty(trim($curso['periodo'] ?? '')) ||
+            empty(trim($curso['nombre'] ?? '')) ||
+            empty(trim($curso['institucion'] ?? ''))
+        ) {
+            throw new HttpResponseException(response()->json([
+                'ok' => false,
+                'message' => 'Si capturas un curso, debes completar período, nombre del curso e institución.',
+            ], 422));
         }
-
-        if (!empty($data['enviar'])) {
-            $empleado->estatus_cv = 2;
-            $empleado->save();
-        }
-
-        return response()->json(['ok' => true]);
     }
+
+    CvCursosCapacitaciones::where('id_tbl_empleados', $empleado->id_tbl_empleados)->delete();
+
+    foreach ($cursos as $i => $curso) {
+        CvCursosCapacitaciones::create([
+            'id_tbl_empleados' => $empleado->id_tbl_empleados,
+            'periodo' => $this->upper($curso['periodo'] ?? null),
+            'nombre_curso' => $this->upper($curso['nombre'] ?? null),
+            'institucion' => $this->upper($curso['institucion'] ?? null),
+            'orden' => $i + 1,
+        ]);
+    }
+
+    // ✅ Aunque no tenga cursos, sí puede finalizar
+    if (!empty($data['enviar'])) {
+        $empleado->estatus_cv = 2;
+        $empleado->save();
+    }
+
+    return response()->json(['ok' => true]);
+}
 
     // 🔕 TOKEN: esto era para bloquear correos por token también
     protected function validarCorreoUnico(string $curp, string $correo): void

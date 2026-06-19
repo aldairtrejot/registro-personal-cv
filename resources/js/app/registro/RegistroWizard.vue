@@ -377,6 +377,10 @@
         <div v-else-if="pasoActual === 5">
           <h3 class="cv-section-title">5. Cursos y capacitaciones</h3>
 
+          <p class="cv-section-subtitle">
+          Este apartado es opcional. Si no cuentas con cursos o capacitaciones, puedes finalizar sin capturar información.
+            </p>
+
           <div v-for="(curso, index) in form.cursos" :key="index" class="cv-block">
             <div class="cv-block-header">
               <h4 class="cv-block-title">Curso #{{ index + 1 }}</h4>
@@ -852,57 +856,75 @@ export default {
     },
 
     async guardarCursos(enviar) {
-      this.loading = true
-      try {
-        let hayCursoCompleto = false
+  this.loading = true
+  try {
+    const cursosValidos = []
 
-        for (const c of this.form.cursos) {
-          c.nombre = this.toUpperText(c.nombre)
-          c.institucion = this.toUpperText(c.institucion)
-          this.syncCursoPeriodo(c)
+    for (const c of this.form.cursos) {
+      c.nombre = this.toUpperText(c.nombre)
+      c.institucion = this.toUpperText(c.institucion)
+      this.syncCursoPeriodo(c)
 
-          const tieneAlgo = !!(c.fecha_inicio || c.fecha_fin || (c.nombre || '').trim() || (c.institucion || '').trim())
-          if (!tieneAlgo) continue
+      const tieneAlgo = !!(
+        c.fecha_inicio ||
+        c.fecha_fin ||
+        (c.nombre || '').trim() ||
+        (c.institucion || '').trim()
+      )
 
-          if ((c.fecha_inicio && !c.fecha_fin) || (!c.fecha_inicio && c.fecha_fin)) {
-            this.mostrarMensaje('error', 'En cursos: captura Fecha inicio y Fecha fin (ambas).')
-            return
-          }
-          if (c.fecha_inicio && c.fecha_fin && String(c.fecha_fin) < String(c.fecha_inicio)) {
-            this.mostrarMensaje('error', 'En cursos: la Fecha fin no puede ser menor que la Fecha inicio.')
-            return
-          }
+      // ✅ Si el bloque está vacío, se ignora
+      if (!tieneAlgo) continue
 
-          if (enviar) {
-            const completo = !!c.fecha_inicio && !!c.fecha_fin && !!(c.nombre || '').trim() && !!(c.institucion || '').trim()
-            if (!completo) {
-              this.mostrarMensaje('error', 'Para finalizar: cada curso capturado debe tener fechas, nombre e institución.')
-              return
-            }
-            hayCursoCompleto = true
-          }
-        }
-
-        if (enviar && !hayCursoCompleto) {
-          this.mostrarMensaje('error', 'Para finalizar debes registrar al menos 1 curso completo.')
-          return
-        }
-
-        await axios.post('api/cv/cursos', { curp: this.form.curp, cursos: this.form.cursos, enviar: enviar ? 1 : 0 })
-
-        if (enviar) {
-          this.mostrarMensaje('ok', 'Has concluido con el registro de todos los datos.')
-          setTimeout(() => { window.location.reload() }, 2500)
-        } else {
-          this.mostrarMensaje('ok', 'Cursos guardados como borrador.')
-        }
-      } catch (error) {
-        const msg = error?.response?.data?.message || 'No se pudieron guardar los cursos.'
-        this.mostrarMensaje('error', msg)
-      } finally {
-        this.loading = false
+      // ✅ Si captura una fecha, debe capturar ambas
+      if ((c.fecha_inicio && !c.fecha_fin) || (!c.fecha_inicio && c.fecha_fin)) {
+        this.mostrarMensaje('error', 'En cursos: captura Fecha inicio y Fecha fin, ambas.')
+        return
       }
-    },
+
+      if (c.fecha_inicio && c.fecha_fin && String(c.fecha_fin) < String(c.fecha_inicio)) {
+        this.mostrarMensaje('error', 'En cursos: la Fecha fin no puede ser menor que la Fecha inicio.')
+        return
+      }
+
+      // ✅ Si captura un curso, debe completarlo
+      const completo =
+        !!c.fecha_inicio &&
+        !!c.fecha_fin &&
+        !!(c.nombre || '').trim() &&
+        !!(c.institucion || '').trim()
+
+      if (!completo) {
+        this.mostrarMensaje('error', 'Si capturas un curso, debes completar fechas, nombre e institución.')
+        return
+      }
+
+      cursosValidos.push({
+        periodo: c.periodo,
+        nombre: c.nombre,
+        institucion: c.institucion,
+      })
+    }
+
+    // ✅ Ya NO se exige mínimo 1 curso para finalizar
+    await axios.post('api/cv/cursos', {
+      curp: this.form.curp,
+      cursos: cursosValidos,
+      enviar: enviar ? 1 : 0,
+    })
+
+    if (enviar) {
+      this.mostrarMensaje('ok', 'Has concluido con el registro de todos los datos.')
+      setTimeout(() => { window.location.reload() }, 2500)
+    } else {
+      this.mostrarMensaje('ok', 'Cursos guardados como borrador.')
+    }
+  } catch (error) {
+    const msg = error?.response?.data?.message || 'No se pudieron guardar los cursos.'
+    this.mostrarMensaje('error', msg)
+  } finally {
+    this.loading = false
+  }
+},
 
     agregarExperiencia() {
       if (this.form.experiencias.length >= 3) return
