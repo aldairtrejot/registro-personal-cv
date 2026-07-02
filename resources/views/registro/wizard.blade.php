@@ -3,7 +3,7 @@
     <div id="blade_registro_wizard"></div>
 
     <script>
-        // Si al finalizar quieres mandar al login
-        window.CV_FINISH_URL = "{{ url('/registro-personal-cv/public/login') }}";
+        // Al finalizar, regresa a esta misma pantalla para capturar otro registro.
+        window.CV_FINISH_URL = @json(url()->current());
     </script>
 </x-pages.page-auth-clean>
