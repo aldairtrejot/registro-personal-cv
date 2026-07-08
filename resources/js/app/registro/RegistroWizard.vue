@@ -134,11 +134,63 @@
 
             <div class="col-12 col-md-6">
               <label class="form-label">Nacionalidad</label>
-              <select v-model="form.nacionalidad" class="form-select">
-                <option value="">Selecciona…</option>
-                <option value="NACIONAL">NACIONAL</option>
-                <option value="EXTRANJERO">EXTRANJERO</option>
-              </select>
+              <div
+                class="cv-search-select"
+                :class="{ 'is-open': isComboOpen('nacionalidad') }"
+              >
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :aria-expanded="isComboOpen('nacionalidad') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('nacionalidad')"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.nacionalidad }">
+                    {{ comboLabel(opcionesNacionalidad, form.nacionalidad, 'Selecciona…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('nacionalidad')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_nacionalidad'"
+                      :value="comboSearch.nacionalidad"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar nacionalidad..."
+                      @input="setComboSearch('nacionalidad', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectNacionalidad(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="op in filteredComboOptions(opcionesNacionalidad, 'nacionalidad')"
+                      :key="op.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.nacionalidad) === String(op.id) }"
+                      @click="selectNacionalidad(op)"
+                    >
+                      {{ op.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(opcionesNacionalidad, 'nacionalidad').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="form-text">Solo se permite: NACIONAL o EXTRANJERO.</div>
             </div>
 
@@ -177,22 +229,124 @@
 
             <div class="col-12 col-md-6">
               <label class="form-label">Puesto actual</label>
-              <select v-model="form.id_puesto" class="form-select" @change="syncPuestoGenerico">
-                <option :value="null">Selecciona…</option>
-                <option v-for="puesto in catalogos.puestos" :key="puesto.id" :value="puesto.id">
-                  {{ puesto.nombre }}
-                </option>
-              </select>
+              <div
+                class="cv-search-select"
+                :class="{ 'is-open': isComboOpen('puesto') }"
+              >
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :aria-expanded="isComboOpen('puesto') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('puesto')"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.id_puesto }">
+                    {{ comboLabel(catalogos.puestos, form.id_puesto, 'Selecciona…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('puesto')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_puesto'"
+                      :value="comboSearch.puesto"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar puesto..."
+                      @input="setComboSearch('puesto', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectPuesto(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="puesto in filteredComboOptions(catalogos.puestos, 'puesto')"
+                      :key="puesto.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.id_puesto) === String(puesto.id) }"
+                      @click="selectPuesto(puesto)"
+                    >
+                      {{ puesto.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.puestos, 'puesto').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="col-12 col-md-6">
               <label class="form-label">Puesto específico</label>
-              <select v-model="form.id_puesto_especifico" class="form-select" @change="syncPuestoEspecifico">
-                <option :value="null">Selecciona…</option>
-                <option v-for="puesto in catalogos.puestosEspecificos" :key="puesto.id" :value="puesto.id">
-                  {{ puesto.nombre }}
-                </option>
-              </select>
+              <div
+                class="cv-search-select"
+                :class="{ 'is-open': isComboOpen('puestoEspecifico') }"
+              >
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :aria-expanded="isComboOpen('puestoEspecifico') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('puestoEspecifico')"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.id_puesto_especifico }">
+                    {{ comboLabel(catalogos.puestosEspecificos, form.id_puesto_especifico, 'Selecciona…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('puestoEspecifico')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_puestoEspecifico'"
+                      :value="comboSearch.puestoEspecifico"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar puesto específico..."
+                      @input="setComboSearch('puestoEspecifico', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectPuestoEspecifico(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="puesto in filteredComboOptions(catalogos.puestosEspecificos, 'puestoEspecifico')"
+                      :key="puesto.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.id_puesto_especifico) === String(puesto.id) }"
+                      @click="selectPuestoEspecifico(puesto)"
+                    >
+                      {{ puesto.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.puestosEspecificos, 'puestoEspecifico').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="col-12 col-md-4">
@@ -203,27 +357,128 @@
 
             <div class="col-12 col-md-4">
               <label class="form-label">Unidad de adscripción</label>
-              <select v-model="form.id_unidad" class="form-select" @change="cargarCoordinacionesUnidad">
-                <option :value="null">Selecciona…</option>
-                <option v-for="uni in catalogos.unidades" :key="uni.id" :value="uni.id">
-                  {{ uni.nombre }}
-                </option>
-              </select>
+              <div
+                class="cv-search-select"
+                :class="{ 'is-open': isComboOpen('unidad') }"
+              >
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :aria-expanded="isComboOpen('unidad') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('unidad')"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.id_unidad }">
+                    {{ comboLabel(catalogos.unidades, form.id_unidad, 'Selecciona…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('unidad')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_unidad'"
+                      :value="comboSearch.unidad"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar unidad..."
+                      @input="setComboSearch('unidad', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectUnidad(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="uni in filteredComboOptions(catalogos.unidades, 'unidad')"
+                      :key="uni.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.id_unidad) === String(uni.id) }"
+                      @click="selectUnidad(uni)"
+                    >
+                      {{ uni.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.unidades, 'unidad').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="col-12 col-md-4">
               <label class="form-label">Coordinación</label>
-              <select
-                v-model="form.id_coordinacion"
-                class="form-select"
-                :disabled="!catalogos.coordinaciones.length"
-                @change="syncAreaAdscripcionTexto"
+              <div
+                class="cv-search-select"
+                :class="{
+                  'is-open': isComboOpen('coordinacion'),
+                  'is-disabled': !catalogos.coordinaciones.length
+                }"
               >
-                <option :value="null">Selecciona…</option>
-                <option v-for="coord in catalogos.coordinaciones" :key="coord.id" :value="coord.id">
-                  {{ coord.nombre }}
-                </option>
-              </select>
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :disabled="!catalogos.coordinaciones.length"
+                  :aria-expanded="isComboOpen('coordinacion') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('coordinacion', !catalogos.coordinaciones.length)"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.id_coordinacion }">
+                    {{ comboLabel(catalogos.coordinaciones, form.id_coordinacion, catalogos.coordinaciones.length ? 'Selecciona…' : 'Selecciona una unidad primero…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('coordinacion')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_coordinacion'"
+                      :value="comboSearch.coordinacion"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar coordinación..."
+                      @input="setComboSearch('coordinacion', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectCoordinacion(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="coord in filteredComboOptions(catalogos.coordinaciones, 'coordinacion')"
+                      :key="coord.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.id_coordinacion) === String(coord.id) }"
+                      @click="selectCoordinacion(coord)"
+                    >
+                      {{ coord.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.coordinaciones, 'coordinacion').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -277,11 +532,63 @@
 
               <div class="col-12 col-md-4">
                 <label class="form-label">Sector</label>
-                <select v-model="exp.sector" class="form-select">
-                  <option value="">Selecciona…</option>
-                  <option value="PÚBLICO">PÚBLICO</option>
-                  <option value="PRIVADO">PRIVADO</option>
-                </select>
+                <div
+                  class="cv-search-select"
+                  :class="{ 'is-open': isComboOpen(comboKey('sector', index)) }"
+                >
+                  <button
+                    type="button"
+                    class="form-select cv-search-select__toggle"
+                    :aria-expanded="isComboOpen(comboKey('sector', index)) ? 'true' : 'false'"
+                    @click="toggleSearchCombo(comboKey('sector', index))"
+                  >
+                    <span :class="{ 'cv-search-select__placeholder': !exp.sector }">
+                      {{ comboLabel(opcionesSector, exp.sector, 'Selecciona…') }}
+                    </span>
+                  </button>
+
+                  <div v-if="isComboOpen(comboKey('sector', index))" class="cv-search-select__menu">
+                    <div class="cv-search-select__search-wrap">
+                      <input
+                        :ref="'comboSearch_' + comboKey('sector', index)"
+                        :value="comboSearch[comboKey('sector', index)]"
+                        type="text"
+                        class="cv-search-select__search"
+                        placeholder="Buscar sector..."
+                        @input="setComboSearch(comboKey('sector', index), $event.target.value)"
+                        @keydown.stop
+                      >
+                    </div>
+
+                    <div class="cv-search-select__options">
+                      <button
+                        type="button"
+                        class="cv-search-select__option cv-search-select__option--muted"
+                        @click="selectSector(exp, null)"
+                      >
+                        Selecciona…
+                      </button>
+
+                      <button
+                        v-for="op in filteredComboOptions(opcionesSector, comboKey('sector', index))"
+                        :key="op.id"
+                        type="button"
+                        class="cv-search-select__option"
+                        :class="{ 'is-selected': String(exp.sector) === String(op.id) }"
+                        @click="selectSector(exp, op)"
+                      >
+                        {{ op.nombre }}
+                      </button>
+
+                      <div
+                        v-if="!filteredComboOptions(opcionesSector, comboKey('sector', index)).length"
+                        class="cv-search-select__empty"
+                      >
+                        Sin resultados
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="col-12 col-md-6">
@@ -366,22 +673,124 @@
 
             <div class="col-12 col-md-6">
               <label class="form-label">País</label>
-              <select v-model="form.estudios.id_pais" class="form-select" @change="syncPaisTexto">
-                <option :value="null">Selecciona…</option>
-                <option v-for="pais in catalogos.paises" :key="pais.id" :value="pais.id">
-                  {{ pais.nombre }}
-                </option>
-              </select>
+              <div
+                class="cv-search-select"
+                :class="{ 'is-open': isComboOpen('pais') }"
+              >
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :aria-expanded="isComboOpen('pais') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('pais')"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.estudios.id_pais }">
+                    {{ comboLabel(catalogos.paises, form.estudios.id_pais, 'Selecciona…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('pais')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_pais'"
+                      :value="comboSearch.pais"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar país..."
+                      @input="setComboSearch('pais', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectPais(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="pais in filteredComboOptions(catalogos.paises, 'pais')"
+                      :key="pais.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.estudios.id_pais) === String(pais.id) }"
+                      @click="selectPais(pais)"
+                    >
+                      {{ pais.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.paises, 'pais').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="col-12 col-md-6">
               <label class="form-label">Nivel de estudios</label>
-              <select v-model="form.estudios.id_nivel_estudios" class="form-select" @change="syncNivelTexto">
-                <option :value="null">Selecciona…</option>
-                <option v-for="nivel in catalogos.nivelesEstudio" :key="nivel.id" :value="nivel.id">
-                  {{ nivel.nombre }}
-                </option>
-              </select>
+              <div
+                class="cv-search-select"
+                :class="{ 'is-open': isComboOpen('nivelEstudios') }"
+              >
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :aria-expanded="isComboOpen('nivelEstudios') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('nivelEstudios')"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.estudios.id_nivel_estudios }">
+                    {{ comboLabel(catalogos.nivelesEstudio, form.estudios.id_nivel_estudios, 'Selecciona…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('nivelEstudios')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_nivelEstudios'"
+                      :value="comboSearch.nivelEstudios"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar nivel de estudios..."
+                      @input="setComboSearch('nivelEstudios', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectNivelEstudios(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="nivel in filteredComboOptions(catalogos.nivelesEstudio, 'nivelEstudios')"
+                      :key="nivel.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.estudios.id_nivel_estudios) === String(nivel.id) }"
+                      @click="selectNivelEstudios(nivel)"
+                    >
+                      {{ nivel.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.nivelesEstudio, 'nivelEstudios').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="col-12 col-md-6">
@@ -397,42 +806,193 @@
 
             <div class="col-12 col-md-4">
               <label class="form-label">Carrera específica</label>
-              <select v-model="form.estudios.id_carrera_especifica" class="form-select" @change="onChangeCarreraEspecifica">
-                <option :value="null">Selecciona…</option>
-                <option v-for="car in catalogos.carrerasEspecificas" :key="car.id" :value="car.id">
-                  {{ car.nombre }}
-                </option>
-              </select>
+              <div
+                class="cv-search-select"
+                :class="{ 'is-open': isComboOpen('carreraEspecifica') }"
+              >
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :aria-expanded="isComboOpen('carreraEspecifica') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('carreraEspecifica')"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.estudios.id_carrera_especifica }">
+                    {{ comboLabel(catalogos.carrerasEspecificas, form.estudios.id_carrera_especifica, 'Selecciona…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('carreraEspecifica')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_carreraEspecifica'"
+                      :value="comboSearch.carreraEspecifica"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar carrera específica..."
+                      @input="setComboSearch('carreraEspecifica', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectCarreraEspecifica(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="car in filteredComboOptions(catalogos.carrerasEspecificas, 'carreraEspecifica')"
+                      :key="car.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.estudios.id_carrera_especifica) === String(car.id) }"
+                      @click="selectCarreraEspecifica(car)"
+                    >
+                      {{ car.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.carrerasEspecificas, 'carreraEspecifica').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="col-12 col-md-4">
               <label class="form-label">Carrera genérica</label>
-              <select
-                v-model="form.estudios.id_carrera_generica"
-                class="form-select"
-                :disabled="!catalogos.carrerasGenericas.length"
-                @change="onChangeCarreraGenerica"
+              <div
+                class="cv-search-select"
+                :class="{
+                  'is-open': isComboOpen('carreraGenerica'),
+                  'is-disabled': !catalogos.carrerasGenericas.length
+                }"
               >
-                <option :value="null">Selecciona…</option>
-                <option v-for="car in catalogos.carrerasGenericas" :key="car.id" :value="car.id">
-                  {{ car.nombre }}
-                </option>
-              </select>
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :disabled="!catalogos.carrerasGenericas.length"
+                  :aria-expanded="isComboOpen('carreraGenerica') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('carreraGenerica', !catalogos.carrerasGenericas.length)"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.estudios.id_carrera_generica }">
+                    {{ comboLabel(catalogos.carrerasGenericas, form.estudios.id_carrera_generica, catalogos.carrerasGenericas.length ? 'Selecciona…' : 'Selecciona una carrera específica primero…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('carreraGenerica')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_carreraGenerica'"
+                      :value="comboSearch.carreraGenerica"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar carrera genérica..."
+                      @input="setComboSearch('carreraGenerica', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectCarreraGenerica(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="car in filteredComboOptions(catalogos.carrerasGenericas, 'carreraGenerica')"
+                      :key="car.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.estudios.id_carrera_generica) === String(car.id) }"
+                      @click="selectCarreraGenerica(car)"
+                    >
+                      {{ car.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.carrerasGenericas, 'carreraGenerica').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="col-12 col-md-4">
               <label class="form-label">Área de estudios</label>
-              <select
-                v-model="form.estudios.id_area_estudios"
-                class="form-select"
-                :disabled="!catalogos.areasEstudioFiltradas.length"
-                @change="onChangeAreaEstudios"
+              <div
+                class="cv-search-select"
+                :class="{
+                  'is-open': isComboOpen('areaEstudios'),
+                  'is-disabled': !catalogos.areasEstudioFiltradas.length
+                }"
               >
-                <option :value="null">Selecciona…</option>
-                <option v-for="area in catalogos.areasEstudioFiltradas" :key="area.id" :value="area.id">
-                  {{ area.nombre }}
-                </option>
-              </select>
+                <button
+                  type="button"
+                  class="form-select cv-search-select__toggle"
+                  :disabled="!catalogos.areasEstudioFiltradas.length"
+                  :aria-expanded="isComboOpen('areaEstudios') ? 'true' : 'false'"
+                  @click="toggleSearchCombo('areaEstudios', !catalogos.areasEstudioFiltradas.length)"
+                >
+                  <span :class="{ 'cv-search-select__placeholder': !form.estudios.id_area_estudios }">
+                    {{ comboLabel(catalogos.areasEstudioFiltradas, form.estudios.id_area_estudios, catalogos.areasEstudioFiltradas.length ? 'Selecciona…' : 'Selecciona una carrera genérica primero…') }}
+                  </span>
+                </button>
+
+                <div v-if="isComboOpen('areaEstudios')" class="cv-search-select__menu">
+                  <div class="cv-search-select__search-wrap">
+                    <input
+                      :ref="'comboSearch_areaEstudios'"
+                      :value="comboSearch.areaEstudios"
+                      type="text"
+                      class="cv-search-select__search"
+                      placeholder="Buscar área de estudios..."
+                      @input="setComboSearch('areaEstudios', $event.target.value)"
+                      @keydown.stop
+                    >
+                  </div>
+
+                  <div class="cv-search-select__options">
+                    <button
+                      type="button"
+                      class="cv-search-select__option cv-search-select__option--muted"
+                      @click="selectAreaEstudios(null)"
+                    >
+                      Selecciona…
+                    </button>
+
+                    <button
+                      v-for="area in filteredComboOptions(catalogos.areasEstudioFiltradas, 'areaEstudios')"
+                      :key="area.id"
+                      type="button"
+                      class="cv-search-select__option"
+                      :class="{ 'is-selected': String(form.estudios.id_area_estudios) === String(area.id) }"
+                      @click="selectAreaEstudios(area)"
+                    >
+                      {{ area.nombre }}
+                    </button>
+
+                    <div
+                      v-if="!filteredComboOptions(catalogos.areasEstudioFiltradas, 'areaEstudios').length"
+                      class="cv-search-select__empty"
+                    >
+                      Sin resultados
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -573,6 +1133,27 @@ export default {
       totalPasos: 5,
       loading: false,
       mensaje: null,
+      openCombo: null,
+      comboSearch: {
+        nacionalidad: '',
+        puesto: '',
+        puestoEspecifico: '',
+        unidad: '',
+        coordinacion: '',
+        pais: '',
+        nivelEstudios: '',
+        carreraEspecifica: '',
+        carreraGenerica: '',
+        areaEstudios: '',
+      },
+      opcionesNacionalidad: [
+        { id: 'NACIONAL', nombre: 'NACIONAL' },
+        { id: 'EXTRANJERO', nombre: 'EXTRANJERO' },
+      ],
+      opcionesSector: [
+        { id: 'PÚBLICO', nombre: 'PÚBLICO' },
+        { id: 'PRIVADO', nombre: 'PRIVADO' },
+      ],
 
       catalogos: {
         paises: [],
@@ -747,6 +1328,170 @@ export default {
       }
     },
 
+    comboKey(base, index = null) {
+      return index === null || index === undefined ? base : `${base}_${index}`
+    },
+
+    isComboOpen(key) {
+      return this.openCombo === key
+    },
+
+    setComboSearch(key, value) {
+      if (this.$set) this.$set(this.comboSearch, key, value)
+      else this.comboSearch[key] = value
+    },
+
+    toggleSearchCombo(key, disabled = false) {
+      if (disabled) return
+
+      if (this.openCombo === key) {
+        this.closeSearchCombo()
+        return
+      }
+
+      this.openCombo = key
+      this.setComboSearch(key, '')
+
+      this.$nextTick(() => {
+        const ref = this.$refs[`comboSearch_${key}`]
+        const input = Array.isArray(ref) ? ref[0] : ref
+        if (input && input.focus) input.focus()
+      })
+    },
+
+    closeSearchCombo() {
+      this.openCombo = null
+    },
+
+    comboOptionLabel(item) {
+      if (item === null || item === undefined) return ''
+      if (typeof item === 'object') return String(item.nombre ?? item.label ?? item.text ?? item.name ?? '')
+      return String(item)
+    },
+
+    comboOptionValue(item) {
+      if (item === null || item === undefined) return null
+      if (typeof item === 'object') return item.id ?? item.value ?? item.clave ?? null
+      return item
+    },
+
+    isNumericId(value) {
+      if (value === null || value === undefined || value === '') return false
+      return /^-?\d+(\.\d+)?$/.test(String(value).trim())
+    },
+
+    sortOptionsById(options) {
+      const list = Array.isArray(options) ? [...options] : []
+
+      const allNumericIds = list.every((item) => this.isNumericId(this.comboOptionValue(item)))
+      if (!allNumericIds) return list
+
+      return list.sort((a, b) => {
+        const aId = Number(this.comboOptionValue(a))
+        const bId = Number(this.comboOptionValue(b))
+        return aId - bId
+      })
+    },
+
+    comboLabel(options, value, placeholder = 'Selecciona…') {
+      if (value === null || value === undefined || value === '') return placeholder
+
+      const item = (Array.isArray(options) ? options : []).find((op) => {
+        const opValue = this.comboOptionValue(op)
+        return String(opValue) === String(value)
+      })
+
+      return item ? this.comboOptionLabel(item) : placeholder
+    },
+
+    filteredComboOptions(options, key) {
+      const list = this.sortOptionsById(options)
+      const term = this.normalizeText(this.comboSearch[key] || '')
+
+      if (!term) return list
+
+      return list.filter((item) => {
+        const label = this.normalizeText(this.comboOptionLabel(item))
+        const value = this.normalizeText(this.comboOptionValue(item))
+        return label.includes(term) || value.includes(term)
+      })
+    },
+
+    handleComboDocumentClick(event) {
+      const target = event?.target
+      if (!target || !target.closest || !target.closest('.cv-search-select')) {
+        this.closeSearchCombo()
+      }
+    },
+
+    handleComboEscape(event) {
+      if (event.key === 'Escape') this.closeSearchCombo()
+    },
+
+    selectNacionalidad(item) {
+      this.form.nacionalidad = item ? item.id : ''
+      this.closeSearchCombo()
+    },
+
+    selectPuesto(item) {
+      this.form.id_puesto = item ? item.id : null
+      this.syncPuestoGenerico()
+      this.closeSearchCombo()
+    },
+
+    selectPuestoEspecifico(item) {
+      this.form.id_puesto_especifico = item ? item.id : null
+      this.syncPuestoEspecifico()
+      this.closeSearchCombo()
+    },
+
+    async selectUnidad(item) {
+      this.form.id_unidad = item ? item.id : null
+      this.closeSearchCombo()
+      await this.cargarCoordinacionesUnidad()
+    },
+
+    selectCoordinacion(item) {
+      this.form.id_coordinacion = item ? item.id : null
+      this.syncAreaAdscripcionTexto()
+      this.closeSearchCombo()
+    },
+
+    selectSector(exp, item) {
+      exp.sector = item ? item.id : ''
+      this.closeSearchCombo()
+    },
+
+    selectPais(item) {
+      this.form.estudios.id_pais = item ? item.id : null
+      this.syncPaisTexto()
+      this.closeSearchCombo()
+    },
+
+    selectNivelEstudios(item) {
+      this.form.estudios.id_nivel_estudios = item ? item.id : null
+      this.syncNivelTexto()
+      this.closeSearchCombo()
+    },
+
+    async selectCarreraEspecifica(item) {
+      this.form.estudios.id_carrera_especifica = item ? item.id : null
+      this.closeSearchCombo()
+      await this.onChangeCarreraEspecifica()
+    },
+
+    async selectCarreraGenerica(item) {
+      this.form.estudios.id_carrera_generica = item ? item.id : null
+      this.closeSearchCombo()
+      await this.onChangeCarreraGenerica()
+    },
+
+    selectAreaEstudios(item) {
+      this.form.estudios.id_area_estudios = item ? item.id : null
+      this.onChangeAreaEstudios()
+      this.closeSearchCombo()
+    },
+
     async cargarCatalogos() {
       try {
         const results = await Promise.allSettled([
@@ -769,13 +1514,13 @@ export default {
           carrerasEspRes,
         ] = results
 
-        if (paisesRes.status === 'fulfilled') this.catalogos.paises = paisesRes.value.data || []
-        if (nivelesRes.status === 'fulfilled') this.catalogos.nivelesEstudio = nivelesRes.value.data || []
-        if (areasRes.status === 'fulfilled') this.catalogos.areasEstudio = areasRes.value.data || []
-        if (puestosRes.status === 'fulfilled') this.catalogos.puestos = puestosRes.value.data || []
-        if (puestosEspRes.status === 'fulfilled') this.catalogos.puestosEspecificos = puestosEspRes.value.data || []
-        if (unidadesRes.status === 'fulfilled') this.catalogos.unidades = unidadesRes.value.data || []
-        if (carrerasEspRes.status === 'fulfilled') this.catalogos.carrerasEspecificas = carrerasEspRes.value.data || []
+        if (paisesRes.status === 'fulfilled') this.catalogos.paises = this.sortOptionsById(paisesRes.value.data || [])
+        if (nivelesRes.status === 'fulfilled') this.catalogos.nivelesEstudio = this.sortOptionsById(nivelesRes.value.data || [])
+        if (areasRes.status === 'fulfilled') this.catalogos.areasEstudio = this.sortOptionsById(areasRes.value.data || [])
+        if (puestosRes.status === 'fulfilled') this.catalogos.puestos = this.sortOptionsById(puestosRes.value.data || [])
+        if (puestosEspRes.status === 'fulfilled') this.catalogos.puestosEspecificos = this.sortOptionsById(puestosEspRes.value.data || [])
+        if (unidadesRes.status === 'fulfilled') this.catalogos.unidades = this.sortOptionsById(unidadesRes.value.data || [])
+        if (carrerasEspRes.status === 'fulfilled') this.catalogos.carrerasEspecificas = this.sortOptionsById(carrerasEspRes.value.data || [])
 
         this.catalogos.coordinaciones = []
         this.catalogos.carrerasGenericas = []
@@ -808,7 +1553,12 @@ export default {
     syncPuestoEspecifico() {
       const id = this.form.id_puesto_especifico
       const item = this.catalogos.puestosEspecificos.find((p) => p.id === id)
-      this.form.puesto_actual = item ? item.nombre : ''
+      if (item) {
+        this.form.puesto_actual = item.nombre
+        return
+      }
+
+      this.syncPuestoGenerico()
     },
 
     async cargarCoordinacionesUnidad() {
@@ -823,7 +1573,7 @@ export default {
 
       try {
         const { data } = await axios.get(`/api/cv/catalogos/coordinaciones-por-unidad/${id}`)
-        this.catalogos.coordinaciones = data || []
+        this.catalogos.coordinaciones = this.sortOptionsById(data || [])
       } catch (e) {
         console.error('Error cargando coordinaciones', e)
       }
@@ -858,7 +1608,7 @@ export default {
 
       try {
         const { data } = await axios.get(`/api/cv/catalogos/carreras-genericas/${idEspecifica}`)
-        this.catalogos.carrerasGenericas = data || []
+        this.catalogos.carrerasGenericas = this.sortOptionsById(data || [])
       } catch (e) {
         console.error('Error cargando carreras genéricas', e)
       }
@@ -880,7 +1630,7 @@ export default {
 
       try {
         const { data } = await axios.get(`/api/cv/catalogos/areas-estudio-por-carrera/${idEspecifica}/${idGenerica}`)
-        this.catalogos.areasEstudioFiltradas = data || []
+        this.catalogos.areasEstudioFiltradas = this.sortOptionsById(data || [])
       } catch (e) {
         console.error('Error cargando áreas de estudio', e)
       }
@@ -1167,6 +1917,18 @@ export default {
 
   mounted() {
     this.cargarCatalogos()
+    document.addEventListener('click', this.handleComboDocumentClick)
+    document.addEventListener('keydown', this.handleComboEscape)
+  },
+
+  beforeUnmount() {
+    document.removeEventListener('click', this.handleComboDocumentClick)
+    document.removeEventListener('keydown', this.handleComboEscape)
+  },
+
+  beforeDestroy() {
+    document.removeEventListener('click', this.handleComboDocumentClick)
+    document.removeEventListener('keydown', this.handleComboEscape)
   },
 }
 </script>
@@ -1546,6 +2308,118 @@ export default {
 .cv-panel :deep(.form-text) {
   color: var(--cv-muted);
   font-size: .78rem;
+}
+
+.cv-search-select {
+  position: relative;
+  width: 100%;
+}
+
+.cv-search-select.is-open {
+  z-index: 50;
+}
+
+.cv-search-select__toggle {
+  width: 100%;
+  min-height: 42px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.cv-search-select__toggle span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding-right: 6px;
+}
+
+.cv-search-select__placeholder {
+  color: #7b8790;
+  font-weight: 500;
+}
+
+.cv-search-select.is-disabled .cv-search-select__toggle,
+.cv-search-select__toggle:disabled {
+  cursor: not-allowed;
+  background-color: #eef1f2;
+  color: #7b8790;
+  opacity: 1;
+}
+
+.cv-search-select__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 3px);
+  padding: 6px;
+  border: 1px solid rgba(16, 49, 43, 0.18);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(16, 49, 43, 0.16);
+  z-index: 999;
+}
+
+.cv-search-select__search-wrap {
+  padding: 0 0 5px;
+}
+
+.cv-search-select__search {
+  width: 100%;
+  height: 36px;
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 102, 87, 0.34);
+  border-radius: 4px;
+  outline: none;
+  font-size: .9rem;
+  line-height: 1.2;
+  background: #ffffff;
+}
+
+.cv-search-select__search:focus {
+  border-color: var(--imss-green);
+  box-shadow: 0 0 0 3px rgba(0, 102, 87, 0.12);
+}
+
+.cv-search-select__options {
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.cv-search-select__option {
+  width: 100%;
+  display: block;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cv-text);
+  text-align: left;
+  font-size: .9rem;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.cv-search-select__option:hover,
+.cv-search-select__option:focus,
+.cv-search-select__option.is-selected {
+  background: var(--imss-green);
+  color: #ffffff;
+  outline: none;
+}
+
+.cv-search-select__option--muted {
+  color: #7b8790;
+}
+
+.cv-search-select__empty {
+  padding: 9px 10px;
+  color: #7b8790;
+  font-size: .88rem;
+  text-align: center;
 }
 
 .cv-panel :deep(.form-control),
