@@ -45,76 +45,46 @@ class RevisorPdfController extends Controller
         @set_time_limit(0);
         @ini_set('memory_limit', '1024M');
 
-        $now = Carbon::now();
-
-        $ejercicio = (int)($request->query('ejercicio', $now->year));
-        $trimestre = (int)($request->query('trimestre', $this->trimestreActual($now)));
-
-        if ($ejercicio < 2000 || $ejercicio > 2100) {
-            $ejercicio = (int)$now->year;
-        }
-
-        if (!in_array($trimestre, [1, 2, 3, 4], true)) {
-            $trimestre = $this->trimestreActual($now);
-        }
-
-        [$inicioTrim, $finTrim] = $this->periodoPorTrimestre($ejercicio, $trimestre);
-        $inicioTrim = $inicioTrim->copy()->startOfDay();
-        $finTrim    = $finTrim->copy()->endOfDay();
-
-        $campoFecha = (string)$request->query('campo_fecha', 'actualizado');
-        $colFecha = match ($campoFecha) {
-            'creado' => 'creado_en',
-            default  => 'actualizado_en',
-        };
-
-        $fechaInicioParam = $request->query('fecha_inicio');
-        $fechaFinParam    = $request->query('fecha_fin');
-
-        $iniFiltroFinal = $inicioTrim->copy();
-        $finFiltroFinal = $finTrim->copy();
-
-        if ($fechaInicioParam && $fechaFinParam) {
-            try {
-                $iniManual = Carbon::createFromFormat('Y-m-d', (string)$fechaInicioParam)->startOfDay();
-                $finManual = Carbon::createFromFormat('Y-m-d', (string)$fechaFinParam)->endOfDay();
-
-                if ($iniManual->gt($iniFiltroFinal)) {
-                    $iniFiltroFinal = $iniManual;
-                }
-
-                if ($finManual->lt($finFiltroFinal)) {
-                    $finFiltroFinal = $finManual;
-                }
-            } catch (\Throwable $e) {
-                return response('Rango de fechas inválido. Usa formato YYYY-MM-DD.', 422, [
-                    'Content-Type' => 'text/plain; charset=UTF-8',
-                ]);
-            }
-        }
-
-        if ($iniFiltroFinal->gt($finFiltroFinal)) {
-            return response('No hay CV aprobados en el rango seleccionado.', 404, [
+        if (!class_exists(ZipArchive::class)) {
+            return response('La extensión ZIP de PHP no está instalada o habilitada.', 500, [
                 'Content-Type' => 'text/plain; charset=UTF-8',
             ]);
         }
 
+        $now = Carbon::now();
+
+        $ejercicio = (int) $request->query('ejercicio', $now->year);
+        $trimestre = (int) $request->query('trimestre', $this->trimestreActual($now));
+
+        if ($ejercicio < 2000 || $ejercicio > 2100) {
+            return response('Ejercicio inválido.', 422, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
+        }
+
+        if (!in_array($trimestre, [1, 2, 3, 4], true)) {
+            return response('Trimestre inválido.', 422, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
+        }
+
+        [$inicioTrim, $finTrim] = $this->periodoPorTrimestre($ejercicio, $trimestre);
+
+        $inicioTrim = $inicioTrim->copy()->startOfDay();
+        $finTrim = $finTrim->copy()->endOfDay();
+
+        /*
+         * CRITERIO ÚNICO DE DESCARGA:
+         * - Solo CV aprobados.
+         * - Solo registros actualizados dentro del ejercicio/trimestre seleccionado.
+         */
         $empleados = Empleado::query()
             ->with(['puesto'])
             ->where('estatus_cv', 3)
-            ->whereNotNull($colFecha)
-            ->whereBetween($colFecha, [$iniFiltroFinal, $finFiltroFinal])
+            ->whereNotNull('actualizado_en')
+            ->whereBetween('actualizado_en', [$inicioTrim, $finTrim])
             ->orderBy('id_tbl_empleados')
-            ->get([
-                'id_tbl_empleados',
-                'curp',
-                'nombre',
-                'primer_apellido',
-                'segundo_apellido',
-                'folio_cv',
-                'id_puesto',
-                'puesto_actual',
-            ]);
+            ->get();
 
         if ($empleados->isEmpty()) {
             return response('No hay CV aprobados para descargar en el periodo seleccionado.', 404, [
@@ -122,17 +92,35 @@ class RevisorPdfController extends Controller
             ]);
         }
 
-        $tmpDir = config('cvpdf.tmp_dir', storage_path('app/tmp'));
-        if (!is_dir($tmpDir) && !mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
-            throw new RuntimeException("No se pudo crear tmp_dir: {$tmpDir}");
+        $tmpDir = config('cvpdf.tmp_dir') ?: storage_path('app/tmp');
+
+        try {
+            File::ensureDirectoryExists($tmpDir, 0775, true);
+        } catch (\Throwable $e) {
+            Log::error('No se pudo crear tmp_dir para ZIP de aprobados', [
+                'tmpDir' => $tmpDir,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response('No se pudo crear el directorio temporal para generar el ZIP.', 500, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
         }
 
-        File::ensureDirectoryExists($tmpDir);
+        if (!is_writable($tmpDir)) {
+            Log::error('tmp_dir no tiene permisos de escritura', [
+                'tmpDir' => $tmpDir,
+            ]);
 
-        $zipName = 'CV_APROBADOS_' . $ejercicio . '_T' . $trimestre . '_' . date('Ymd_His') . '.zip';
+            return response('El directorio temporal no tiene permisos de escritura.', 500, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
+        }
+
+        $zipName = 'CV_APROBADOS_' . $ejercicio . '_T' . $trimestre . '_' . Carbon::now()->format('Ymd_His') . '.zip';
         $zipPath = $tmpDir . DIRECTORY_SEPARATOR . $zipName;
 
-        if (file_exists($zipPath)) {
+        if (is_file($zipPath)) {
             @unlink($zipPath);
         }
 
@@ -140,12 +128,20 @@ class RevisorPdfController extends Controller
         $zipResult = $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
         if ($zipResult !== true) {
-            throw new RuntimeException("No se pudo crear ZIP: {$zipPath}. Código: {$zipResult}");
+            Log::error('No se pudo crear el ZIP de aprobados', [
+                'zipPath' => $zipPath,
+                'codigo' => $zipResult,
+            ]);
+
+            return response('No se pudo crear el archivo ZIP.', 500, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
         }
 
         $pdfGenerados = [];
         $agregados = 0;
         $errores = [];
+        $nombresUsados = [];
 
         foreach ($empleados as $emp) {
             try {
@@ -159,14 +155,8 @@ class RevisorPdfController extends Controller
 
                 $pdfGenerados[] = $pdfPath;
 
-                $consec = $folioSvc->parseConsecutivo($emp->folio_cv);
-
-                if ($consec > 0) {
-                    $zipInsideName = "{$consec}.pdf";
-                } else {
-                    $curp = strtoupper(trim((string)$emp->curp));
-                    $zipInsideName = "CV_{$curp}.pdf";
-                }
+                $zipInsideName = $this->nombrePdfEmpleado($emp, $folioSvc);
+                $zipInsideName = $this->nombreUnicoZip($zipInsideName, $nombresUsados, $emp);
 
                 if (!$zip->addFile($pdfPath, $zipInsideName)) {
                     throw new RuntimeException("No se pudo agregar al ZIP: {$zipInsideName}");
@@ -175,14 +165,14 @@ class RevisorPdfController extends Controller
                 $agregados++;
             } catch (\Throwable $e) {
                 $errores[] = [
-                    'empleado_id' => $emp->id_tbl_empleados,
-                    'curp' => $emp->curp,
+                    'empleado_id' => $emp->id_tbl_empleados ?? null,
+                    'curp' => $emp->curp ?? null,
                     'error' => $e->getMessage(),
                 ];
 
-                Log::error('Error al generar/agregar PDF al ZIP', [
-                    'empleado_id' => $emp->id_tbl_empleados,
-                    'curp' => $emp->curp,
+                Log::error('Error al generar/agregar PDF al ZIP de aprobados', [
+                    'empleado_id' => $emp->id_tbl_empleados ?? null,
+                    'curp' => $emp->curp ?? null,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -190,6 +180,9 @@ class RevisorPdfController extends Controller
 
         $zip->close();
 
+        /*
+         * Después de cerrar el ZIP ya podemos borrar los PDF temporales.
+         */
         foreach ($pdfGenerados as $pdf) {
             if (is_file($pdf)) {
                 @unlink($pdf);
@@ -201,47 +194,118 @@ class RevisorPdfController extends Controller
                 @unlink($zipPath);
             }
 
-            throw new RuntimeException(
-                "No se pudo generar ningún PDF para el ZIP.\n" .
-                "Errores: " . json_encode($errores, JSON_UNESCAPED_UNICODE)
-            );
+            Log::error('No se pudo generar ningún PDF para el ZIP de aprobados', [
+                'ejercicio' => $ejercicio,
+                'trimestre' => $trimestre,
+                'fecha_inicio' => $inicioTrim->toDateTimeString(),
+                'fecha_fin' => $finTrim->toDateTimeString(),
+                'criterio_fecha' => 'actualizado_en',
+                'errores' => $errores,
+            ]);
+
+            return response('No se pudo generar ningún PDF para el ZIP. Revisa storage/logs/laravel.log.', 500, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
         }
 
         if (!is_file($zipPath)) {
-            throw new RuntimeException("El archivo ZIP no se generó: {$zipPath}");
+            Log::error('El archivo ZIP no se generó', [
+                'zipPath' => $zipPath,
+            ]);
+
+            return response('El archivo ZIP no se generó.', 500, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
         }
 
         if (filesize($zipPath) <= 0) {
             @unlink($zipPath);
-            throw new RuntimeException("El ZIP se generó vacío.");
+
+            Log::error('El ZIP se generó vacío', [
+                'zipPath' => $zipPath,
+            ]);
+
+            return response('El ZIP se generó vacío.', 500, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
         }
 
-        return response()->download($zipPath, $zipName)->deleteFileAfterSend(true);
+        return response()
+            ->download($zipPath, $zipName, [
+                'Content-Type' => 'application/zip',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            ])
+            ->deleteFileAfterSend(true);
     }
 
     private function downloadPdf(Empleado $empleado, CvFichaPdfService $svc, CvFolioService $folioSvc)
     {
         $pdfPath = $svc->generarPdfPorEmpleado($empleado);
 
+        if (!is_file($pdfPath)) {
+            throw new RuntimeException("No existe el PDF generado: {$pdfPath}");
+        }
+
+        $filename = $this->nombrePdfEmpleado($empleado, $folioSvc);
+
+        return response()
+            ->download($pdfPath, $filename)
+            ->deleteFileAfterSend(true);
+    }
+
+    private function nombrePdfEmpleado(Empleado $empleado, CvFolioService $folioSvc): string
+    {
         $consec = $folioSvc->parseConsecutivo($empleado->folio_cv);
 
         if ($consec > 0) {
-            $filename = "{$consec}.pdf";
-        } else {
-            $curp = strtoupper(trim((string)$empleado->curp));
-            $filename = "CV_{$curp}.pdf";
+            return "{$consec}.pdf";
         }
 
-        return response()->download($pdfPath, $filename)->deleteFileAfterSend(true);
+        $curp = strtoupper(trim((string) $empleado->curp));
+
+        if ($curp !== '') {
+            return "CV_{$curp}.pdf";
+        }
+
+        return 'CV_' . ($empleado->id_tbl_empleados ?? 'empleado') . '.pdf';
+    }
+
+    private function nombreUnicoZip(string $nombreOriginal, array &$nombresUsados, Empleado $empleado): string
+    {
+        $nombreOriginal = trim($nombreOriginal) !== '' ? trim($nombreOriginal) : 'CV_empleado.pdf';
+
+        if (!isset($nombresUsados[$nombreOriginal])) {
+            $nombresUsados[$nombreOriginal] = 1;
+            return $nombreOriginal;
+        }
+
+        $nombresUsados[$nombreOriginal]++;
+
+        $info = pathinfo($nombreOriginal);
+
+        $base = $info['filename'] ?? 'CV_empleado';
+        $ext = $info['extension'] ?? 'pdf';
+
+        $idEmpleado = $empleado->id_tbl_empleados ?? $nombresUsados[$nombreOriginal];
+
+        return $base . '_' . $idEmpleado . '.' . $ext;
     }
 
     private function trimestreActual(Carbon $now): int
     {
-        $m = (int)$now->month;
+        $m = (int) $now->month;
 
-        if ($m <= 3) return 1;
-        if ($m <= 6) return 2;
-        if ($m <= 9) return 3;
+        if ($m <= 3) {
+            return 1;
+        }
+
+        if ($m <= 6) {
+            return 2;
+        }
+
+        if ($m <= 9) {
+            return 3;
+        }
 
         return 4;
     }
@@ -249,10 +313,26 @@ class RevisorPdfController extends Controller
     private function periodoPorTrimestre(int $ejercicio, int $trimestre): array
     {
         return match ($trimestre) {
-            1 => [Carbon::create($ejercicio, 1, 1)->startOfDay(), Carbon::create($ejercicio, 3, 31)->startOfDay()],
-            2 => [Carbon::create($ejercicio, 4, 1)->startOfDay(), Carbon::create($ejercicio, 6, 30)->startOfDay()],
-            3 => [Carbon::create($ejercicio, 7, 1)->startOfDay(), Carbon::create($ejercicio, 9, 30)->startOfDay()],
-            4 => [Carbon::create($ejercicio, 10, 1)->startOfDay(), Carbon::create($ejercicio, 12, 31)->startOfDay()],
+            1 => [
+                Carbon::create($ejercicio, 1, 1)->startOfDay(),
+                Carbon::create($ejercicio, 3, 31)->endOfDay(),
+            ],
+            2 => [
+                Carbon::create($ejercicio, 4, 1)->startOfDay(),
+                Carbon::create($ejercicio, 6, 30)->endOfDay(),
+            ],
+            3 => [
+                Carbon::create($ejercicio, 7, 1)->startOfDay(),
+                Carbon::create($ejercicio, 9, 30)->endOfDay(),
+            ],
+            4 => [
+                Carbon::create($ejercicio, 10, 1)->startOfDay(),
+                Carbon::create($ejercicio, 12, 31)->endOfDay(),
+            ],
+            default => [
+                Carbon::create($ejercicio, 1, 1)->startOfDay(),
+                Carbon::create($ejercicio, 3, 31)->endOfDay(),
+            ],
         };
     }
 }
