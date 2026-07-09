@@ -1,5 +1,38 @@
 <template>
   <div class="container-xl py-4 imss-theme">
+    <!-- SPINNER / PROGRESO GLOBAL ZIP -->
+    <div v-if="zipDescargando" class="imss-loading-backdrop" role="status" aria-live="polite">
+      <div class="imss-loading-card">
+        <div class="imss-loading-spinner"></div>
+
+        <div class="imss-loading-title">
+          Generando ZIP de CV aprobados
+        </div>
+
+        <div class="imss-loading-text">
+          {{ zipProgresoTexto }}
+        </div>
+
+        <div class="progress imss-progress mt-3" style="height: 18px;">
+          <div
+            class="progress-bar imss-progress-bar"
+            role="progressbar"
+            :style="{ width: zipProgreso + '%' }"
+            :aria-valuenow="zipProgreso"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            {{ zipProgreso }}%
+          </div>
+        </div>
+
+        <div class="imss-loading-subtext">
+          Si son muchos registros, el proceso puede tardar varios minutos.
+          Por favor no cierres esta ventana.
+        </div>
+      </div>
+    </div>
+
     <div class="row justify-content-center">
       <div class="col-12">
         <div class="card imss-card">
@@ -21,8 +54,11 @@
                   class="btn btn-imss btn-sm imss-btn-fixed"
                   data-bs-toggle="modal"
                   data-bs-target="#modalZipAprobados"
+                  :disabled="zipDescargando"
                 >
-                  Descargar ZIP aprobados
+                  <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                  <span v-if="zipDescargando">Generando ZIP…</span>
+                  <span v-else>Descargar ZIP aprobados</span>
                 </button>
 
                 <!-- CURP -->
@@ -36,12 +72,13 @@
                       placeholder="CURP (18)"
                       maxlength="18"
                       autocomplete="off"
+                      :disabled="zipDescargando"
                     />
                     <button
                       type="button"
                       class="btn btn-outline-imss btn-sm imss-btn-fixed"
                       @click="descargarPdfPorCurp"
-                      :disabled="!curpValida"
+                      :disabled="!curpValida || zipDescargando"
                       title="Descargar PDF por CURP"
                     >
                       PDF
@@ -67,19 +104,42 @@
                     type="text"
                     class="form-control form-control-sm imss-input imss-input-with-icon"
                     placeholder="Buscar por nombre, CURP o área"
+                    :disabled="zipDescargando"
                   />
                 </div>
               </div>
 
               <div class="col-12 col-md-4">
                 <label class="imss-label">Estatus</label>
-                <select v-model="filtros.status" class="form-select form-select-sm imss-select">
+                <select
+                  v-model="filtros.status"
+                  class="form-select form-select-sm imss-select"
+                  :disabled="zipDescargando"
+                >
                   <option value="">Todos</option>
                   <option value="edicion">En edición</option>
                   <option value="enviado">Enviado</option>
                   <option value="aprobado">Aprobado</option>
                   <option value="rechazado">Rechazado</option>
                 </select>
+              </div>
+            </div>
+
+            <!-- RESUMEN MEJORADO -->
+            <div class="imss-summary-strip mt-3">
+              <div class="imss-summary-item">
+                <span>Total cargado</span>
+                <strong>{{ empleados.length }}</strong>
+              </div>
+
+              <div class="imss-summary-item">
+                <span>Filtrados</span>
+                <strong>{{ totalRegistrosFiltrados }}</strong>
+              </div>
+
+              <div class="imss-summary-item">
+                <span>Aprobados visibles</span>
+                <strong>{{ totalAprobadosFiltrados }}</strong>
               </div>
             </div>
           </div>
@@ -98,7 +158,14 @@
               </thead>
 
               <tbody>
-                <tr v-if="empleadosPaginados.length === 0">
+                <tr v-if="loadingEmpleados">
+                  <td colspan="5" class="text-center py-4 text-muted">
+                    <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                    Cargando empleados…
+                  </td>
+                </tr>
+
+                <tr v-else-if="empleadosPaginados.length === 0">
                   <td colspan="5" class="text-center py-4 text-muted">
                     No hay registros que coincidan con los filtros.
                   </td>
@@ -125,10 +192,19 @@
 
                   <td class="text-end">
                     <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
-                      <a :href="detalleUrl(getId(emp))" class="btn btn-outline-imss btn-sm imss-btn-fixed">
+                      <a
+                        :href="detalleUrl(getId(emp))"
+                        class="btn btn-outline-imss btn-sm imss-btn-fixed"
+                        :class="{ disabled: zipDescargando }"
+                      >
                         Ver detalle
                       </a>
-                      <a :href="pdfEmpleadoUrl(getId(emp))" class="btn btn-outline-success btn-sm imss-btn-fixed">
+
+                      <a
+                        :href="pdfEmpleadoUrl(getId(emp))"
+                        class="btn btn-outline-success btn-sm imss-btn-fixed"
+                        :class="{ disabled: zipDescargando }"
+                      >
                         PDF
                       </a>
                     </div>
@@ -147,6 +223,7 @@
                   v-model.number="rowsPerPage"
                   class="form-select form-select-sm imss-select imss-select-footer"
                   @change="onRowsPerPageChange"
+                  :disabled="zipDescargando"
                 >
                   <option v-for="opt in perPageOptions" :key="opt" :value="opt">
                     {{ opt }}
@@ -170,7 +247,7 @@
                   type="button"
                   class="btn btn-sm btn-outline-secondary imss-page-btn"
                   @click="goToPreviousPage"
-                  :disabled="!canGoPrev"
+                  :disabled="!canGoPrev || zipDescargando"
                 >
                   Anterior
                 </button>
@@ -183,6 +260,7 @@
                     class="btn btn-sm imss-page-btn"
                     :class="page === currentPageSafe ? 'imss-page-btn-active' : 'btn-outline-secondary'"
                     @click="goToPage(page)"
+                    :disabled="zipDescargando"
                   >
                     {{ page }}
                   </button>
@@ -192,7 +270,7 @@
                   type="button"
                   class="btn btn-sm btn-outline-secondary imss-page-btn"
                   @click="goToNextPage"
-                  :disabled="!canGoNext"
+                  :disabled="!canGoNext || zipDescargando"
                 >
                   Siguiente
                 </button>
@@ -214,12 +292,22 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Descargar ZIP aprobados</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+              :disabled="zipDescargando"
+            ></button>
           </div>
 
           <div class="modal-body">
             <div class="alert alert-info">
               Selecciona el <b>ejercicio</b> y el <b>trimestre</b> para descargar.
+            </div>
+
+            <div class="alert alert-warning small mb-3">
+              Si hay muchos CV aprobados, el sistema puede tardar mientras genera los PDF y arma el ZIP.
             </div>
 
             <div class="row g-3">
@@ -231,12 +319,17 @@
                   v-model.number="zipFiltro.ejercicio"
                   min="2000"
                   max="2100"
+                  :disabled="zipDescargando"
                 />
               </div>
 
               <div class="col-12 col-md-6">
                 <label class="form-label">Trimestre</label>
-                <select class="form-select" v-model.number="zipFiltro.trimestre">
+                <select
+                  class="form-select"
+                  v-model.number="zipFiltro.trimestre"
+                  :disabled="zipDescargando"
+                >
                   <option :value="1">1 (Ene–Mar)</option>
                   <option :value="2">2 (Abr–Jun)</option>
                   <option :value="3">3 (Jul–Sep)</option>
@@ -251,11 +344,23 @@
           </div>
 
           <div class="modal-footer">
-            <button type="button" class="btn me-auto" data-bs-dismiss="modal" :disabled="zipDescargando">
+            <button
+              type="button"
+              class="btn me-auto"
+              data-bs-dismiss="modal"
+              :disabled="zipDescargando"
+            >
               Cancelar
             </button>
-            <button type="button" class="btn btn-success" @click="descargarZipAprobados" :disabled="zipDescargando">
-              <span v-if="zipDescargando">Descargando…</span>
+
+            <button
+              type="button"
+              class="btn btn-success"
+              @click="descargarZipAprobados"
+              :disabled="zipDescargando"
+            >
+              <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+              <span v-if="zipDescargando">Generando ZIP…</span>
               <span v-else>Descargar ZIP</span>
             </button>
           </div>
@@ -264,20 +369,26 @@
     </div>
 
     <!-- TOAST -->
-    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 4000;">
       <div
         id="toast_cv_zip"
         ref="toastEl"
-        class="toast align-items-center text-bg-danger border-0"
+        :class="[
+          'toast',
+          'align-items-center',
+          'border-0',
+          toastTipo === 'ok' ? 'text-bg-success' : 'text-bg-danger'
+        ]"
         role="alert"
         aria-live="assertive"
         aria-atomic="true"
-        data-bs-delay="4500"
+        data-bs-delay="6500"
       >
         <div class="d-flex">
           <div class="toast-body">
-            {{ toastMsg || 'No hay CV aprobados para exportar con el rango de fecha seleccionado.' }}
+            {{ toastMsg || 'No se pudo completar la operación.' }}
           </div>
+
           <button
             type="button"
             class="btn-close btn-close-white me-2 m-auto"
@@ -318,15 +429,22 @@ export default {
       empleados: [],
       curpDescarga: '',
 
+      loadingEmpleados: false,
+
       zipFiltro: {
         ejercicio: now.getFullYear(),
         trimestre: trimestreActual,
       },
 
       zipDescargando: false,
+      zipProgreso: 0,
+      zipProgresoTexto: 'Preparando solicitud…',
+      _zipProgressTimer: null,
+      _zipStartedAt: null,
 
       // Toast
       toastMsg: '',
+      toastTipo: 'error',
       _toastInstance: null,
 
       // Estabilidad
@@ -370,6 +488,10 @@ export default {
 
         return coincideTexto && coincideStatus
       })
+    },
+
+    totalAprobadosFiltrados() {
+      return (this.empleadosFiltrados || []).filter((e) => this.statusKey(e) === 'aprobado').length
     },
 
     rowsPerPageSafe() {
@@ -430,6 +552,7 @@ export default {
       for (let i = start; i <= end; i++) {
         pages.push(i)
       }
+
       return pages
     },
   },
@@ -458,13 +581,18 @@ export default {
       return b && b.Toast ? b.Toast : null
     },
 
-    showToast(message) {
-      this.toastMsg = message || ''
+    showToast(message, tipo = 'error') {
+      this.toastMsg = message || 'No se pudo completar la operación.'
+      this.toastTipo = tipo === 'ok' ? 'ok' : 'error'
 
       this.$nextTick(() => {
         const Toast = this._getToastCtor()
         const el = this.$refs.toastEl
-        if (!Toast || !el) return
+
+        if (!Toast || !el) {
+          window.alert(this.toastMsg)
+          return
+        }
 
         try {
           if (this._toastInstance) {
@@ -476,7 +604,9 @@ export default {
         try {
           this._toastInstance = Toast.getOrCreateInstance(el)
           this._toastInstance.show()
-        } catch (_) {}
+        } catch (_) {
+          window.alert(this.toastMsg)
+        }
       })
     },
 
@@ -488,14 +618,17 @@ export default {
         if (emp.id_tbl_empleados != null) return emp.id_tbl_empleados
         if (emp.id != null) return emp.id
       }
+
       return null
     },
 
     rowKey(emp, index) {
       const id = this.getId(emp)
       if (id != null) return String(id)
+
       const curp = emp && emp.curp ? String(emp.curp) : ''
       if (curp) return curp
+
       return 'row-' + String(index)
     },
 
@@ -559,8 +692,11 @@ export default {
     },
 
     descargarPdfPorCurp() {
+      if (this.zipDescargando) return
+
       const curp = String(this.curpDescarga || '').trim().toUpperCase()
       if (curp.length !== 18) return
+
       window.location.href = this._url('/revisor/pdf/curp/' + encodeURIComponent(curp))
     },
 
@@ -647,10 +783,14 @@ export default {
       try {
         if (Modal && typeof Modal.getInstance === 'function') {
           const inst = Modal.getInstance(el)
-          if (inst && typeof inst.hide === 'function') inst.hide()
+          if (inst && typeof inst.hide === 'function') {
+            inst.hide()
+          }
         } else {
           const btn = el.querySelector('[data-bs-dismiss="modal"]')
-          if (btn && typeof btn.click === 'function') btn.click()
+          if (btn && typeof btn.click === 'function') {
+            btn.click()
+          }
         }
       } catch (_) {}
 
@@ -662,21 +802,182 @@ export default {
     // ---------------------------------
     _isZipContentType(ct = '') {
       const t = String(ct || '').toLowerCase()
+
       return (
         t.includes('application/zip') ||
         t.includes('application/x-zip-compressed') ||
-        t.includes('application/octet-stream')
+        t.includes('application/octet-stream') ||
+        t.includes('binary/octet-stream')
       )
     },
 
     _zipUrl(ejercicio, trimestre) {
       const base = this._url('/revisor/pdf/aprobados.zip')
+
       return (
         base +
         '?ejercicio=' + encodeURIComponent(String(ejercicio)) +
         '&trimestre=' + encodeURIComponent(String(trimestre)) +
         '&_ts=' + encodeURIComponent(String(Date.now()))
       )
+    },
+
+    _setZipProgress(value, texto = null) {
+      const n = Number(value || 0)
+      this.zipProgreso = Math.max(0, Math.min(100, Math.round(n)))
+
+      if (texto) {
+        this.zipProgresoTexto = texto
+      }
+    },
+
+    _startZipProgress() {
+      this._stopZipProgress()
+
+      this._zipStartedAt = Date.now()
+
+      this._setZipProgress(3, 'Preparando solicitud de descarga…')
+
+      this._zipProgressTimer = window.setInterval(() => {
+        const elapsed = Date.now() - this._zipStartedAt
+        const seconds = elapsed / 1000
+
+        let objetivo = 8
+        let texto = 'Conectando con el servidor…'
+
+        if (seconds > 3) {
+          objetivo = 18
+          texto = 'Buscando CV aprobados del periodo seleccionado…'
+        }
+
+        if (seconds > 8) {
+          objetivo = 32
+          texto = 'Generando documentos PDF…'
+        }
+
+        if (seconds > 20) {
+          objetivo = 48
+          texto = 'Generando PDF y preparando archivos temporales…'
+        }
+
+        if (seconds > 45) {
+          objetivo = 62
+          texto = 'Comprimiendo archivos en ZIP…'
+        }
+
+        if (seconds > 75) {
+          objetivo = 76
+          texto = 'El proceso sigue activo. Son muchos PDF, por favor espera…'
+        }
+
+        if (seconds > 120) {
+          objetivo = 86
+          texto = 'El servidor continúa generando el ZIP. No cierres esta ventana…'
+        }
+
+        if (seconds > 180) {
+          objetivo = 92
+          texto = 'Casi listo. Esperando respuesta del servidor…'
+        }
+
+        if (this.zipProgreso < objetivo) {
+          this._setZipProgress(this.zipProgreso + 1, texto)
+        } else {
+          this.zipProgresoTexto = texto
+        }
+      }, 900)
+    },
+
+    _stopZipProgress() {
+      try {
+        if (this._zipProgressTimer) {
+          clearInterval(this._zipProgressTimer)
+          this._zipProgressTimer = null
+        }
+      } catch (_) {}
+    },
+
+    async _leerMensajeErrorResponse(resp) {
+      try {
+        const ct = (resp.headers.get('Content-Type') || resp.headers.get('content-type') || '').toLowerCase()
+
+        if (ct.includes('application/json')) {
+          const payload = await resp.json()
+
+          return (
+            payload?.message ||
+            payload?.mensaje ||
+            payload?.error ||
+            'No se pudo generar el ZIP.'
+          )
+        }
+
+        const text = await resp.text()
+
+        if (text && String(text).trim() !== '') {
+          const limpio = String(text)
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+
+          return limpio || 'No se pudo generar el ZIP.'
+        }
+      } catch (_) {}
+
+      return 'No se pudo generar el ZIP.'
+    },
+
+    _obtenerFilenameDesdeHeaders(resp) {
+      let filename = 'aprobados.zip'
+
+      const cd = resp.headers.get('Content-Disposition') || resp.headers.get('content-disposition') || ''
+
+      const matchUtf8 = cd.match(/filename\*=UTF-8''([^;]+)/i)
+      if (matchUtf8 && matchUtf8[1]) {
+        try {
+          filename = decodeURIComponent(matchUtf8[1].replace(/["']/g, ''))
+          return filename
+        } catch (_) {}
+      }
+
+      const match = cd.match(/filename="([^"]+)"/i)
+      if (match && match[1]) {
+        filename = match[1]
+      }
+
+      return filename
+    },
+
+    async _blobDesdeResponseConProgreso(resp) {
+      const ct = resp.headers.get('Content-Type') || resp.headers.get('content-type') || 'application/zip'
+      const contentLength = Number(resp.headers.get('Content-Length') || resp.headers.get('content-length') || 0)
+
+      if (!resp.body || !contentLength) {
+        this._setZipProgress(96, 'Descargando ZIP generado…')
+        return await resp.blob()
+      }
+
+      const reader = resp.body.getReader()
+      const chunks = []
+      let recibido = 0
+
+      while (true) {
+        const { done, value } = await reader.read()
+
+        if (done) {
+          break
+        }
+
+        chunks.push(value)
+        recibido += value.length
+
+        const porcentajeDescarga = Math.round((recibido / contentLength) * 8)
+        const progreso = Math.min(99, 92 + porcentajeDescarga)
+
+        this._setZipProgress(progreso, 'Descargando ZIP generado…')
+      }
+
+      return new Blob(chunks, { type: ct })
     },
 
     async descargarZipAprobados() {
@@ -696,6 +997,8 @@ export default {
       }
 
       this.zipDescargando = true
+      this._startZipProgress()
+
       const url = this._zipUrl(ejercicio, trimestre)
 
       this._closeZipModalSafe()
@@ -704,58 +1007,59 @@ export default {
         const resp = await fetch(url, {
           method: 'GET',
           credentials: 'same-origin',
+          cache: 'no-store',
           headers: {
+            Accept: 'application/zip, application/octet-stream, application/json, text/plain, */*',
             'X-Requested-With': 'XMLHttpRequest',
           },
         })
 
         if (!resp.ok) {
+          const msgServidor = await this._leerMensajeErrorResponse(resp)
+
+          this._setZipProgress(100, 'No se pudo generar el ZIP.')
+
           if (resp.status === 404) {
-            this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+            this.showToast(msgServidor || 'No hay CV aprobados para exportar en el periodo seleccionado.')
           } else if (resp.status === 422) {
-            this.showToast('Parámetros inválidos. Verifica ejercicio y trimestre.')
+            this.showToast(msgServidor || 'Parámetros inválidos. Verifica ejercicio y trimestre.')
+          } else if (resp.status === 500) {
+            this.showToast(msgServidor || 'No se pudo generar el ZIP. Revisa el servidor.')
           } else {
-            this.showToast('No se pudo generar el ZIP. Revisa el servidor.')
+            this.showToast(msgServidor || 'No se pudo descargar el ZIP.')
           }
+
           return
         }
 
         if (resp.status === 204) {
-          this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+          this._setZipProgress(100, 'No hay CV aprobados para exportar.')
+          this.showToast('No hay CV aprobados para exportar en el periodo seleccionado.')
           return
         }
 
         const ct = (resp.headers.get('Content-Type') || resp.headers.get('content-type') || '').toLowerCase()
 
-        if (ct.includes('application/json')) {
-          let payload = null
-          try {
-            payload = await resp.json()
-          } catch (_) {}
-
-          const msg =
-            payload?.message ||
-            payload?.mensaje ||
-            'No hay CV aprobados para exportar con el rango de fecha seleccionado.'
-
-          this.showToast(msg)
-          return
-        }
-
-        if (ct.includes('text/html')) {
-          this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+        if (ct.includes('application/json') || ct.includes('text/plain') || ct.includes('text/html')) {
+          const msg = await this._leerMensajeErrorResponse(resp)
+          this._setZipProgress(100, 'El servidor no devolvió un ZIP válido.')
+          this.showToast(msg || 'El servidor no devolvió un archivo ZIP válido.')
           return
         }
 
         if (ct && !this._isZipContentType(ct)) {
-          this.showToast('No se encontró información para el rango seleccionado.')
+          this._setZipProgress(100, 'El servidor no devolvió un ZIP válido.')
+          this.showToast('El servidor respondió, pero no devolvió un archivo ZIP válido.')
           return
         }
 
-        const blob = await resp.blob()
+        this._setZipProgress(92, 'ZIP generado. Iniciando descarga…')
 
-        if (!blob || blob.size === 0 || blob.size < 200) {
-          this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+        const blob = await this._blobDesdeResponseConProgreso(resp)
+
+        if (!blob || blob.size === 0) {
+          this._setZipProgress(100, 'El ZIP se generó vacío.')
+          this.showToast('El ZIP se generó vacío. Revisa si existen CV aprobados en el periodo.')
           return
         }
 
@@ -765,19 +1069,16 @@ export default {
           const isPK = sig[0] === 0x50 && sig[1] === 0x4b
 
           if (!isPK) {
-            this.showToast('No hay CV aprobados para exportar con el rango de fecha seleccionado.')
+            this._setZipProgress(100, 'El archivo recibido no es un ZIP válido.')
+            this.showToast('El archivo recibido no parece ser un ZIP válido.')
             return
           }
         } catch (_) {}
 
-        let filename = 'aprobados.zip'
-        const cd = resp.headers.get('Content-Disposition') || resp.headers.get('content-disposition') || ''
-        const match = cd.match(/filename="([^"]+)"/i)
-        if (match && match[1]) filename = match[1]
-
-        const a = document.createElement('a')
+        const filename = this._obtenerFilenameDesdeHeaders(resp)
         const objectUrl = window.URL.createObjectURL(blob)
 
+        const a = document.createElement('a')
         a.href = objectUrl
         a.download = filename
         document.body.appendChild(a)
@@ -785,12 +1086,25 @@ export default {
         a.remove()
 
         window.URL.revokeObjectURL(objectUrl)
+
+        this._setZipProgress(100, 'ZIP generado correctamente.')
+        this.showToast('ZIP generado correctamente. La descarga debe iniciar automáticamente.', 'ok')
       } catch (e) {
-        console.error(e)
-        this.showToast('No se pudo descargar el ZIP. Intenta nuevamente.')
+        console.error('Error al descargar ZIP:', e)
+
+        this._setZipProgress(100, 'No se pudo descargar el ZIP.')
+
+        this.showToast(
+          'No se pudo descargar el ZIP. Puede ser un error de red, tiempo de espera o que el servidor tardó demasiado en generar los PDF.'
+        )
       } finally {
-        this.zipDescargando = false
-        this._forceUnlockModals()
+        window.setTimeout(() => {
+          this._stopZipProgress()
+          this.zipDescargando = false
+          this.zipProgreso = 0
+          this.zipProgresoTexto = 'Preparando solicitud…'
+          this._forceUnlockModals()
+        }, 900)
       }
     },
 
@@ -811,6 +1125,8 @@ export default {
       const reqId = ++this._empReqId
 
       try {
+        this.loadingEmpleados = true
+
         const apiUrl = this._url('/api/revisor/empleados')
 
         const { data } = await axios.get(apiUrl, {
@@ -823,6 +1139,7 @@ export default {
         if (reqId !== this._empReqId) return
 
         this.empleados = Array.isArray(data) ? data : []
+
         this.$nextTick(() => {
           this._syncCurrentPage()
         })
@@ -830,16 +1147,27 @@ export default {
         if (reqId !== this._empReqId) return
 
         console.error('Error al cargar empleados:', e)
+
         this.empleados = []
+        this.showToast('No se pudo cargar la lista de empleados.')
+
         this.$nextTick(() => {
           this._syncCurrentPage()
         })
+      } finally {
+        if (reqId === this._empReqId) {
+          this.loadingEmpleados = false
+        }
       }
     },
 
     _cleanupTimers() {
       try {
         if (this._debounceTimer) clearTimeout(this._debounceTimer)
+      } catch (_) {}
+
+      try {
+        this._stopZipProgress()
       } catch (_) {}
 
       try {
@@ -952,6 +1280,34 @@ export default {
   background: var(--imss-bg);
   border-bottom: 1px solid var(--imss-border);
   padding: 14px 18px;
+}
+
+.imss-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.imss-summary-item {
+  background: #ffffff;
+  border: 1px solid var(--imss-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.imss-summary-item span {
+  color: var(--imss-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.imss-summary-item strong {
+  color: var(--imss-ink);
+  font-size: 1rem;
 }
 
 .imss-input-wrap {
@@ -1168,6 +1524,81 @@ export default {
   box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.14) !important;
 }
 
+.imss-loading-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(3px);
+}
+
+.imss-loading-card {
+  width: min(460px, 100%);
+  background: #ffffff;
+  border: 1px solid var(--imss-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(16, 49, 43, 0.18);
+  padding: 24px 22px;
+  text-align: center;
+}
+
+.imss-loading-spinner {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border: 4px solid #e5e7eb;
+  border-top-color: var(--imss-green);
+  border-radius: 999px;
+  animation: imss-spin 0.8s linear infinite;
+}
+
+.imss-loading-title {
+  color: var(--imss-ink);
+  font-weight: 800;
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+}
+
+.imss-loading-text {
+  color: var(--imss-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.imss-loading-subtext {
+  color: #9a3412;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  margin-top: 12px;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.imss-progress {
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.imss-progress-bar {
+  background: var(--imss-green);
+  font-size: 0.72rem;
+  font-weight: 800;
+  transition: width 0.35s ease;
+}
+
+@keyframes imss-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 992px) {
   .imss-footer-grid {
     grid-template-columns: 1fr;
@@ -1179,6 +1610,10 @@ export default {
 
   .imss-footer-right {
     justify-content: flex-start;
+  }
+
+  .imss-summary-strip {
+    grid-template-columns: 1fr;
   }
 }
 
