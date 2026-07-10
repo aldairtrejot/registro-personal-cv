@@ -43,12 +43,10 @@ class RevisorPdfController extends Controller
     public function zipAprobados(Request $request, CvFichaPdfService $svc, CvFolioService $folioSvc)
     {
         @set_time_limit(0);
-        @ini_set('memory_limit', '1024M');
+        @ini_set('memory_limit', '2048M');
 
         if (!class_exists(ZipArchive::class)) {
-            return response('La extensión ZIP de PHP no está instalada o habilitada.', 500, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('La extensión ZIP de PHP no está instalada o habilitada.', 500);
         }
 
         $now = Carbon::now();
@@ -57,15 +55,11 @@ class RevisorPdfController extends Controller
         $trimestre = (int) $request->query('trimestre', $this->trimestreActual($now));
 
         if ($ejercicio < 2000 || $ejercicio > 2100) {
-            return response('Ejercicio inválido.', 422, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('Ejercicio inválido.', 422);
         }
 
         if (!in_array($trimestre, [1, 2, 3, 4], true)) {
-            return response('Trimestre inválido.', 422, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('Trimestre inválido.', 422);
         }
 
         [$inicioTrim, $finTrim] = $this->periodoPorTrimestre($ejercicio, $trimestre);
@@ -74,9 +68,9 @@ class RevisorPdfController extends Controller
         $finTrim = $finTrim->copy()->endOfDay();
 
         /*
-         * CRITERIO ÚNICO DE DESCARGA:
-         * - Solo CV aprobados.
-         * - Solo registros actualizados dentro del ejercicio/trimestre seleccionado.
+         * Criterio único solicitado:
+         * - CV aprobados
+         * - actualizado_en dentro del ejercicio/trimestre seleccionado
          */
         $empleados = Empleado::query()
             ->with(['puesto'])
@@ -87,38 +81,40 @@ class RevisorPdfController extends Controller
             ->get();
 
         if ($empleados->isEmpty()) {
-            return response('No hay CV aprobados para descargar en el periodo seleccionado.', 404, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('No hay CV aprobados para descargar en el periodo seleccionado.', 404);
         }
 
-        $tmpDir = config('cvpdf.tmp_dir') ?: storage_path('app/tmp');
+        /*
+         * Directorios separados:
+         * - tmp base para trabajo general
+         * - zipDir exclusivo para ZIP
+         */
+        $tmpBase = config('cvpdf.tmp_dir') ?: storage_path('app/tmp');
+        $zipDir = rtrim($tmpBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'zip';
 
         try {
-            File::ensureDirectoryExists($tmpDir, 0775, true);
+            File::ensureDirectoryExists($tmpBase, 0775, true);
+            File::ensureDirectoryExists($zipDir, 0775, true);
         } catch (\Throwable $e) {
-            Log::error('No se pudo crear tmp_dir para ZIP de aprobados', [
-                'tmpDir' => $tmpDir,
+            Log::error('No se pudieron crear directorios temporales para ZIP', [
+                'tmpBase' => $tmpBase,
+                'zipDir' => $zipDir,
                 'error' => $e->getMessage(),
             ]);
 
-            return response('No se pudo crear el directorio temporal para generar el ZIP.', 500, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('No se pudieron crear los directorios temporales para generar el ZIP.', 500);
         }
 
-        if (!is_writable($tmpDir)) {
-            Log::error('tmp_dir no tiene permisos de escritura', [
-                'tmpDir' => $tmpDir,
+        if (!is_writable($zipDir)) {
+            Log::error('zipDir no tiene permisos de escritura', [
+                'zipDir' => $zipDir,
             ]);
 
-            return response('El directorio temporal no tiene permisos de escritura.', 500, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('El directorio temporal del ZIP no tiene permisos de escritura.', 500);
         }
 
         $zipName = 'CV_APROBADOS_' . $ejercicio . '_T' . $trimestre . '_' . Carbon::now()->format('Ymd_His') . '.zip';
-        $zipPath = $tmpDir . DIRECTORY_SEPARATOR . $zipName;
+        $zipPath = $zipDir . DIRECTORY_SEPARATOR . $zipName;
 
         if (is_file($zipPath)) {
             @unlink($zipPath);
@@ -128,14 +124,12 @@ class RevisorPdfController extends Controller
         $zipResult = $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
         if ($zipResult !== true) {
-            Log::error('No se pudo crear el ZIP de aprobados', [
+            Log::error('No se pudo crear el archivo ZIP', [
                 'zipPath' => $zipPath,
                 'codigo' => $zipResult,
             ]);
 
-            return response('No se pudo crear el archivo ZIP.', 500, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('No se pudo crear el archivo ZIP.', 500);
         }
 
         $pdfGenerados = [];
@@ -153,14 +147,34 @@ class RevisorPdfController extends Controller
                     throw new RuntimeException("No existe el PDF generado: {$pdfPath}");
                 }
 
+                if (!is_readable($pdfPath)) {
+                    throw new RuntimeException("El PDF generado no se puede leer: {$pdfPath}");
+                }
+
                 $pdfGenerados[] = $pdfPath;
 
                 $zipInsideName = $this->nombrePdfEmpleado($emp, $folioSvc);
                 $zipInsideName = $this->nombreUnicoZip($zipInsideName, $nombresUsados, $emp);
 
-                if (!$zip->addFile($pdfPath, $zipInsideName)) {
+                /*
+                 * IMPORTANTE:
+                 * Usamos addFromString en lugar de addFile.
+                 *
+                 * addFile deja pendiente la lectura del archivo hasta zip->close().
+                 * Si el PDF temporal desaparece o se bloquea antes del close(), truena:
+                 * ZipArchive::close(): Can't open file: No such file or directory.
+                 */
+                $contenidoPdf = file_get_contents($pdfPath);
+
+                if ($contenidoPdf === false || $contenidoPdf === '') {
+                    throw new RuntimeException("No se pudo leer el contenido del PDF: {$pdfPath}");
+                }
+
+                if (!$zip->addFromString($zipInsideName, $contenidoPdf)) {
                     throw new RuntimeException("No se pudo agregar al ZIP: {$zipInsideName}");
                 }
+
+                unset($contenidoPdf);
 
                 $agregados++;
             } catch (\Throwable $e) {
@@ -178,10 +192,14 @@ class RevisorPdfController extends Controller
             }
         }
 
-        $zip->close();
+        /*
+         * Cerramos con @ para evitar que Laravel convierta el warning de ZipArchive::close()
+         * en ErrorException antes de poder responder un mensaje claro.
+         */
+        $closeOk = @$zip->close();
 
         /*
-         * Después de cerrar el ZIP ya podemos borrar los PDF temporales.
+         * Después de cerrar el ZIP, ya podemos eliminar los PDF temporales.
          */
         foreach ($pdfGenerados as $pdf) {
             if (is_file($pdf)) {
@@ -203,19 +221,31 @@ class RevisorPdfController extends Controller
                 'errores' => $errores,
             ]);
 
-            return response('No se pudo generar ningún PDF para el ZIP. Revisa storage/logs/laravel.log.', 500, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
+            return $this->respuestaTexto('No se pudo generar ningún PDF para el ZIP. Revisa storage/logs/laravel.log.', 500);
+        }
+
+        if (!$closeOk) {
+            if (is_file($zipPath)) {
+                @unlink($zipPath);
+            }
+
+            Log::error('ZipArchive no pudo cerrar el archivo ZIP', [
+                'zipPath' => $zipPath,
+                'zipDir' => $zipDir,
+                'agregados' => $agregados,
+                'errores' => $errores,
             ]);
+
+            return $this->respuestaTexto('No se pudo finalizar el archivo ZIP. Revisa permisos y espacio disponible en el servidor.', 500);
         }
 
         if (!is_file($zipPath)) {
             Log::error('El archivo ZIP no se generó', [
                 'zipPath' => $zipPath,
+                'agregados' => $agregados,
             ]);
 
-            return response('El archivo ZIP no se generó.', 500, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('El archivo ZIP no se generó.', 500);
         }
 
         if (filesize($zipPath) <= 0) {
@@ -223,11 +253,10 @@ class RevisorPdfController extends Controller
 
             Log::error('El ZIP se generó vacío', [
                 'zipPath' => $zipPath,
+                'agregados' => $agregados,
             ]);
 
-            return response('El ZIP se generó vacío.', 500, [
-                'Content-Type' => 'text/plain; charset=UTF-8',
-            ]);
+            return $this->respuestaTexto('El ZIP se generó vacío.', 500);
         }
 
         return response()
@@ -273,6 +302,16 @@ class RevisorPdfController extends Controller
     private function nombreUnicoZip(string $nombreOriginal, array &$nombresUsados, Empleado $empleado): string
     {
         $nombreOriginal = trim($nombreOriginal) !== '' ? trim($nombreOriginal) : 'CV_empleado.pdf';
+
+        /*
+         * Evita subcarpetas o caracteres raros dentro del ZIP.
+         */
+        $nombreOriginal = str_replace('\\', '/', $nombreOriginal);
+        $nombreOriginal = basename($nombreOriginal);
+
+        if (!str_ends_with(strtolower($nombreOriginal), '.pdf')) {
+            $nombreOriginal .= '.pdf';
+        }
 
         if (!isset($nombresUsados[$nombreOriginal])) {
             $nombresUsados[$nombreOriginal] = 1;
@@ -334,5 +373,12 @@ class RevisorPdfController extends Controller
                 Carbon::create($ejercicio, 3, 31)->endOfDay(),
             ],
         };
+    }
+
+    private function respuestaTexto(string $mensaje, int $status)
+    {
+        return response($mensaje, $status, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+        ]);
     }
 }
