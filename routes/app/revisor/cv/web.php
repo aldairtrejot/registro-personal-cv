@@ -2,9 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\Auth\Login\AuthLoginController;
-use App\Http\Controllers\Auth\Login\ViewLoginController;
-
 use App\Http\Controllers\Cv\WizardController;
 use App\Http\Controllers\Cv\CatalogosController;
 use App\Http\Controllers\Cv\RevisorController;
@@ -13,19 +10,11 @@ use App\Http\Controllers\Cv\RevisorPdfController;
 
 /*
 |-------------------------------------------------------------------------- 
-| Auth
-|-------------------------------------------------------------------------- 
-*/
-Route::get('/login', [ViewLoginController::class, 'login'])->name('login');
-
-Route::post('/auth/authentication', [AuthLoginController::class, 'authentication'])
-    ->name('auth.authentication');
-
-/*
-|-------------------------------------------------------------------------- 
 | Registro CV (Empleado)
-|-------------------------------------------------------------------------- 
+|--------------------------------------------------------------------------
 */
+Route::redirect('/', '/registro-cv');
+
 Route::get('/registro-cv', fn () => view('registro.wizard'))
     ->name('registro.wizard');
 

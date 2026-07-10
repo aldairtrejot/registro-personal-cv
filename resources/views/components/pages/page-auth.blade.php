@@ -160,29 +160,8 @@
 
         {{-- MENÚ LATERAL --}}
         <x-menu.menu-app>
-            @hasrole(1, 2, 3, 4, 5)
-                <x-menu.menu-only title="Dashboard" icon="ti ti-home" href="{{ route('dashboard') }}" />
-            @endhasrole
-
-            @hasrole(5)
-                <x-menu.menu-only title="Mi Expediente" icon="ti ti-file-spark" href="{{ route('follow') }}" />
-            @endhasrole
-
-            @hasrole(5)
-                <x-menu.menu-dropdown title="Administración" icon="ti ti-user-cog">
-                    <x-menu.menu-item label="Usuarios" href="{{ route('user') }}" :isNew="false" />
-                    <x-menu.menu-item label="Usuario Empleados" href="{{ route('useremployee') }}" :isNew="false" />
-                    <x-menu.menu-item-2x title="Roles">
-                        <x-menu.menu-item label="Rol" href="{{ route('role') }}" :isNew="false" />
-                        <x-menu.menu-item label="Rama" href="{{ route('branch') }}" :isNew="false" />
-                        <x-menu.menu-item label="Zona" href="{{ route('zone') }}" :isNew="false" />
-                        <x-menu.menu-item label="Entidad" href="{{ route('entity') }}" :isNew="false" />
-                    </x-menu.menu-item-2x>
-                </x-menu.menu-dropdown>
-            @endhasrole
-
-            @hasrole(1, 2, 3, 4, 5)
-                <x-menu.menu-only title="Acerca de" icon="ti ti-info-circle" href="{{ route('about') }}" />
+            @hasrole(1, 3)
+                <x-menu.menu-only title="Revisión de CV" icon="ti ti-file-check" href="{{ route('revisor.empleados') }}" />
             @endhasrole
         </x-menu.menu-app>
 

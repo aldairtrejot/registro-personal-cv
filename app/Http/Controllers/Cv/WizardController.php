@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Cv;
 
 use App\Http\Controllers\Controller;
-// use App\Http\Controllers\Helpers\MailController as MailHelper; // 🔕 TOKEN (comentado)
 
 use App\Models\Cv\Empleado;
 // use App\Models\Cv\CvTokenAcceso; // 🔕 TOKEN (comentado)

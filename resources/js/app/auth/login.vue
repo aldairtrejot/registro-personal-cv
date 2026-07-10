@@ -52,11 +52,8 @@
 
           <!-- Password -->
           <div class="mb-2">
-            <label class="form-label d-flex align-items-center justify-content-between">
+            <label class="form-label">
               <span>Contraseña</span>
-              <a :href="`${BASE_URL}/recover`" style="font-size: .85rem; text-decoration: none;">
-                ¿Has olvidado tu contraseña?
-              </a>
             </label>
 
             <div class="input-group">
@@ -147,14 +144,6 @@
           </div>
         </form>
 
-        <!-- Links -->
-        <div class="text-center text-secondary mt-3" style="font-size: .92rem;">
-          ¿No tienes cuenta? <a :href="`${BASE_URL}/create`" tabindex="-1" style="text-decoration:none;">Crea una ahora</a>
-        </div>
-
-        <div class="text-center text-secondary mt-2" style="font-size: .92rem;">
-          <a :href="`${BASE_URL}/information`" tabindex="-1" style="text-decoration:none;">¿Problemas al iniciar sesión?</a>
-        </div>
       </div>
     </div>
   </div>
@@ -213,7 +202,7 @@ async function sendData() {
     }
 
     if (response.data.status) {
-      window.location.href = `${BASE_URL}/dashboard`;
+      window.location.href = `${BASE_URL}/revisor/empleados`;
     }
 
   } catch (error) {
