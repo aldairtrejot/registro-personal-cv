@@ -48,33 +48,38 @@
               </div>
 
               <div class="imss-actions">
-                <!-- ZIP -->
-                <button
-                  type="button"
-                  class="btn btn-imss btn-sm imss-btn-fixed"
-                  data-bs-toggle="modal"
-                  data-bs-target="#modalZipAprobados"
-                  :disabled="descargaOcupada"
-                >
-                  <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-                  <span v-if="zipDescargando">Generando ZIP…</span>
-                  <span v-else>Descargar ZIP aprobados</span>
-                </button>
+                <div class="imss-action-group">
+                  <div class="imss-action-title">Aprobados del periodo</div>
 
-                <!-- EXCEL -->
-                <button
-                  type="button"
-                  class="btn btn-outline-success btn-sm imss-btn-fixed"
-                  data-bs-toggle="modal"
-                  data-bs-target="#modalZipAprobados"
-                  :disabled="descargaOcupada"
-                >
-                  <span v-if="excelDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-                  <span v-if="excelDescargando">Generando Excel…</span>
-                  <span v-else>Descargar reporte Excel</span>
-                </button>
+                  <div class="imss-action-buttons">
+                    <button
+                      type="button"
+                      class="btn btn-imss btn-sm imss-btn-fixed"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalZipAprobados"
+                      :disabled="descargaOcupada"
+                    >
+                      <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                      <i v-else class="ti ti-file-zip me-1" aria-hidden="true"></i>
+                      <span v-if="zipDescargando">Generando ZIP…</span>
+                      <span v-else>ZIP</span>
+                    </button>
 
-                <!-- CURP -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-success btn-sm imss-btn-fixed"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalZipAprobados"
+                      :disabled="descargaOcupada"
+                    >
+                      <span v-if="excelDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                      <i v-else class="ti ti-table-export me-1" aria-hidden="true"></i>
+                      <span v-if="excelDescargando">Generando Excel…</span>
+                      <span v-else>Excel</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div class="imss-curp-box">
                   <label class="imss-label">Descarga por CURP</label>
                   <div class="d-flex gap-2 align-items-center">
@@ -94,6 +99,7 @@
                       :disabled="!curpValida || zipDescargando"
                       title="Descargar PDF por CURP"
                     >
+                      <i class="ti ti-file-type-pdf me-1" aria-hidden="true"></i>
                       PDF
                     </button>
                   </div>
@@ -210,6 +216,7 @@
                         class="btn btn-outline-imss btn-sm imss-btn-fixed"
                         :class="{ disabled: zipDescargando }"
                       >
+                        <i class="ti ti-eye me-1" aria-hidden="true"></i>
                         Ver detalle
                       </a>
 
@@ -218,6 +225,7 @@
                         class="btn btn-outline-success btn-sm imss-btn-fixed"
                         :class="{ disabled: zipDescargando }"
                       >
+                        <i class="ti ti-file-type-pdf me-1" aria-hidden="true"></i>
                         PDF
                       </a>
                     </div>
@@ -1353,24 +1361,38 @@ export default {
 .imss-theme {
   --imss-green: #006341;
   --imss-green-2: #0b7a53;
+  --imss-wine: #691c32;
+  --imss-red: #9f2241;
+  --imss-gold: #bc955c;
   --imss-ink: #10312b;
   --imss-muted: #6b7280;
-  --imss-bg: #f7f9fb;
+  --imss-bg: #f6f8f7;
   --imss-border: #e5e7eb;
   --imss-soft: #eef5f2;
 }
 
 .imss-card {
   border: 1px solid var(--imss-border);
-  border-radius: 14px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 10px 28px rgba(16, 49, 43, 0.06);
+  box-shadow: 0 8px 22px rgba(16, 49, 43, 0.06);
 }
 
 .imss-card-header {
-  background: #ffffff;
+  position: relative;
+  background:
+    linear-gradient(90deg, rgba(16, 49, 43, 0.05), rgba(188, 149, 92, 0.08)),
+    #ffffff;
   border-bottom: 1px solid var(--imss-border);
-  padding: 18px 18px;
+  padding: 20px 18px 18px;
+}
+
+.imss-card-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: linear-gradient(90deg, var(--imss-wine), var(--imss-red), var(--imss-green), var(--imss-gold));
 }
 
 .imss-kicker {
@@ -1383,8 +1405,8 @@ export default {
 
 .imss-title {
   color: var(--imss-ink);
-  font-weight: 700;
-  font-size: 1.2rem;
+  font-weight: 800;
+  font-size: 1.22rem;
 }
 
 .imss-subtitle {
@@ -1395,18 +1417,41 @@ export default {
 
 .imss-actions {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: flex-start;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.imss-action-group {
+  min-width: 212px;
+  padding: 10px 12px;
+  border: 1px solid rgba(16, 49, 43, 0.10);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.imss-action-title {
+  color: var(--imss-ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+  margin-bottom: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.imss-action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .imss-curp-box {
   min-width: 280px;
   padding: 10px 12px;
   border: 1px solid var(--imss-border);
-  border-radius: 12px;
-  background: var(--imss-bg);
+  border-radius: 10px;
+  background: #ffffff;
 }
 
 .imss-label {
@@ -1437,7 +1482,7 @@ export default {
 .imss-summary-item {
   background: #ffffff;
   border: 1px solid var(--imss-border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 10px 12px;
   display: flex;
   align-items: center;
@@ -1471,7 +1516,7 @@ export default {
 
 .imss-input,
 .imss-select {
-  border-radius: 12px;
+  border-radius: 8px;
   border-color: var(--imss-border);
 }
 
@@ -1490,7 +1535,7 @@ export default {
 }
 
 .imss-table thead th {
-  background: #0f2f2a;
+  background: var(--imss-ink);
   color: #ffffff;
   font-size: 0.78rem;
   letter-spacing: 0.05em;
@@ -1514,9 +1559,10 @@ export default {
 }
 
 .imss-code {
-  background: #0b1120;
-  color: #e5e7eb;
-  border-radius: 8px;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   padding: 3px 8px;
   font-size: 0.78rem;
 }
@@ -1608,7 +1654,7 @@ export default {
 
 .imss-page-btn {
   min-width: 38px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-weight: 700;
 }
 
@@ -1630,7 +1676,7 @@ export default {
   background: var(--imss-green) !important;
   border-color: var(--imss-green) !important;
   color: #ffffff !important;
-  border-radius: 12px;
+  border-radius: 8px;
   font-weight: 700;
   padding: 8px 12px;
   transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
@@ -1652,7 +1698,7 @@ export default {
 .btn-outline-imss {
   border-color: rgba(0, 99, 65, 0.55) !important;
   color: var(--imss-green) !important;
-  border-radius: 12px;
+  border-radius: 8px;
   font-weight: 700;
   transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
 }
@@ -1772,6 +1818,15 @@ export default {
   .imss-actions {
     width: 100%;
     justify-content: stretch;
+  }
+
+  .imss-action-group {
+    width: 100%;
+  }
+
+  .imss-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .btn-imss.imss-btn-fixed {

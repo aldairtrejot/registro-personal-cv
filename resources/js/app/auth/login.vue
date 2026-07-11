@@ -1,37 +1,26 @@
 <template>
-  <div
-    class="d-flex align-items-start justify-content-center"
-    style="min-height: 100vh; padding: 60px 16px 24px;"
-  >
-    <div
-      class="card shadow-sm border-0"
-      style="width: 100%; max-width: 420px; border-radius: 16px; overflow: hidden;"
-    >
-      <!-- Header compacto -->
-      <div style="background:#7a1b32; padding: 18px 20px;">
+  <div class="login-shell">
+    <div class="card login-card">
+      <div class="login-card__header">
         <div class="d-flex align-items-center gap-3">
-          <div
-            class="d-flex align-items-center justify-content-center"
-            style="width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.15);"
-          >
+          <div class="login-card__mark">
             <img
               :src="`${BASE_URL}/assets/images/imss_logo.png`"
               alt="IMSS"
-              style="max-width: 30px; height: auto;"
+              class="login-card__logo"
               onerror="this.style.display='none'"
             />
           </div>
 
           <div>
-            <div style="color:#fff; font-weight:700; line-height: 1.1;">Proceso Curricular</div>
-            <div style="color: rgba(255,255,255,.85); font-size: .9rem;">Inicio de sesión</div>
+            <div class="login-card__title">Proceso Curricular</div>
+            <div class="login-card__subtitle">Inicio de sesión</div>
           </div>
         </div>
       </div>
 
-      <div class="card-body" style="padding: 18px 20px;">
+      <div class="card-body login-card__body">
         <form id="data_form" enctype="multipart/form-data">
-          <!-- Correo electrónico -->
           <div class="mb-3">
             <label class="form-label">Correo electrónico</label>
             <input
@@ -45,12 +34,10 @@
             />
             <div
               id="error-email"
-              class="text-error text-danger"
-              style="margin-top: 6px; color: #7a1b32 !important;"
+              class="text-error login-error"
             ></div>
           </div>
 
-          <!-- Password -->
           <div class="mb-2">
             <label class="form-label">
               <span>Contraseña</span>
@@ -70,21 +57,18 @@
                 class="btn btn-outline-secondary"
                 type="button"
                 @click="togglePassword"
-                style="border-left: 0;"
                 aria-label="Mostrar u ocultar contraseña"
               >
-                <i :class="showPassword ? 'fa fa-eye-slash' : 'fa fa-eye'" style="color: gray;"></i>
+                <i :class="showPassword ? 'ti ti-eye-off' : 'ti ti-eye'"></i>
               </button>
             </div>
 
             <div
               id="error-password"
-              class="text-danger text-error"
-              style="margin-top: 6px; color: #7a1b32 !important;"
+              class="text-error login-error"
             ></div>
           </div>
 
-          <!-- Captcha -->
           <div class="mt-3">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <label class="form-label m-0">Captcha</label>
@@ -93,23 +77,18 @@
                 type="button"
                 class="btn btn-sm btn-outline-secondary"
                 @click="refreshCaptcha"
-                style="border-radius: 10px;"
                 title="Actualizar captcha"
               >
-                <i class="fa fa-rotate-right"></i>
+                <i class="ti ti-refresh"></i>
               </button>
             </div>
 
-            <div
-              class="d-flex align-items-center justify-content-center p-2"
-              style="background:#fff; border:1px solid #e5e7eb; border-radius: 12px;"
-            >
+            <div class="login-captcha">
               <img
                 :src="captchaUrl"
                 alt="captcha"
                 id="captcha-img"
                 class="img-fluid"
-                style="max-width: 280px; height: auto;"
               />
             </div>
 
@@ -125,25 +104,22 @@
               />
               <div
                 id="error-captcha"
-                class="text-error text-danger"
-                style="margin-top: 6px; color: #7a1b32 !important;"
+                class="text-error login-error"
               ></div>
             </div>
           </div>
 
-          <!-- Botón -->
           <div class="mt-4">
             <button
               type="button"
               @click="sendData"
-              class="btn btn-primary w-100"
-              style="background: #7a1b32; border-color:#7a1b32; border-radius: 12px; padding: 10px 14px;"
+              class="btn btn-primary w-100 login-submit"
             >
+              <i class="ti ti-login-2 me-1" aria-hidden="true"></i>
               Continuar
             </button>
           </div>
         </form>
-
       </div>
     </div>
   </div>
@@ -209,6 +185,10 @@ async function sendData() {
     clearErrors();
     refreshCaptcha();
 
+    if (error.response?.data?.message) {
+      notyf.error(error.response.data.message);
+    }
+
     if (error.response?.data?.errors) {
       handleErrors(error.response.data.errors);
     }
@@ -218,3 +198,120 @@ async function sendData() {
   }
 }
 </script>
+
+<style scoped>
+.login-shell {
+  min-height: 100vh;
+  padding: 64px 16px 28px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 430px;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 14px 34px rgba(16, 49, 43, 0.12);
+}
+
+.login-card__header {
+  position: relative;
+  padding: 20px;
+  background: #691c32;
+}
+
+.login-card__header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 4px;
+  background: linear-gradient(90deg, #9f2241, #006341, #bc955c);
+}
+
+.login-card__mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card__logo {
+  max-width: 32px;
+  height: auto;
+}
+
+.login-card__title {
+  color: #ffffff;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.login-card__subtitle {
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.9rem;
+}
+
+.login-card__body {
+  padding: 20px;
+  background: #ffffff;
+}
+
+.login-card :deep(.form-control),
+.login-card :deep(.btn) {
+  border-radius: 8px;
+}
+
+.login-card :deep(.form-control:focus) {
+  border-color: rgba(0, 99, 65, 0.55);
+  box-shadow: 0 0 0 3px rgba(0, 99, 65, 0.12);
+}
+
+.login-card :deep(.input-group .btn) {
+  border-left: 0;
+  color: #5f6b72;
+}
+
+.login-captcha {
+  min-height: 64px;
+  padding: 10px;
+  background: #f8faf9;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-captcha img {
+  max-width: 280px;
+  height: auto;
+}
+
+.login-error {
+  margin-top: 6px;
+  color: #9f2241;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.login-submit {
+  background: #691c32 !important;
+  border-color: #691c32 !important;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 800;
+}
+
+.login-submit:hover,
+.login-submit:focus {
+  background: #7a1b32 !important;
+  border-color: #7a1b32 !important;
+}
+</style>

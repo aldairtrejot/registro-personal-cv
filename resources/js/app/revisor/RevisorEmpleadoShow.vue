@@ -113,6 +113,7 @@
               <div class="col-12 col-lg-4">
                 <div class="imss-actions-panel">
                   <a :href="pdfEmpleadoUrl" class="btn btn-outline-success btn-sm w-100 imss-btn-fixed">
+                    <i class="ti ti-file-type-pdf me-1" aria-hidden="true"></i>
                     Descargar PDF
                   </a>
 
@@ -123,6 +124,7 @@
                       @click="cambiarStatus('aprobado')"
                       :disabled="loading"
                     >
+                      <i v-if="!loading" class="ti ti-circle-check me-1" aria-hidden="true"></i>
                       <span v-if="!loading">Aprobar CV</span>
                       <span v-else>Procesando…</span>
                     </button>
@@ -133,6 +135,7 @@
                       @click="abrirModalFolio"
                       :disabled="loading"
                     >
+                      <i class="ti ti-number me-1" aria-hidden="true"></i>
                       Personalizar folio del CV
                     </button>
 
@@ -142,6 +145,7 @@
                       @click="abrirModalRechazo"
                       :disabled="loading"
                     >
+                      <i class="ti ti-circle-x me-1" aria-hidden="true"></i>
                       Rechazar CV
                     </button>
                   </div>
@@ -337,7 +341,7 @@
           ref="modalRechazoRef"
         >
           <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content" style="border-radius: 14px;">
+            <div class="modal-content imss-modal-content">
               <div class="modal-header">
                 <h5 class="modal-title" id="modalRechazoCvLabel">Rechazar CV</h5>
                 <button type="button" class="btn-close" @click="cerrarModalRechazo" aria-label="Close"></button>
@@ -383,7 +387,7 @@
           ref="modalFolioRef"
         >
           <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content" style="border-radius: 14px;">
+            <div class="modal-content imss-modal-content">
               <div class="modal-header">
                 <h5 class="modal-title" id="modalFolioCvLabel">Personalizar folio del CV</h5>
                 <button type="button" class="btn-close" @click="cerrarModalFolio" aria-label="Close"></button>
@@ -770,18 +774,21 @@ export default {
 <style scoped>
 .imss-theme {
   --imss-border:#e5e7eb;
-  --imss-bg:#f7f9fb;
+  --imss-bg:#f6f8f7;
   --imss-ink:#10312b;
   --imss-muted:#6b7280;
   --imss-green:#006341;
   --imss-green-2:#0b7a53;
+  --imss-wine:#691c32;
+  --imss-red:#9f2241;
+  --imss-gold:#bc955c;
 }
 
 .imss-card {
   border:1px solid var(--imss-border);
-  border-radius:14px;
+  border-radius:10px;
   overflow:hidden;
-  box-shadow:0 10px 28px rgba(16,49,43,.06);
+  box-shadow:0 8px 22px rgba(16,49,43,.06);
 }
 
 .imss-card-danger {
@@ -795,8 +802,19 @@ export default {
 }
 
 .imss-header-body {
-  background:#fff;
-  padding:18px;
+  position:relative;
+  background:
+    linear-gradient(90deg, rgba(16,49,43,.05), rgba(188,149,92,.08)),
+    #fff;
+  padding:22px 18px 18px;
+}
+
+.imss-header-body::before {
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:5px;
+  background:linear-gradient(90deg,var(--imss-wine),var(--imss-red),var(--imss-green),var(--imss-gold));
 }
 
 .imss-kicker {
@@ -824,7 +842,7 @@ export default {
   padding:10px 12px;
   border:1px solid var(--imss-border);
   background:var(--imss-bg);
-  border-radius:12px;
+  border-radius:8px;
 }
 
 .imss-label {
@@ -841,18 +859,20 @@ export default {
 }
 
 .imss-code {
-  background:#0b1120;
-  color:#e5e7eb;
-  border-radius:10px;
+  background:#f3f4f6;
+  color:#374151;
+  border:1px solid #e5e7eb;
+  border-radius:6px;
   padding:4px 10px;
   font-size:.78rem;
 }
 
 .imss-actions-panel {
   border:1px solid var(--imss-border);
-  border-radius:14px;
+  border-radius:10px;
   padding:14px;
-  background:var(--imss-bg);
+  background:#fff;
+  box-shadow:inset 0 0 0 1px rgba(16,49,43,.02);
 }
 
 .imss-help {
@@ -941,7 +961,7 @@ export default {
   background:var(--imss-green)!important;
   border-color:var(--imss-green)!important;
   color:#fff!important;
-  border-radius:12px;
+  border-radius:8px;
   font-weight:800;
 }
 
@@ -953,7 +973,7 @@ export default {
 .btn-outline-imss {
   border-color:rgba(0,99,65,.55)!important;
   color:var(--imss-green)!important;
-  border-radius:12px;
+  border-radius:8px;
   font-weight:800;
 }
 
@@ -967,13 +987,20 @@ export default {
   background:#b91c1c!important;
   border-color:#b91c1c!important;
   color:#fff!important;
-  border-radius:12px;
+  border-radius:8px;
   font-weight:800;
 }
 
 .imss-select {
-  border-radius:12px;
+  border-radius:8px;
   border-color:var(--imss-border);
+}
+
+.imss-modal-content {
+  border:0;
+  border-radius:10px;
+  overflow:hidden;
+  box-shadow:0 18px 46px rgba(16,49,43,.18);
 }
 
 @media (max-width: 992px) {

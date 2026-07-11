@@ -255,17 +255,17 @@ class RevisorController extends Controller
 
         Log::info('Resolución de correo para rechazo CV', [
             'empleado_id' => $empleado->id_tbl_empleados,
-            'curp' => $empleado->curp,
-            'correo_token' => $ultimoToken->correo ?? null,
-            'correo_tbl_empleados' => $empleado->correo ?? null,
-            'correo_final' => $correo,
+            'curp' => $this->maskCurp($empleado->curp),
+            'correo_token' => $this->maskEmail($ultimoToken->correo ?? null),
+            'correo_tbl_empleados' => $this->maskEmail($empleado->correo ?? null),
+            'correo_final' => $this->maskEmail($correo),
             'origen_correo' => $origenCorreo,
         ]);
 
         if (!$correo) {
             Log::warning('No se encontró correo destino para rechazo CV', [
                 'empleado_id' => $empleado->id_tbl_empleados,
-                'curp' => $empleado->curp,
+                'curp' => $this->maskCurp($empleado->curp),
             ]);
             return false;
         }
@@ -275,8 +275,8 @@ class RevisorController extends Controller
 
             Log::info('Correo de rechazo enviado con Mailable', [
                 'empleado_id' => $empleado->id_tbl_empleados,
-                'curp' => $empleado->curp,
-                'correo_final' => $correo,
+                'curp' => $this->maskCurp($empleado->curp),
+                'correo_final' => $this->maskEmail($correo),
                 'origen_correo' => $origenCorreo,
             ]);
 
@@ -286,14 +286,48 @@ class RevisorController extends Controller
 
             Log::error('Error enviando correo de rechazo con Mailable', [
                 'empleado_id' => $empleado->id_tbl_empleados,
-                'curp' => $empleado->curp,
-                'correo_final' => $correo,
+                'curp' => $this->maskCurp($empleado->curp),
+                'correo_final' => $this->maskEmail($correo),
                 'origen_correo' => $origenCorreo,
                 'error' => $e->getMessage(),
             ]);
 
             return false;
         }
+    }
+
+    private function maskEmail(?string $email): ?string
+    {
+        $email = trim((string) ($email ?? ''));
+
+        if ($email === '') {
+            return null;
+        }
+
+        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        if ($domain === '') {
+            return str_repeat('*', min(strlen($email), 8));
+        }
+
+        $visible = mb_substr($local, 0, 2);
+
+        return $visible . '***@' . $domain;
+    }
+
+    private function maskCurp(?string $curp): ?string
+    {
+        $curp = strtoupper(trim((string) ($curp ?? '')));
+
+        if ($curp === '') {
+            return null;
+        }
+
+        if (strlen($curp) <= 8) {
+            return str_repeat('*', strlen($curp));
+        }
+
+        return substr($curp, 0, 4) . str_repeat('*', max(0, strlen($curp) - 8)) . substr($curp, -4);
     }
 
     public function updateFolio(Request $request, $id, CvFolioService $folioSvc)

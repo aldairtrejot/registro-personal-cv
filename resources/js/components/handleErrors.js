@@ -8,12 +8,9 @@ export function handleErrors(errors) {
         // Get the corresponding input field by its 'name' attribute
         const inputElement = document.querySelector(`[name="${field}"]`);
 
-        // If an error element exists for this field, display the error message
         if (errorElement) {
-            // Add an icon for the error (using Font Awesome for an exclamation circle)
-            const icon = '<i class="fa fa-exclamation-circle"></i>';
             const message = errors[field][0]; // Get the error message from the first index of the error array
-            errorElement.innerHTML = `${icon} ${message}`; // Set the error message and icon
+            errorElement.textContent = `! ${message}`;
 
             // Trigger a "shake" animation to highlight the error (visually)
             errorElement.classList.remove('shake');  // Remove any existing 'shake' class

@@ -1960,7 +1960,7 @@ export default {
 .cv-hero {
   position: relative;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 12px;
   padding: 24px;
   background:
     linear-gradient(135deg, rgba(16, 49, 43, 0.96) 0%, rgba(35, 91, 78, 0.95) 42%, rgba(0, 102, 87, 0.94) 100%),
@@ -2001,7 +2001,7 @@ export default {
   gap: 14px;
   min-height: 138px;
   padding: 16px;
-  border-radius: 22px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.10);
   border: 1px solid rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(6px);
@@ -2011,7 +2011,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 18px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -2085,7 +2085,7 @@ export default {
 
 .cv-summary-card {
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(255, 255, 255, 0.10);
   backdrop-filter: blur(5px);
@@ -2122,7 +2122,7 @@ export default {
 
 .cv-progress-card {
   padding: 18px 20px;
-  border-radius: 20px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90));
   border: 1px solid rgba(16, 49, 43, 0.08);
   box-shadow: 0 10px 24px rgba(16, 49, 43, 0.07);
@@ -2226,7 +2226,7 @@ export default {
 
 .cv-alert {
   margin: 0;
-  border-radius: 16px;
+  border-radius: 8px;
   border-width: 1px;
   box-shadow: 0 8px 18px rgba(16, 49, 43, 0.05);
 }
@@ -2251,7 +2251,7 @@ export default {
 .cv-panel {
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(253,252,249,0.98));
   border: 1px solid var(--cv-border-soft);
-  border-radius: 22px;
+  border-radius: 10px;
   padding: 22px;
   box-shadow: 0 12px 30px rgba(16, 49, 43, 0.06);
 }
@@ -2425,7 +2425,7 @@ export default {
 .cv-panel :deep(.form-control),
 .cv-panel :deep(.form-select) {
   min-height: 46px;
-  border-radius: 14px;
+  border-radius: 8px;
   border-color: rgba(16, 49, 43, 0.14);
   background: rgba(255, 255, 255, 0.98);
   color: var(--cv-text);
@@ -2441,7 +2441,7 @@ export default {
 .cv-block {
   margin-top: 16px;
   padding: 18px;
-  border-radius: 18px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,249,0.94));
   border: 1px solid rgba(16, 49, 43, 0.08);
   border-left: 5px solid var(--imss-gold);
@@ -2500,19 +2500,19 @@ export default {
 .cv-panel :deep(.btn) {
   min-height: 44px;
   padding: 10px 18px;
-  border-radius: 14px;
+  border-radius: 8px;
   font-weight: 700;
   letter-spacing: .01em;
 }
 
 .cv-panel :deep(.btn-primary) {
-  background: linear-gradient(135deg, var(--imss-teal), var(--imss-green));
+  background: var(--imss-green);
   border-color: var(--imss-green);
 }
 
 .cv-panel :deep(.btn-primary:hover),
 .cv-panel :deep(.btn-primary:focus) {
-  background: linear-gradient(135deg, var(--imss-green-dark), var(--imss-green));
+  background: var(--imss-green-dark);
   border-color: var(--imss-green-dark);
 }
 
@@ -2530,14 +2530,14 @@ export default {
 }
 
 .cv-panel :deep(.btn-success) {
-  background: linear-gradient(135deg, var(--imss-wine), var(--imss-red));
-  border-color: var(--imss-red);
+  background: var(--imss-wine);
+  border-color: var(--imss-wine);
 }
 
 .cv-panel :deep(.btn-success:hover),
 .cv-panel :deep(.btn-success:focus) {
-  background: linear-gradient(135deg, var(--imss-wine), #8b1835);
-  border-color: var(--imss-wine);
+  background: var(--imss-red);
+  border-color: var(--imss-red);
 }
 
 .cv-panel :deep(.btn-outline-secondary) {
@@ -2570,7 +2570,7 @@ export default {
 @media (max-width: 768px) {
   .cv-hero {
     padding: 18px;
-    border-radius: 20px;
+    border-radius: 10px;
   }
 
   .cv-brand-card__logos {
@@ -2607,7 +2607,7 @@ export default {
 
   .cv-panel {
     padding: 16px;
-    border-radius: 18px;
+    border-radius: 10px;
   }
 
   .cv-block {
@@ -2653,7 +2653,7 @@ export default {
 /* Encabezado compacto con una sola imagen institucional */
 .cv-hero--compact {
   padding: 18px 22px;
-  border-radius: 22px;
+  border-radius: 12px;
 }
 
 .cv-hero__compact-main {
@@ -2672,7 +2672,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 10px 16px;
-  border-radius: 18px;
+  border-radius: 10px;
   background: #ffffff;
   border: 1px solid rgba(221, 201, 163, 0.40);
   box-shadow: 0 12px 24px rgba(16, 49, 43, 0.18);
@@ -2698,7 +2698,7 @@ export default {
 .cv-quick-pill {
   min-width: 112px;
   padding: 10px 12px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
