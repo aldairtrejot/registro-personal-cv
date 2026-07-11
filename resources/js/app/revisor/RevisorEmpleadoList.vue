@@ -54,11 +54,24 @@
                   class="btn btn-imss btn-sm imss-btn-fixed"
                   data-bs-toggle="modal"
                   data-bs-target="#modalZipAprobados"
-                  :disabled="zipDescargando"
+                  :disabled="descargaOcupada"
                 >
                   <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
                   <span v-if="zipDescargando">Generando ZIP…</span>
                   <span v-else>Descargar ZIP aprobados</span>
+                </button>
+
+                <!-- EXCEL -->
+                <button
+                  type="button"
+                  class="btn btn-outline-success btn-sm imss-btn-fixed"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalZipAprobados"
+                  :disabled="descargaOcupada"
+                >
+                  <span v-if="excelDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                  <span v-if="excelDescargando">Generando Excel…</span>
+                  <span v-else>Descargar reporte Excel</span>
                 </button>
 
                 <!-- CURP -->
@@ -291,19 +304,19 @@
       <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px;">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Descargar ZIP aprobados</h5>
+            <h5 class="modal-title">Descargar aprobados</h5>
             <button
               type="button"
               class="btn-close"
               data-bs-dismiss="modal"
               aria-label="Close"
-              :disabled="zipDescargando"
+              :disabled="descargaOcupada"
             ></button>
           </div>
 
           <div class="modal-body">
             <div class="alert alert-info">
-              Selecciona el <b>ejercicio</b> y el <b>trimestre</b> para descargar.
+              Selecciona el <b>ejercicio</b> y el <b>trimestre</b> para descargar el ZIP o el reporte Excel.
             </div>
 
             <div class="alert alert-warning small mb-3">
@@ -319,7 +332,7 @@
                   v-model.number="zipFiltro.ejercicio"
                   min="2000"
                   max="2100"
-                  :disabled="zipDescargando"
+                  :disabled="descargaOcupada"
                 />
               </div>
 
@@ -328,7 +341,7 @@
                 <select
                   class="form-select"
                   v-model.number="zipFiltro.trimestre"
-                  :disabled="zipDescargando"
+                  :disabled="descargaOcupada"
                 >
                   <option :value="1">1 (Ene–Mar)</option>
                   <option :value="2">2 (Abr–Jun)</option>
@@ -348,16 +361,27 @@
               type="button"
               class="btn me-auto"
               data-bs-dismiss="modal"
-              :disabled="zipDescargando"
+              :disabled="descargaOcupada"
             >
               Cancelar
             </button>
 
             <button
               type="button"
+              class="btn btn-outline-success"
+              @click="descargarReporteExcel"
+              :disabled="descargaOcupada"
+            >
+              <span v-if="excelDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+              <span v-if="excelDescargando">Generando Excel…</span>
+              <span v-else>Descargar Excel</span>
+            </button>
+
+            <button
+              type="button"
               class="btn btn-success"
               @click="descargarZipAprobados"
-              :disabled="zipDescargando"
+              :disabled="descargaOcupada"
             >
               <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
               <span v-if="zipDescargando">Generando ZIP…</span>
@@ -437,6 +461,7 @@ export default {
       },
 
       zipDescargando: false,
+      excelDescargando: false,
       zipProgreso: 0,
       zipProgresoTexto: 'Preparando solicitud…',
       _zipProgressTimer: null,
@@ -460,6 +485,10 @@ export default {
   },
 
   computed: {
+    descargaOcupada() {
+      return this.zipDescargando || this.excelDescargando
+    },
+
     curpValida() {
       const c = String(this.curpDescarga || '').trim().toUpperCase()
       return c.length === 18
@@ -822,6 +851,34 @@ export default {
       )
     },
 
+    _excelUrl(ejercicio, trimestre) {
+      const base = this._url('/cv/reportes/empleados-terminados')
+
+      return (
+        base +
+        '?ejercicio=' + encodeURIComponent(String(ejercicio)) +
+        '&trimestre=' + encodeURIComponent(String(trimestre)) +
+        '&_ts=' + encodeURIComponent(String(Date.now()))
+      )
+    },
+
+    _periodoDescargaValido() {
+      const ejercicio = Number(this.zipFiltro.ejercicio || new Date().getFullYear())
+      const trimestre = Number(this.zipFiltro.trimestre || 1)
+
+      if (!(ejercicio >= EJ_MIN && ejercicio <= EJ_MAX)) {
+        this.showToast('Ejercicio inválido. Debe estar entre ' + EJ_MIN + ' y ' + EJ_MAX + '.')
+        return null
+      }
+
+      if (TRIM_OK.indexOf(trimestre) === -1) {
+        this.showToast('Trimestre inválido. Debe ser 1, 2, 3 o 4.')
+        return null
+      }
+
+      return { ejercicio, trimestre }
+    },
+
     _setZipProgress(value, texto = null) {
       const n = Number(value || 0)
       this.zipProgreso = Math.max(0, Math.min(100, Math.round(n)))
@@ -927,8 +984,18 @@ export default {
       return 'No se pudo generar el ZIP.'
     },
 
-    _obtenerFilenameDesdeHeaders(resp) {
-      let filename = 'aprobados.zip'
+    _isExcelContentType(ct = '') {
+      const t = String(ct || '').toLowerCase()
+
+      return (
+        t.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') ||
+        t.includes('application/octet-stream') ||
+        t.includes('binary/octet-stream')
+      )
+    },
+
+    _obtenerFilenameDesdeHeaders(resp, defaultFilename = 'aprobados.zip') {
+      let filename = defaultFilename
 
       const cd = resp.headers.get('Content-Disposition') || resp.headers.get('content-disposition') || ''
 
@@ -946,6 +1013,95 @@ export default {
       }
 
       return filename
+    },
+
+    async descargarReporteExcel() {
+      if (this.descargaOcupada) return
+
+      const periodo = this._periodoDescargaValido()
+      if (!periodo) return
+
+      this.excelDescargando = true
+      this._closeZipModalSafe()
+
+      try {
+        const resp = await fetch(this._excelUrl(periodo.ejercicio, periodo.trimestre), {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/octet-stream, application/json, text/plain, */*',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+
+        if (!resp.ok) {
+          const msgServidor = await this._leerMensajeErrorResponse(resp)
+
+          if (resp.status === 404) {
+            this.showToast(msgServidor || 'No hay CV aprobados para exportar en el periodo seleccionado.')
+          } else if (resp.status === 422) {
+            this.showToast(msgServidor || 'Parámetros inválidos. Verifica ejercicio y trimestre.')
+          } else {
+            this.showToast(msgServidor || 'No se pudo descargar el reporte Excel.')
+          }
+
+          return
+        }
+
+        const ct = (resp.headers.get('Content-Type') || resp.headers.get('content-type') || '').toLowerCase()
+
+        if (ct.includes('application/json') || ct.includes('text/plain') || ct.includes('text/html')) {
+          const msg = await this._leerMensajeErrorResponse(resp)
+          this.showToast(msg || 'El servidor no devolvió un archivo Excel válido.')
+          return
+        }
+
+        if (ct && !this._isExcelContentType(ct)) {
+          this.showToast('El servidor respondió, pero no devolvió un archivo Excel válido.')
+          return
+        }
+
+        const blob = await resp.blob()
+
+        if (!blob || blob.size === 0) {
+          this.showToast('El reporte Excel se generó vacío.')
+          return
+        }
+
+        try {
+          const headBuf = await blob.slice(0, 2).arrayBuffer()
+          const sig = new Uint8Array(headBuf)
+          const isZipBasedXlsx = sig[0] === 0x50 && sig[1] === 0x4b
+
+          if (!isZipBasedXlsx) {
+            this.showToast('El archivo recibido no parece ser un Excel válido.')
+            return
+          }
+        } catch (_) {}
+
+        const filename = this._obtenerFilenameDesdeHeaders(resp, 'reporte_cv_aprobados.xlsx')
+        const objectUrl = window.URL.createObjectURL(blob)
+
+        const a = document.createElement('a')
+        a.href = objectUrl
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+
+        window.URL.revokeObjectURL(objectUrl)
+
+        this.showToast('Reporte Excel generado correctamente. La descarga debe iniciar automáticamente.', 'ok')
+      } catch (e) {
+        console.error('Error al descargar Excel:', e)
+        this.showToast('No se pudo descargar el reporte Excel. Puede ser un error de red o tiempo de espera.')
+      } finally {
+        window.setTimeout(() => {
+          this.excelDescargando = false
+          this._forceUnlockModals()
+        }, 500)
+      }
     },
 
     async _blobDesdeResponseConProgreso(resp) {
@@ -981,25 +1137,15 @@ export default {
     },
 
     async descargarZipAprobados() {
-      if (this.zipDescargando) return
+      if (this.descargaOcupada) return
 
-      const ejercicio = Number(this.zipFiltro.ejercicio || new Date().getFullYear())
-      const trimestre = Number(this.zipFiltro.trimestre || 1)
-
-      if (!(ejercicio >= EJ_MIN && ejercicio <= EJ_MAX)) {
-        this.showToast('Ejercicio inválido. Debe estar entre ' + EJ_MIN + ' y ' + EJ_MAX + '.')
-        return
-      }
-
-      if (TRIM_OK.indexOf(trimestre) === -1) {
-        this.showToast('Trimestre inválido. Debe ser 1, 2, 3 o 4.')
-        return
-      }
+      const periodo = this._periodoDescargaValido()
+      if (!periodo) return
 
       this.zipDescargando = true
       this._startZipProgress()
 
-      const url = this._zipUrl(ejercicio, trimestre)
+      const url = this._zipUrl(periodo.ejercicio, periodo.trimestre)
 
       this._closeZipModalSafe()
 
