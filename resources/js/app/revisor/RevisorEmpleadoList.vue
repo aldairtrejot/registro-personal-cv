@@ -57,7 +57,9 @@
                       class="btn btn-imss btn-sm imss-btn-fixed"
                       data-bs-toggle="modal"
                       data-bs-target="#modalZipAprobados"
+                      @click="abrirModalDescarga('zip')"
                       :disabled="descargaOcupada"
+                      title="Configurar descarga ZIP"
                     >
                       <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
                       <i v-else class="ti ti-file-zip me-1" aria-hidden="true"></i>
@@ -70,7 +72,9 @@
                       class="btn btn-outline-success btn-sm imss-btn-fixed"
                       data-bs-toggle="modal"
                       data-bs-target="#modalZipAprobados"
+                      @click="abrirModalDescarga('excel')"
                       :disabled="descargaOcupada"
+                      title="Configurar descarga Excel"
                     >
                       <span v-if="excelDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
                       <i v-else class="ti ti-table-export me-1" aria-hidden="true"></i>
@@ -332,7 +336,7 @@
       <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px;">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Descargar aprobados</h5>
+            <h5 class="modal-title">{{ descargaModalTitulo }}</h5>
             <button
               type="button"
               class="btn-close"
@@ -344,7 +348,7 @@
 
           <div class="modal-body">
             <div class="alert alert-info">
-              Selecciona el <b>ejercicio</b> y el <b>trimestre</b> para descargar el ZIP o el reporte Excel.
+              Selecciona el <b>ejercicio</b> y el <b>trimestre</b> para descargar {{ descargaModalFormato }}.
             </div>
 
             <div class="alert alert-warning small mb-3">
@@ -395,6 +399,7 @@
             </button>
 
             <button
+              v-if="descargaModalTipo === 'excel'"
               type="button"
               class="btn btn-outline-success"
               @click="descargarReporteExcel"
@@ -406,6 +411,7 @@
             </button>
 
             <button
+              v-else
               type="button"
               class="btn btn-success"
               @click="descargarZipAprobados"
@@ -488,6 +494,7 @@ export default {
         trimestre: trimestreActual,
       },
 
+      descargaModalTipo: 'zip',
       zipDescargando: false,
       excelDescargando: false,
       reporteEstatusDescargando: false,
@@ -516,6 +523,18 @@ export default {
   computed: {
     descargaOcupada() {
       return this.zipDescargando || this.excelDescargando || this.reporteEstatusDescargando
+    },
+
+    descargaModalTitulo() {
+      return this.descargaModalTipo === 'excel'
+        ? 'Descargar Excel de aprobados'
+        : 'Descargar ZIP de aprobados'
+    },
+
+    descargaModalFormato() {
+      return this.descargaModalTipo === 'excel'
+        ? 'el reporte Excel de CV aprobados'
+        : 'el ZIP de CV aprobados'
     },
 
     curpValida() {
@@ -616,6 +635,10 @@ export default {
   },
 
   methods: {
+    abrirModalDescarga(tipo) {
+      this.descargaModalTipo = tipo === 'excel' ? 'excel' : 'zip'
+    },
+
     // ---------------------------------
     // URLs
     // ---------------------------------
