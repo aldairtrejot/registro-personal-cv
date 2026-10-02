@@ -8,6 +8,7 @@ use App\Models\Cv\CvExperienciaLaboral;
 use App\Models\Cv\CvEstudiosAcademicos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -23,6 +24,176 @@ use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 
 class ReporteCvController extends Controller
 {
+    public function exportPorEstatus(Request $request)
+    {
+        @set_time_limit(0);
+        @ini_set('memory_limit', '1024M');
+
+        $status = trim((string) $request->query('status', ''));
+        $busqueda = mb_strtolower(trim((string) $request->query('q', '')), 'UTF-8');
+
+        $statusMap = [
+            'sin_estatus' => 0,
+            'edicion' => 1,
+            'enviado' => 2,
+            'aprobado' => 3,
+            'rechazado' => 4,
+        ];
+
+        if ($status !== '' && !array_key_exists($status, $statusMap)) {
+            return response('Estatus inválido.', 422, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
+        }
+
+        $query = DB::table('profesionalizacion.tbl_empleados as e')
+            ->leftJoin('profesionalizacion.cat_puestos as p', 'e.id_puesto', '=', 'p.id_puesto')
+            ->leftJoin('profesionalizacion.cat_unidades as u', 'e.id_unidad_adscripcion', '=', 'u.id_unidad')
+            ->select([
+                'e.curp',
+                'e.nombre',
+                'e.primer_apellido',
+                'e.segundo_apellido',
+                'e.correo',
+                'p.nombre as puesto_catalogo',
+                'e.puesto_actual',
+                'e.fecha_inicio_puesto',
+                'u.nombre_unidad as unidad_adscripcion',
+                'e.area_adscripcion',
+                'e.estatus_cv',
+                'e.folio_cv',
+                'e.folio_generado_en',
+                'e.motivo_rechazo_cv',
+                'e.creado_en',
+                'e.actualizado_en',
+            ]);
+
+        if ($status !== '') {
+            $query->where('e.estatus_cv', $statusMap[$status]);
+        }
+
+        if ($busqueda !== '') {
+            $like = "%{$busqueda}%";
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(e.curp) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(e.nombre) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(e.primer_apellido) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(e.segundo_apellido) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(e.correo) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(e.puesto_actual) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(e.area_adscripcion) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(p.nombre) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(u.nombre_unidad) LIKE ?', [$like]);
+            });
+        }
+
+        $empleados = $query
+            ->orderBy('e.nombre')
+            ->orderBy('e.primer_apellido')
+            ->orderBy('e.segundo_apellido')
+            ->get();
+
+        if ($empleados->isEmpty()) {
+            return response('No hay empleados para exportar con los filtros seleccionados.', 404, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
+        }
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Reporte por estatus');
+
+        $headers = [
+            'CURP',
+            'Nombre completo',
+            'Correo electrónico',
+            'Puesto de catálogo',
+            'Puesto actual',
+            'Fecha de inicio en el puesto',
+            'Unidad de adscripción',
+            'Área de adscripción',
+            'Estatus del CV',
+            'Folio del CV',
+            'Fecha de generación del folio',
+            'Motivo de rechazo',
+            'Fecha de registro',
+            'Fecha de última actualización',
+        ];
+
+        $sheet->fromArray([$headers], null, 'A1');
+
+        $widths = [
+            'A' => 22,
+            'B' => 42,
+            'C' => 34,
+            'D' => 38,
+            'E' => 38,
+            'F' => 22,
+            'G' => 42,
+            'H' => 42,
+            'I' => 18,
+            'J' => 18,
+            'K' => 24,
+            'L' => 48,
+            'M' => 22,
+            'N' => 24,
+        ];
+
+        foreach ($widths as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+
+        $this->styleHeaderReporteEstatus($sheet, 'A1:N1');
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:N1');
+
+        $row = 2;
+
+        foreach ($empleados as $empleado) {
+            $nombreCompleto = $this->nombreCompletoEmpleado(
+                $empleado->nombre,
+                $empleado->primer_apellido,
+                $empleado->segundo_apellido
+            );
+
+            $sheet->setCellValue("A{$row}", $this->textoReporte($empleado->curp));
+            $sheet->setCellValue("B{$row}", $this->textoReporte($nombreCompleto));
+            $sheet->setCellValue("C{$row}", $this->textoReporte($empleado->correo));
+            $sheet->setCellValue("D{$row}", $this->textoReporte($empleado->puesto_catalogo));
+            $sheet->setCellValue("E{$row}", $this->textoReporte($empleado->puesto_actual));
+            $this->setFechaExcel($sheet, "F{$row}", $empleado->fecha_inicio_puesto, false);
+            $sheet->setCellValue("G{$row}", $this->textoReporte($empleado->unidad_adscripcion));
+            $sheet->setCellValue("H{$row}", $this->textoReporte($empleado->area_adscripcion));
+            $sheet->setCellValue("I{$row}", $this->estatusCvDescripcion($empleado->estatus_cv));
+            $sheet->setCellValue("J{$row}", $this->textoReporte($empleado->folio_cv));
+            $this->setFechaExcel($sheet, "K{$row}", $empleado->folio_generado_en, true);
+            $sheet->setCellValue("L{$row}", $this->textoReporte($empleado->motivo_rechazo_cv));
+            $this->setFechaExcel($sheet, "M{$row}", $empleado->creado_en, true);
+            $this->setFechaExcel($sheet, "N{$row}", $empleado->actualizado_en, true);
+
+            $this->applyThinBorder($sheet, "A{$row}:N{$row}");
+            $row++;
+        }
+
+        $sheet->getStyle("A2:N" . max(2, $row - 1))
+            ->getAlignment()
+            ->setVertical(Alignment::VERTICAL_TOP)
+            ->setWrapText(true);
+
+        $suffix = $status !== '' ? $status : 'todos';
+        $filename = 'reporte_cv_por_estatus_' . $suffix . '_' . Carbon::now()->format('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'max-age=0, no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+        ]);
+    }
+
     public function exportTerminados(Request $request)
     {
         @set_time_limit(0);
@@ -366,6 +537,85 @@ class ReporteCvController extends Controller
         if ($m <= 6) return 2;
         if ($m <= 9) return 3;
         return 4;
+    }
+
+    private function nombreCompletoEmpleado($nombre, $primerApellido, $segundoApellido): string
+    {
+        $partes = [
+            trim((string) ($nombre ?? '')),
+            trim((string) ($primerApellido ?? '')),
+            trim((string) ($segundoApellido ?? '')),
+        ];
+
+        $partes = array_values(array_filter($partes, fn ($parte) => $parte !== ''));
+
+        return implode(' ', $partes);
+    }
+
+    private function textoReporte($value): string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        return $value !== '' ? $value : 'Sin información';
+    }
+
+    private function estatusCvDescripcion($estatus): string
+    {
+        return match ((int) ($estatus ?? 0)) {
+            1 => 'En edición',
+            2 => 'Enviado',
+            3 => 'Aprobado',
+            4 => 'Rechazado',
+            default => 'Sin estatus',
+        };
+    }
+
+    private function setFechaExcel(Worksheet $sheet, string $cell, $value, bool $withTime): void
+    {
+        if (!$value) {
+            $sheet->setCellValue($cell, 'Sin información');
+            return;
+        }
+
+        try {
+            $fecha = $value instanceof Carbon ? $value : Carbon::parse($value);
+        } catch (\Throwable $e) {
+            $sheet->setCellValue($cell, $this->textoReporte($value));
+            return;
+        }
+
+        $sheet->setCellValue($cell, ExcelDate::PHPToExcel($fecha));
+        $sheet->getStyle($cell)
+            ->getNumberFormat()
+            ->setFormatCode($withTime ? 'dd/mm/yyyy hh:mm' : 'dd/mm/yyyy');
+    }
+
+    private function styleHeaderReporteEstatus(Worksheet $sheet, string $range): void
+    {
+        $sheet->getStyle($range)->applyFromArray([
+            'font' => [
+                'name' => 'Arial',
+                'size' => 10,
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '006341'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                ],
+            ],
+        ]);
+
+        $sheet->getRowDimension(1)->setRowHeight(30);
     }
 
     private function periodoPorTrimestre(int $ejercicio, int $trimestre): array

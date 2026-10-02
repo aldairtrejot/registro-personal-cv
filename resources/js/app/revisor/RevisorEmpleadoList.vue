@@ -80,6 +80,25 @@
                   </div>
                 </div>
 
+                <div class="imss-action-group">
+                  <div class="imss-action-title">Reporte del listado</div>
+
+                  <div class="imss-action-buttons">
+                    <button
+                      type="button"
+                      class="btn btn-outline-success btn-sm imss-btn-fixed"
+                      @click="descargarReportePorEstatus"
+                      :disabled="descargaOcupada"
+                      title="Descargar reporte por estatus con los filtros actuales"
+                    >
+                      <span v-if="reporteEstatusDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                      <i v-else class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
+                      <span v-if="reporteEstatusDescargando">Generandoâ€¦</span>
+                      <span v-else>Estatus</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div class="imss-curp-box">
                   <label class="imss-label">Descarga por CURP</label>
                   <div class="d-flex gap-2 align-items-center">
@@ -471,6 +490,7 @@ export default {
 
       zipDescargando: false,
       excelDescargando: false,
+      reporteEstatusDescargando: false,
       zipProgreso: 0,
       zipProgresoTexto: 'Preparando solicitud…',
       _zipProgressTimer: null,
@@ -495,7 +515,7 @@ export default {
 
   computed: {
     descargaOcupada() {
-      return this.zipDescargando || this.excelDescargando
+      return this.zipDescargando || this.excelDescargando || this.reporteEstatusDescargando
     },
 
     curpValida() {
@@ -881,6 +901,17 @@ export default {
       )
     },
 
+    _reporteEstatusUrl() {
+      const base = this._url('/cv/reportes/empleados-por-estatus')
+      const params = new URLSearchParams()
+
+      if (this.filtros.status) params.set('status', this.filtros.status)
+      if (this.filtros.busqueda) params.set('q', this.filtros.busqueda)
+      params.set('_ts', String(Date.now()))
+
+      return base + '?' + params.toString()
+    },
+
     _periodoDescargaValido() {
       const ejercicio = Number(this.zipFiltro.ejercicio || new Date().getFullYear())
       const trimestre = Number(this.zipFiltro.trimestre || 1)
@@ -1032,6 +1063,91 @@ export default {
       }
 
       return filename
+    },
+
+    async descargarReportePorEstatus() {
+      if (this.descargaOcupada) return
+
+      this.reporteEstatusDescargando = true
+
+      try {
+        const resp = await fetch(this._reporteEstatusUrl(), {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/octet-stream, application/json, text/plain, */*',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+
+        if (!resp.ok) {
+          const msgServidor = await this._leerMensajeErrorResponse(resp)
+
+          if (resp.status === 404) {
+            this.showToast(msgServidor || 'No hay empleados para exportar con los filtros seleccionados.')
+          } else if (resp.status === 422) {
+            this.showToast(msgServidor || 'ParÃ¡metros invÃ¡lidos para el reporte.')
+          } else {
+            this.showToast(msgServidor || 'No se pudo descargar el reporte por estatus.')
+          }
+
+          return
+        }
+
+        const ct = (resp.headers.get('Content-Type') || resp.headers.get('content-type') || '').toLowerCase()
+
+        if (ct.includes('application/json') || ct.includes('text/plain') || ct.includes('text/html')) {
+          const msg = await this._leerMensajeErrorResponse(resp)
+          this.showToast(msg || 'El servidor no devolviÃ³ un archivo Excel vÃ¡lido.')
+          return
+        }
+
+        if (ct && !this._isExcelContentType(ct)) {
+          this.showToast('El servidor respondiÃ³, pero no devolviÃ³ un archivo Excel vÃ¡lido.')
+          return
+        }
+
+        const blob = await resp.blob()
+
+        if (!blob || blob.size === 0) {
+          this.showToast('El reporte por estatus se generÃ³ vacÃ­o.')
+          return
+        }
+
+        try {
+          const headBuf = await blob.slice(0, 2).arrayBuffer()
+          const sig = new Uint8Array(headBuf)
+          const isZipBasedXlsx = sig[0] === 0x50 && sig[1] === 0x4b
+
+          if (!isZipBasedXlsx) {
+            this.showToast('El archivo recibido no parece ser un Excel vÃ¡lido.')
+            return
+          }
+        } catch (_) {}
+
+        const filename = this._obtenerFilenameDesdeHeaders(resp, 'reporte_cv_por_estatus.xlsx')
+        const objectUrl = window.URL.createObjectURL(blob)
+
+        const a = document.createElement('a')
+        a.href = objectUrl
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+
+        window.URL.revokeObjectURL(objectUrl)
+
+        this.showToast('Reporte por estatus generado correctamente. La descarga debe iniciar automÃ¡ticamente.', 'ok')
+      } catch (e) {
+        console.error('Error al descargar reporte por estatus:', e)
+        this.showToast('No se pudo descargar el reporte por estatus. Puede ser un error de red o tiempo de espera.')
+      } finally {
+        window.setTimeout(() => {
+          this.reporteEstatusDescargando = false
+          this._forceUnlockModals()
+        }, 500)
+      }
     },
 
     async descargarReporteExcel() {

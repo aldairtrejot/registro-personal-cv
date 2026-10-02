@@ -229,7 +229,7 @@ class CvFichaPdfService
             );
         }
 
-        $workDocxPath = $workDir . DIRECTORY_SEPARATOR . 'input.docx';
+        $workDocxPath = $workDir . DIRECTORY_SEPARATOR . $baseName . '.docx';
         if (!@copy($docxRealPath, $workDocxPath)) {
             throw new \RuntimeException(
                 "No se pudo copiar el DOCX temporal al directorio de trabajo.\n" .
@@ -318,6 +318,8 @@ class CvFichaPdfService
         ]);
 
         if (!$process->isSuccessful()) {
+            $this->cleanupTempPaths($docxRealPath, $runProfileRealPath, $workDir);
+
             throw new \RuntimeException(
                 "Error al convertir a PDF.\n" .
                 "SOFFICE: {$soffice}\n" .
@@ -340,9 +342,11 @@ class CvFichaPdfService
 
         clearstatcache();
 
-        $pdfPath = $this->findGeneratedPdf($pdfDirRealPath, 'input', $startedAt);
+        $pdfPath = $this->findGeneratedPdf($pdfDirRealPath, $baseName, $startedAt);
 
         if (!$pdfPath) {
+            $this->cleanupTempPaths($docxRealPath, $runProfileRealPath, $workDir);
+
             throw new \RuntimeException(
                 "LibreOffice terminó sin error, pero no generó el PDF esperado.\n" .
                 "BaseName: {$baseName}\n" .

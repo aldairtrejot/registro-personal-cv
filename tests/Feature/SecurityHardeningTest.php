@@ -19,6 +19,11 @@ class SecurityHardeningTest extends TestCase
         $this->assertContains('auth', $excelRoute->gatherMiddleware());
         $this->assertContains('role:1,3', $excelRoute->gatherMiddleware());
 
+        $statusReportRoute = Route::getRoutes()->getByName('cv.reportes.empleados_por_estatus');
+        $this->assertNotNull($statusReportRoute);
+        $this->assertContains('auth', $statusReportRoute->gatherMiddleware());
+        $this->assertContains('role:1,3', $statusReportRoute->gatherMiddleware());
+
         $zipRoute = collect(Route::getRoutes())->first(
             fn ($route) => $route->uri() === 'revisor/pdf/aprobados.zip'
         );

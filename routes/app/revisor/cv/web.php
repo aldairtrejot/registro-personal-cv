@@ -91,5 +91,9 @@ Route::middleware(['auth', 'role:1,3'])->group(function () {
     Route::get('/cv/reportes/empleados-terminados', [ReporteCvController::class, 'exportTerminados'])
         ->name('cv.reportes.empleados_terminados');
 
+    // Excel independiente por estatus
+    Route::get('/cv/reportes/empleados-por-estatus', [ReporteCvController::class, 'exportPorEstatus'])
+        ->name('cv.reportes.empleados_por_estatus');
+
         Route::post('/api/revisor/empleados/{id}/folio', [RevisorController::class, 'updateFolio']);
 });
