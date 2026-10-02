@@ -20,11 +20,11 @@ class RevisorController extends Controller
     public function index(Request $request)
     {
         $query = Empleado::query()
-            ->with(['puesto'])
-            ->where('estatus_cv', '>', 0);
+            ->with(['puesto']);
 
         if ($request->filled('status')) {
             $map = [
+                'sin_estatus' => 0,
                 'edicion'   => 1,
                 'enviado'   => 2,
                 'aprobado'  => 3,
@@ -49,7 +49,6 @@ class RevisorController extends Controller
 
         $empleados = $query
             ->orderBy('nombre')
-            ->limit(100)
             ->get()
             ->map(function (Empleado $e) {
                 return [
@@ -58,6 +57,7 @@ class RevisorController extends Controller
                     'curp' => $e->curp,
                     'area' => $e->area_adscripcion,
                     'puesto' => $e->puesto_label,
+                    'estatus_cv' => $e->estatus_cv,
                     'fechaActualizacion' => $e->actualizado_en
                         ? \Carbon\Carbon::parse($e->actualizado_en)->format('d/m/Y H:i')
                         : null,
@@ -232,7 +232,7 @@ class RevisorController extends Controller
             2 => 'enviado',
             3 => 'aprobado',
             4 => 'rechazado',
-            default => 'sin_cv',
+            default => 'sin_estatus',
         };
     }
 

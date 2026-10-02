@@ -136,6 +136,7 @@
                   :disabled="zipDescargando"
                 >
                   <option value="">Todos</option>
+                  <option value="sin_estatus">Sin estatus</option>
                   <option value="edicion">En edición</option>
                   <option value="enviado">Enviado</option>
                   <option value="aprobado">Aprobado</option>
@@ -670,11 +671,15 @@ export default {
     },
 
     statusKey(emp) {
-      if (emp && emp.status) return emp.status
+      if (emp && emp.status) {
+        return emp.status === 'sin_cv' ? 'sin_estatus' : emp.status
+      }
 
       const n = Number(emp && emp.estatus_cv != null ? emp.estatus_cv : null)
 
       switch (n) {
+        case 0:
+          return 'sin_estatus'
         case 1:
           return 'edicion'
         case 2:
@@ -684,12 +689,15 @@ export default {
         case 4:
           return 'rechazado'
         default:
-          return 'sin_cv'
+          return 'sin_estatus'
       }
     },
 
     statusLabel(status) {
       switch (status) {
+        case 'sin_estatus':
+        case 'sin_cv':
+          return 'Sin estatus'
         case 'edicion':
           return 'En edición'
         case 'enviado':
@@ -699,12 +707,15 @@ export default {
         case 'rechazado':
           return 'Rechazado'
         default:
-          return 'Sin CV'
+          return 'Sin estatus'
       }
     },
 
     badgeClass(status) {
       switch (status) {
+        case 'sin_estatus':
+        case 'sin_cv':
+          return 'imss-badge-neutral'
         case 'edicion':
           return 'imss-badge-neutral'
         case 'enviado':

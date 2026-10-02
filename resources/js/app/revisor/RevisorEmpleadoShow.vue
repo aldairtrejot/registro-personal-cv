@@ -506,7 +506,7 @@ export default {
         case 'enviado': return 'Enviado'
         case 'aprobado': return 'Aprobado'
         case 'rechazado': return 'Rechazado'
-        default: return 'Sin CV'
+        default: return 'Sin estatus'
       }
     },
     badgeClass(status) {
@@ -520,11 +520,12 @@ export default {
     },
     mapStatusFromInt(estatus_cv) {
       switch (Number(estatus_cv)) {
+        case 0: return 'sin_estatus'
         case 1: return 'edicion'
         case 2: return 'enviado'
         case 3: return 'aprobado'
         case 4: return 'rechazado'
-        default: return 'sin_cv'
+        default: return 'sin_estatus'
       }
     },
 
