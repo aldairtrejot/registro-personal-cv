@@ -38,7 +38,7 @@
         <div class="card imss-card">
           <!-- HEADER -->
           <div class="card-header imss-card-header">
-            <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 w-100">
+            <div class="imss-header-layout">
               <div class="min-w-0">
                 <div class="imss-kicker">Módulo Revisor</div>
                 <h3 class="imss-title mb-1">Revisión de CV</h3>
@@ -48,64 +48,82 @@
               </div>
 
               <div class="imss-actions">
-                <div class="imss-action-group">
+                <div class="imss-action-group imss-action-group-period">
                   <div class="imss-action-title">Aprobados del periodo</div>
 
-                  <div class="imss-action-buttons">
+                  <div class="imss-action-buttons imss-download-grid">
                     <button
                       type="button"
-                      class="btn btn-imss btn-sm imss-btn-fixed"
+                      class="imss-action-btn imss-action-btn-primary"
                       data-bs-toggle="modal"
                       data-bs-target="#modalZipAprobados"
                       @click="abrirModalDescarga('zip')"
                       :disabled="descargaOcupada"
                       title="Configurar descarga ZIP"
                     >
-                      <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-                      <i v-else class="ti ti-file-zip me-1" aria-hidden="true"></i>
-                      <span v-if="zipDescargando">Generando ZIP…</span>
-                      <span v-else>ZIP</span>
+                      <span class="imss-action-icon">
+                        <span v-if="zipDescargando" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        <i v-else class="ti ti-file-zip" aria-hidden="true"></i>
+                      </span>
+                      <span class="imss-action-text">
+                        <span class="imss-action-label" v-if="zipDescargando">Generando ZIP...</span>
+                        <span class="imss-action-label" v-else>ZIP aprobados</span>
+                        <span class="imss-action-subtitle">PDF del trimestre</span>
+                      </span>
                     </button>
 
                     <button
                       type="button"
-                      class="btn btn-outline-success btn-sm imss-btn-fixed"
+                      class="imss-action-btn imss-action-btn-secondary"
                       data-bs-toggle="modal"
                       data-bs-target="#modalZipAprobados"
                       @click="abrirModalDescarga('excel')"
                       :disabled="descargaOcupada"
                       title="Configurar descarga Excel"
                     >
-                      <span v-if="excelDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-                      <i v-else class="ti ti-table-export me-1" aria-hidden="true"></i>
-                      <span v-if="excelDescargando">Generando Excel…</span>
-                      <span v-else>Excel</span>
+                      <span class="imss-action-icon">
+                        <span v-if="excelDescargando" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        <i v-else class="ti ti-table-export" aria-hidden="true"></i>
+                      </span>
+                      <span class="imss-action-text">
+                        <span class="imss-action-label" v-if="excelDescargando">Generando Excel...</span>
+                        <span class="imss-action-label" v-else>Excel aprobados</span>
+                        <span class="imss-action-subtitle">Formato oficial</span>
+                      </span>
                     </button>
                   </div>
                 </div>
 
-                <div class="imss-action-group">
+                <div class="imss-action-group imss-action-group-list">
                   <div class="imss-action-title">Reporte del listado</div>
 
-                  <div class="imss-action-buttons">
+                  <div class="imss-action-buttons imss-report-action">
                     <button
                       type="button"
-                      class="btn btn-outline-success btn-sm imss-btn-fixed"
+                      class="imss-action-btn imss-action-btn-soft"
                       @click="descargarReportePorEstatus"
                       :disabled="descargaOcupada"
                       title="Descargar reporte por estatus con los filtros actuales"
                     >
-                      <span v-if="reporteEstatusDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-                      <i v-else class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
-                      <span v-if="reporteEstatusDescargando">Generandoâ€¦</span>
-                      <span v-else>Estatus</span>
+                      <span class="imss-action-icon">
+                        <span v-if="reporteEstatusDescargando" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        <i v-else class="ti ti-file-spreadsheet" aria-hidden="true"></i>
+                      </span>
+                      <span class="imss-action-text">
+                        <span class="imss-action-label" v-if="reporteEstatusDescargando">Generando...</span>
+                        <span class="imss-action-label" v-else>Reporte por estatus</span>
+                        <span class="imss-action-subtitle">Filtros actuales</span>
+                      </span>
                     </button>
                   </div>
                 </div>
 
                 <div class="imss-curp-box">
-                  <label class="imss-label">Descarga por CURP</label>
-                  <div class="d-flex gap-2 align-items-center">
+                  <div class="imss-curp-head">
+                    <label class="imss-label mb-0">Descarga por CURP</label>
+                    <span>18 caracteres</span>
+                  </div>
+                  <div class="imss-curp-row">
                     <input
                       v-model.trim="curpDescarga"
                       type="text"
@@ -117,13 +135,13 @@
                     />
                     <button
                       type="button"
-                      class="btn btn-outline-imss btn-sm imss-btn-fixed"
+                      class="imss-curp-button"
                       @click="descargarPdfPorCurp"
                       :disabled="!curpValida || zipDescargando"
                       title="Descargar PDF por CURP"
                     >
-                      <i class="ti ti-file-type-pdf me-1" aria-hidden="true"></i>
-                      PDF
+                      <i class="ti ti-file-type-pdf" aria-hidden="true"></i>
+                      <span>PDF</span>
                     </button>
                   </div>
                   <div class="imss-help" v-if="curpDescarga && !curpValida">
@@ -237,7 +255,7 @@
                     <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
                       <a
                         :href="detalleUrl(getId(emp))"
-                        class="btn btn-outline-imss btn-sm imss-btn-fixed"
+                        class="imss-row-btn imss-row-btn-detail"
                         :class="{ disabled: zipDescargando }"
                       >
                         <i class="ti ti-eye me-1" aria-hidden="true"></i>
@@ -246,7 +264,7 @@
 
                       <a
                         :href="pdfEmpleadoUrl(getId(emp))"
-                        class="btn btn-outline-success btn-sm imss-btn-fixed"
+                        class="imss-row-btn imss-row-btn-pdf"
                         :class="{ disabled: zipDescargando }"
                       >
                         <i class="ti ti-file-type-pdf me-1" aria-hidden="true"></i>
@@ -1110,7 +1128,7 @@ export default {
           if (resp.status === 404) {
             this.showToast(msgServidor || 'No hay empleados para exportar con los filtros seleccionados.')
           } else if (resp.status === 422) {
-            this.showToast(msgServidor || 'ParÃ¡metros invÃ¡lidos para el reporte.')
+            this.showToast(msgServidor || 'Parámetros inválidos para el reporte.')
           } else {
             this.showToast(msgServidor || 'No se pudo descargar el reporte por estatus.')
           }
@@ -1122,19 +1140,19 @@ export default {
 
         if (ct.includes('application/json') || ct.includes('text/plain') || ct.includes('text/html')) {
           const msg = await this._leerMensajeErrorResponse(resp)
-          this.showToast(msg || 'El servidor no devolviÃ³ un archivo Excel vÃ¡lido.')
+          this.showToast(msg || 'El servidor no devolvió un archivo Excel válido.')
           return
         }
 
         if (ct && !this._isExcelContentType(ct)) {
-          this.showToast('El servidor respondiÃ³, pero no devolviÃ³ un archivo Excel vÃ¡lido.')
+          this.showToast('El servidor respondió, pero no devolvió un archivo Excel válido.')
           return
         }
 
         const blob = await resp.blob()
 
         if (!blob || blob.size === 0) {
-          this.showToast('El reporte por estatus se generÃ³ vacÃ­o.')
+          this.showToast('El reporte por estatus se generó vacío.')
           return
         }
 
@@ -1144,7 +1162,7 @@ export default {
           const isZipBasedXlsx = sig[0] === 0x50 && sig[1] === 0x4b
 
           if (!isZipBasedXlsx) {
-            this.showToast('El archivo recibido no parece ser un Excel vÃ¡lido.')
+            this.showToast('El archivo recibido no parece ser un Excel válido.')
             return
           }
         } catch (_) {}
@@ -1161,7 +1179,7 @@ export default {
 
         window.URL.revokeObjectURL(objectUrl)
 
-        this.showToast('Reporte por estatus generado correctamente. La descarga debe iniciar automÃ¡ticamente.', 'ok')
+        this.showToast('Reporte por estatus generado correctamente. La descarga debe iniciar automáticamente.', 'ok')
       } catch (e) {
         console.error('Error al descargar reporte por estatus:', e)
         this.showToast('No se pudo descargar el reporte por estatus. Puede ser un error de red o tiempo de espera.')
@@ -1523,9 +1541,9 @@ export default {
 
 .imss-card {
   border: 1px solid var(--imss-border);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 22px rgba(16, 49, 43, 0.06);
+  box-shadow: 0 18px 45px rgba(16, 49, 43, 0.08);
 }
 
 .imss-card-header {
@@ -1534,7 +1552,7 @@ export default {
     linear-gradient(90deg, rgba(16, 49, 43, 0.05), rgba(188, 149, 92, 0.08)),
     #ffffff;
   border-bottom: 1px solid var(--imss-border);
-  padding: 20px 18px 18px;
+  padding: 22px 20px 20px;
 }
 
 .imss-card-header::before {
@@ -1565,29 +1583,38 @@ export default {
   max-width: 60ch;
 }
 
+.imss-header-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(560px, 1.6fr);
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+}
+
 .imss-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(260px, 1.1fr) minmax(220px, 0.9fr) minmax(280px, 1fr);
   gap: 12px;
   align-items: flex-start;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: stretch;
 }
 
 .imss-action-group {
-  min-width: 212px;
-  padding: 10px 12px;
-  border: 1px solid rgba(16, 49, 43, 0.10);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.86);
+  min-height: 86px;
+  padding: 12px;
+  border: 1px solid rgba(16, 49, 43, 0.11);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 24px rgba(16, 49, 43, 0.05);
 }
 
 .imss-action-title {
   color: var(--imss-ink);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  margin-bottom: 7px;
+  margin-bottom: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .imss-action-buttons {
@@ -1596,12 +1623,150 @@ export default {
   flex-wrap: wrap;
 }
 
-.imss-curp-box {
-  min-width: 280px;
-  padding: 10px 12px;
-  border: 1px solid var(--imss-border);
+.imss-download-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.imss-report-action {
+  display: block;
+}
+
+.imss-action-btn {
+  width: 100%;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
   border-radius: 10px;
+  padding: 9px 11px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background-color .15s ease;
+}
+
+.imss-action-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(16, 49, 43, 0.13);
+}
+
+.imss-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.imss-action-btn-primary {
+  background: var(--imss-green);
+  border-color: var(--imss-green);
+  color: #ffffff;
+}
+
+.imss-action-btn-secondary {
   background: #ffffff;
+  border-color: rgba(0, 99, 65, 0.35);
+  color: var(--imss-green);
+}
+
+.imss-action-btn-soft {
+  background: #f4faf7;
+  border-color: rgba(0, 99, 65, 0.22);
+  color: var(--imss-ink);
+}
+
+.imss-action-icon {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 1.08rem;
+}
+
+.imss-action-btn-secondary .imss-action-icon,
+.imss-action-btn-soft .imss-action-icon {
+  background: rgba(0, 99, 65, 0.09);
+  color: var(--imss-green);
+}
+
+.imss-action-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.imss-action-label {
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.imss-action-subtitle {
+  margin-top: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.74;
+}
+
+.imss-curp-box {
+  min-height: 86px;
+  padding: 12px;
+  border: 1px solid rgba(16, 49, 43, 0.11);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(16, 49, 43, 0.05);
+}
+
+.imss-curp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.imss-curp-head span {
+  color: var(--imss-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.imss-curp-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.imss-curp-button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(0, 99, 65, 0.38);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--imss-green);
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 7px 10px;
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.imss-curp-button:not(:disabled):hover {
+  background: var(--imss-green);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(0, 99, 65, 0.16);
+}
+
+.imss-curp-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .imss-label {
@@ -1618,9 +1783,9 @@ export default {
 }
 
 .imss-filters {
-  background: var(--imss-bg);
+  background: linear-gradient(180deg, #f9fbfa 0%, var(--imss-bg) 100%);
   border-bottom: 1px solid var(--imss-border);
-  padding: 14px 18px;
+  padding: 16px 18px;
 }
 
 .imss-summary-strip {
@@ -1632,12 +1797,13 @@ export default {
 .imss-summary-item {
   background: #ffffff;
   border: 1px solid var(--imss-border);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  box-shadow: 0 8px 18px rgba(16, 49, 43, 0.04);
 }
 
 .imss-summary-item span {
@@ -1648,7 +1814,8 @@ export default {
 
 .imss-summary-item strong {
   color: var(--imss-ink);
-  font-size: 1rem;
+  font-size: 1.12rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .imss-input-wrap {
@@ -1668,6 +1835,7 @@ export default {
 .imss-select {
   border-radius: 8px;
   border-color: var(--imss-border);
+  min-height: 36px;
 }
 
 .imss-input-with-icon {
@@ -1687,20 +1855,24 @@ export default {
 .imss-table thead th {
   background: var(--imss-ink);
   color: #ffffff;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border-bottom: 0;
-  padding: 12px 14px;
+  padding: 13px 14px;
 }
 
 .imss-table tbody td {
-  padding: 14px 14px;
+  padding: 15px 14px;
   border-color: var(--imss-border);
 }
 
 .imss-table tbody tr:hover {
   background: var(--imss-soft);
+}
+
+.imss-table tbody tr {
+  transition: background-color .15s ease;
 }
 
 .imss-name {
@@ -1715,6 +1887,46 @@ export default {
   border-radius: 6px;
   padding: 3px 8px;
   font-size: 0.78rem;
+}
+
+.imss-row-btn {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+  line-height: 1;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.imss-row-btn-detail {
+  border: 1px solid rgba(0, 99, 65, 0.45);
+  color: var(--imss-green);
+  background: #ffffff;
+}
+
+.imss-row-btn-pdf {
+  border: 1px solid rgba(0, 99, 65, 0.30);
+  color: var(--imss-green);
+  background: #f4faf7;
+}
+
+.imss-row-btn:hover,
+.imss-row-btn:focus {
+  border-color: var(--imss-green);
+  background: var(--imss-green);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(0, 99, 65, 0.14);
+}
+
+.imss-row-btn.disabled {
+  pointer-events: none;
+  opacity: 0.48;
 }
 
 .imss-badge {
@@ -1753,9 +1965,9 @@ export default {
 }
 
 .imss-footer {
-  background: #ffffff;
+  background: #fbfcfc;
   border-top: 1px solid var(--imss-border);
-  padding: 12px 18px;
+  padding: 14px 18px;
 }
 
 .imss-footer-grid {
@@ -1806,12 +2018,14 @@ export default {
   min-width: 38px;
   border-radius: 8px;
   font-weight: 700;
+  min-height: 32px;
 }
 
 .imss-page-btn-active {
   background: var(--imss-green) !important;
   border: 1px solid var(--imss-green) !important;
   color: #ffffff !important;
+  box-shadow: 0 8px 16px rgba(0, 99, 65, 0.14);
 }
 
 .imss-btn-fixed {
@@ -1942,6 +2156,15 @@ export default {
 }
 
 @media (max-width: 992px) {
+  .imss-header-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .imss-actions {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
   .imss-footer-grid {
     grid-template-columns: 1fr;
   }
@@ -1967,7 +2190,6 @@ export default {
 
   .imss-actions {
     width: 100%;
-    justify-content: stretch;
   }
 
   .imss-action-group {
@@ -1976,10 +2198,19 @@ export default {
 
   .imss-action-buttons {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
-  .btn-imss.imss-btn-fixed {
+  .imss-download-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .imss-curp-row {
+    grid-template-columns: 1fr;
+  }
+
+  .imss-action-btn,
+  .imss-curp-button {
     width: 100%;
   }
 }
