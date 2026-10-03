@@ -67,7 +67,7 @@
                       </span>
                       <span class="imss-action-text">
                         <span class="imss-action-label" v-if="zipDescargando">Generando ZIP...</span>
-                        <span class="imss-action-label" v-else>ZIP aprobados</span>
+                        <span class="imss-action-label" v-else>ZIP</span>
                         <span class="imss-action-subtitle">PDF del trimestre</span>
                       </span>
                     </button>
@@ -87,7 +87,7 @@
                       </span>
                       <span class="imss-action-text">
                         <span class="imss-action-label" v-if="excelDescargando">Generando Excel...</span>
-                        <span class="imss-action-label" v-else>Excel aprobados</span>
+                        <span class="imss-action-label" v-else>Excel</span>
                         <span class="imss-action-subtitle">Formato oficial</span>
                       </span>
                     </button>
@@ -111,7 +111,7 @@
                       </span>
                       <span class="imss-action-text">
                         <span class="imss-action-label" v-if="reporteEstatusDescargando">Generando...</span>
-                        <span class="imss-action-label" v-else>Reporte por estatus</span>
+                        <span class="imss-action-label" v-else>Estatus</span>
                         <span class="imss-action-subtitle">Filtros actuales</span>
                       </span>
                     </button>
@@ -1585,36 +1585,45 @@ export default {
 
 .imss-header-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 0.9fr) minmax(560px, 1.6fr);
+  grid-template-columns: minmax(280px, 1fr) auto;
   gap: 18px;
   align-items: center;
   width: 100%;
 }
 
 .imss-actions {
-  display: grid;
-  grid-template-columns: minmax(260px, 1.1fr) minmax(220px, 0.9fr) minmax(280px, 1fr);
-  gap: 12px;
-  align-items: flex-start;
-  justify-content: stretch;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .imss-action-group {
-  min-height: 86px;
-  padding: 12px;
+  min-height: auto;
+  padding: 10px 12px;
   border: 1px solid rgba(16, 49, 43, 0.11);
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 10px 24px rgba(16, 49, 43, 0.05);
+}
+
+.imss-action-group-period {
+  width: 260px;
+}
+
+.imss-action-group-list {
+  width: 178px;
 }
 
 .imss-action-title {
   color: var(--imss-ink);
   font-size: 0.72rem;
   font-weight: 800;
-  margin-bottom: 9px;
+  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 .imss-action-buttons {
@@ -1624,27 +1633,32 @@ export default {
 }
 
 .imss-download-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
 }
 
 .imss-report-action {
-  display: block;
+  display: flex;
 }
 
 .imss-action-btn {
-  width: 100%;
-  min-height: 52px;
+  min-width: 108px;
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 9px 11px;
+  border-radius: 9px;
+  padding: 7px 10px;
   font: inherit;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background-color .15s ease;
+}
+
+.imss-action-group-list .imss-action-btn {
+  width: 100%;
 }
 
 .imss-action-btn:not(:disabled):hover {
@@ -1676,15 +1690,15 @@ export default {
 }
 
 .imss-action-icon {
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.18);
-  font-size: 1.08rem;
+  font-size: 0.98rem;
 }
 
 .imss-action-btn-secondary .imss-action-icon,
@@ -1696,27 +1710,26 @@ export default {
 .imss-action-text {
   min-width: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   line-height: 1.15;
 }
 
 .imss-action-label {
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .imss-action-subtitle {
-  margin-top: 3px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  opacity: 0.74;
+  display: none;
 }
 
 .imss-curp-box {
-  min-height: 86px;
-  padding: 12px;
+  width: 286px;
+  min-height: auto;
+  padding: 10px 12px;
   border: 1px solid rgba(16, 49, 43, 0.11);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 10px 24px rgba(16, 49, 43, 0.05);
 }
@@ -1726,7 +1739,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 9px;
+  margin-bottom: 8px;
 }
 
 .imss-curp-head span {
