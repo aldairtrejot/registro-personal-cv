@@ -31,6 +31,18 @@ class SecurityHardeningTest extends TestCase
         $this->assertNotNull($zipRoute);
         $this->assertContains('auth', $zipRoute->gatherMiddleware());
         $this->assertContains('role:1,3', $zipRoute->gatherMiddleware());
+
+        foreach ([
+            'api/revisor/empleados/carga-masiva/preview',
+            'api/revisor/empleados/carga-masiva/confirmar',
+            'api/revisor/empleados/carga-masiva/reporte/{token}',
+        ] as $uri) {
+            $route = collect(Route::getRoutes())->first(fn ($route) => $route->uri() === $uri);
+
+            $this->assertNotNull($route);
+            $this->assertContains('auth', $route->gatherMiddleware());
+            $this->assertContains('role:1,3', $route->gatherMiddleware());
+        }
     }
 
     public function test_role_middleware_blocks_guest_users(): void

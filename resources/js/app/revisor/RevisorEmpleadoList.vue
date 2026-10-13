@@ -68,7 +68,7 @@
                       <span class="imss-action-text">
                         <span class="imss-action-label" v-if="zipDescargando">Generando ZIP...</span>
                         <span class="imss-action-label" v-else>ZIP</span>
-                        <span class="imss-action-subtitle">PDF del trimestre</span>
+                        <span class="imss-action-subtitle">PDF por periodo</span>
                       </span>
                     </button>
 
@@ -113,6 +113,31 @@
                         <span class="imss-action-label" v-if="reporteEstatusDescargando">Generando...</span>
                         <span class="imss-action-label" v-else>Estatus</span>
                         <span class="imss-action-subtitle">Filtros actuales</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="imss-action-group imss-action-group-import">
+                  <div class="imss-action-title">Carga masiva</div>
+
+                  <div class="imss-action-buttons imss-report-action">
+                    <button
+                      type="button"
+                      class="imss-action-btn imss-action-btn-soft"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalCargaMasivaEmpleados"
+                      @click="abrirModalCargaMasiva"
+                      :disabled="descargaOcupada"
+                      title="Cargar empleados desde Excel"
+                    >
+                      <span class="imss-action-icon">
+                        <span v-if="importacionOcupada" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        <i v-else class="ti ti-upload" aria-hidden="true"></i>
+                      </span>
+                      <span class="imss-action-text">
+                        <span class="imss-action-label">Excel</span>
+                        <span class="imss-action-subtitle">Alta masiva</span>
                       </span>
                     </button>
                   </div>
@@ -351,7 +376,7 @@
 
     <!-- MODAL ZIP -->
     <div class="modal modal-blur fade" id="modalZipAprobados" tabindex="-1" role="dialog" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px;">
+      <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 560px;">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ descargaModalTitulo }}</h5>
@@ -366,43 +391,114 @@
 
           <div class="modal-body">
             <div class="alert alert-info">
-              Selecciona el <b>ejercicio</b> y el <b>trimestre</b> para descargar {{ descargaModalFormato }}.
+              Filtra {{ descargaModalFormato }} por la fecha de última actualización del CV.
             </div>
 
             <div class="alert alert-warning small mb-3">
-              Si hay muchos CV aprobados, el sistema puede tardar mientras genera los PDF y arma el ZIP.
+              <span v-if="descargaModalTipo === 'zip'">
+                Si hay muchos CV aprobados, el sistema puede tardar mientras genera los PDF y arma el ZIP.
+              </span>
+              <span v-else>
+                Si hay muchos CV aprobados, el sistema puede tardar mientras genera el Excel.
+              </span>
             </div>
 
             <div class="row g-3">
-              <div class="col-12 col-md-6">
-                <label class="form-label">Ejercicio (año)</label>
-                <input
-                  type="number"
-                  class="form-control"
-                  v-model.number="zipFiltro.ejercicio"
-                  min="2000"
-                  max="2100"
-                  :disabled="descargaOcupada"
-                />
-              </div>
-
-              <div class="col-12 col-md-6">
-                <label class="form-label">Trimestre</label>
+              <div class="col-12">
+                <label class="form-label">Modalidad</label>
                 <select
                   class="form-select"
-                  v-model.number="zipFiltro.trimestre"
+                  v-model="zipFiltro.modo"
                   :disabled="descargaOcupada"
                 >
-                  <option :value="1">1 (Ene–Mar)</option>
-                  <option :value="2">2 (Abr–Jun)</option>
-                  <option :value="3">3 (Jul–Sep)</option>
-                  <option :value="4">4 (Oct–Dic)</option>
+                  <option value="trimestre">Por trimestre</option>
+                  <option value="rango">Por rango de fechas</option>
                 </select>
               </div>
+
+              <template v-if="zipFiltro.modo === 'trimestre'">
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Ejercicio (año)</label>
+                  <input
+                    type="number"
+                    class="form-control"
+                    v-model.number="zipFiltro.ejercicio"
+                    min="2000"
+                    max="2100"
+                    :disabled="descargaOcupada"
+                  />
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Trimestre</label>
+                  <select
+                    class="form-select"
+                    v-model.number="zipFiltro.trimestre"
+                    :disabled="descargaOcupada"
+                  >
+                    <option :value="1">1 (Ene-Mar)</option>
+                    <option :value="2">2 (Abr-Jun)</option>
+                    <option :value="3">3 (Jul-Sep)</option>
+                    <option :value="4">4 (Oct-Dic)</option>
+                  </select>
+                </div>
+
+                <div class="col-12 text-muted small">
+                  Puedes elegir cualquier trimestre y año disponible; no se limita al periodo actual.
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Fecha inicial</label>
+                  <input
+                    type="date"
+                    class="form-control"
+                    v-model="zipFiltro.fecha_inicio"
+                    :disabled="descargaOcupada"
+                  />
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Fecha final</label>
+                  <input
+                    type="date"
+                    class="form-control"
+                    v-model="zipFiltro.fecha_fin"
+                    :disabled="descargaOcupada"
+                  />
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Año asignado</label>
+                  <input
+                    type="number"
+                    class="form-control"
+                    v-model.number="zipFiltro.ejercicio"
+                    min="2000"
+                    max="2100"
+                    :disabled="descargaOcupada"
+                  />
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Trimestre asignado</label>
+                  <select
+                    class="form-select"
+                    v-model.number="zipFiltro.trimestre"
+                    :disabled="descargaOcupada"
+                  >
+                    <option :value="1">T1 (Ene-Mar)</option>
+                    <option :value="2">T2 (Abr-Jun)</option>
+                    <option :value="3">T3 (Jul-Sep)</option>
+                    <option :value="4">T4 (Oct-Dic)</option>
+                  </select>
+                </div>
+              </template>
             </div>
 
             <div class="mt-3 text-muted small">
-              * Si no hay aprobados para ese rango, te avisaremos.
+              * Se usa la fecha de última actualización para buscar los CV aprobados.
             </div>
           </div>
 
@@ -438,6 +534,182 @@
               <span v-if="zipDescargando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
               <span v-if="zipDescargando">Generando ZIP…</span>
               <span v-else>Descargar ZIP</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CARGA MASIVA -->
+    <div class="modal modal-blur fade" id="modalCargaMasivaEmpleados" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Carga masiva de empleados</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+              :disabled="importacionOcupada"
+            ></button>
+          </div>
+
+          <div class="modal-body">
+            <div class="alert alert-info">
+              Sube un archivo Excel con las columnas nombre, primer apellido, segundo apellido y CURP.
+            </div>
+
+            <div class="row g-3 align-items-end">
+              <div class="col-12 col-lg-8">
+                <label class="form-label">Archivo Excel</label>
+                <input
+                  ref="archivoCargaMasiva"
+                  type="file"
+                  class="form-control"
+                  accept=".xlsx,.xls"
+                  :disabled="importacionOcupada"
+                  @change="onArchivoCargaMasivaChange"
+                />
+              </div>
+
+              <div class="col-12 col-lg-4 d-flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  @click="analizarCargaMasiva"
+                  :disabled="importacionOcupada || !importacion.archivo"
+                >
+                  <span v-if="importacion.procesando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                  Analizar archivo
+                </button>
+
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  @click="limpiarCargaMasiva"
+                  :disabled="importacionOcupada"
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+
+            <div v-if="importacion.advertencias.length" class="alert alert-warning small mt-3 mb-0">
+              <div v-for="(warning, idx) in importacion.advertencias" :key="'warning-' + idx">
+                {{ warning }}
+              </div>
+            </div>
+
+            <div v-if="importacion.resumen" class="imss-import-summary mt-3">
+              <div class="imss-import-summary-item">
+                <span>Total</span>
+                <strong>{{ importacion.resumen.total || 0 }}</strong>
+              </div>
+              <div class="imss-import-summary-item is-ok">
+                <span>Validos</span>
+                <strong>{{ importacion.resumen.validos || 0 }}</strong>
+              </div>
+              <div class="imss-import-summary-item is-dup">
+                <span>Duplicados</span>
+                <strong>{{ importacion.resumen.duplicados || 0 }}</strong>
+              </div>
+              <div class="imss-import-summary-item is-bad">
+                <span>Rechazados</span>
+                <strong>{{ importacion.resumen.rechazados || 0 }}</strong>
+              </div>
+              <div class="imss-import-summary-item is-inserted">
+                <span>Insertados</span>
+                <strong>{{ importacion.resumen.insertados || 0 }}</strong>
+              </div>
+            </div>
+
+            <div v-if="importacion.resultados.length" class="mt-3">
+              <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+                <div class="text-muted small">
+                  Archivo: <strong>{{ importacion.archivoNombre || 'N/D' }}</strong>
+                </div>
+
+                <select
+                  v-model="importacion.filtro"
+                  class="form-select form-select-sm imss-import-filter"
+                  :disabled="importacionOcupada"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="valido">Validos</option>
+                  <option value="duplicado">Duplicados</option>
+                  <option value="rechazado">Rechazados</option>
+                  <option value="insertado">Insertados</option>
+                </select>
+              </div>
+
+              <div class="table-responsive imss-import-preview-wrap">
+                <table class="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th style="width: 70px;">Fila</th>
+                      <th style="width: 120px;">Estado</th>
+                      <th>Motivo</th>
+                      <th style="width: 180px;">CURP</th>
+                      <th>Nombre</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in importacionResultadosVisibles" :key="'import-' + row.fila">
+                      <td>{{ row.fila }}</td>
+                      <td>
+                        <span class="imss-import-badge" :class="cargaEstadoBadge(row.estado)">
+                          {{ cargaEstadoLabel(row.estado) }}
+                        </span>
+                      </td>
+                      <td>{{ row.motivo || 'Sin observaciones' }}</td>
+                      <td><code class="imss-code">{{ row.curp || 'N/D' }}</code></td>
+                      <td>
+                        {{ nombreImportacion(row) }}
+                      </td>
+                    </tr>
+                    <tr v-if="importacionResultadosFiltrados.length === 0">
+                      <td colspan="5" class="text-center text-muted py-3">
+                        No hay registros para el filtro seleccionado.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div v-if="importacionResultadosFiltrados.length > importacionPreviewLimit" class="text-muted small mt-2">
+                Mostrando {{ importacionPreviewLimit }} de {{ importacionResultadosFiltrados.length }} registro(s) del filtro.
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn me-auto"
+              data-bs-dismiss="modal"
+              :disabled="importacionOcupada"
+            >
+              Cerrar
+            </button>
+
+            <button
+              type="button"
+              class="btn btn-outline-success"
+              @click="descargarReporteCargaMasiva"
+              :disabled="importacionOcupada || !importacion.token"
+            >
+              Descargar reporte
+            </button>
+
+            <button
+              type="button"
+              class="btn btn-success"
+              @click="confirmarCargaMasiva"
+              :disabled="importacionOcupada || !puedeConfirmarCargaMasiva"
+            >
+              <span v-if="importacion.confirmando" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+              Confirmar carga
             </button>
           </div>
         </div>
@@ -508,14 +780,31 @@ export default {
       loadingEmpleados: false,
 
       zipFiltro: {
+        modo: 'trimestre',
         ejercicio: now.getFullYear(),
         trimestre: trimestreActual,
+        fecha_inicio: '',
+        fecha_fin: '',
       },
 
       descargaModalTipo: 'zip',
       zipDescargando: false,
       excelDescargando: false,
       reporteEstatusDescargando: false,
+      importacion: {
+        archivo: null,
+        archivoNombre: '',
+        token: null,
+        procesando: false,
+        confirmando: false,
+        descargandoReporte: false,
+        resumen: null,
+        resultados: [],
+        advertencias: [],
+        filtro: 'todos',
+        confirmado: false,
+      },
+      importacionPreviewLimit: 150,
       zipProgreso: 0,
       zipProgresoTexto: 'Preparando solicitud…',
       _zipProgressTimer: null,
@@ -540,7 +829,33 @@ export default {
 
   computed: {
     descargaOcupada() {
-      return this.zipDescargando || this.excelDescargando || this.reporteEstatusDescargando
+      return this.zipDescargando || this.excelDescargando || this.reporteEstatusDescargando || this.importacionOcupada
+    },
+
+    importacionOcupada() {
+      return Boolean(this.importacion.procesando || this.importacion.confirmando || this.importacion.descargandoReporte)
+    },
+
+    puedeConfirmarCargaMasiva() {
+      return Boolean(
+        this.importacion.token &&
+        !this.importacion.confirmado &&
+        this.importacion.resumen &&
+        Number(this.importacion.resumen.validos || 0) > 0
+      )
+    },
+
+    importacionResultadosFiltrados() {
+      const filtro = this.importacion.filtro || 'todos'
+      const rows = Array.isArray(this.importacion.resultados) ? this.importacion.resultados : []
+
+      if (filtro === 'todos') return rows
+
+      return rows.filter((row) => row && row.estado === filtro)
+    },
+
+    importacionResultadosVisibles() {
+      return this.importacionResultadosFiltrados.slice(0, this.importacionPreviewLimit)
     },
 
     descargaModalTitulo() {
@@ -655,6 +970,209 @@ export default {
   methods: {
     abrirModalDescarga(tipo) {
       this.descargaModalTipo = tipo === 'excel' ? 'excel' : 'zip'
+    },
+
+    abrirModalCargaMasiva() {
+      if (!this.importacion.token && !this.importacion.resultados.length) {
+        this.importacion.filtro = 'todos'
+      }
+    },
+
+    onArchivoCargaMasivaChange(event) {
+      const file = event && event.target && event.target.files ? event.target.files[0] : null
+      this.importacion.archivo = file || null
+      this.importacion.archivoNombre = file ? file.name : ''
+      this.importacion.token = null
+      this.importacion.resumen = null
+      this.importacion.resultados = []
+      this.importacion.advertencias = []
+      this.importacion.confirmado = false
+      this.importacion.filtro = 'todos'
+    },
+
+    limpiarCargaMasiva() {
+      this.importacion.archivo = null
+      this.importacion.archivoNombre = ''
+      this.importacion.token = null
+      this.importacion.resumen = null
+      this.importacion.resultados = []
+      this.importacion.advertencias = []
+      this.importacion.filtro = 'todos'
+      this.importacion.confirmado = false
+
+      if (this.$refs.archivoCargaMasiva) {
+        this.$refs.archivoCargaMasiva.value = ''
+      }
+    },
+
+    nombreImportacion(row) {
+      return [
+        row && row.nombre ? row.nombre : '',
+        row && row.primer_apellido ? row.primer_apellido : '',
+        row && row.segundo_apellido ? row.segundo_apellido : '',
+      ].filter(Boolean).join(' ') || 'N/D'
+    },
+
+    cargaEstadoLabel(estado) {
+      switch (estado) {
+        case 'valido':
+          return 'Valido'
+        case 'duplicado':
+          return 'Duplicado'
+        case 'rechazado':
+          return 'Rechazado'
+        case 'insertado':
+          return 'Insertado'
+        default:
+          return 'Pendiente'
+      }
+    },
+
+    cargaEstadoBadge(estado) {
+      switch (estado) {
+        case 'valido':
+          return 'is-ok'
+        case 'duplicado':
+          return 'is-dup'
+        case 'rechazado':
+          return 'is-bad'
+        case 'insertado':
+          return 'is-inserted'
+        default:
+          return ''
+      }
+    },
+
+    _csrfToken() {
+      return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+    },
+
+    async analizarCargaMasiva() {
+      if (this.importacionOcupada) return
+
+      const file = this.importacion.archivo
+      if (!file) {
+        this.showToast('Selecciona un archivo Excel.')
+        return
+      }
+
+      const form = new FormData()
+      form.append('archivo', file)
+
+      this.importacion.procesando = true
+
+      try {
+        const { data } = await axios.post(this._url('/api/revisor/empleados/carga-masiva/preview'), form, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'X-CSRF-TOKEN': this._csrfToken(),
+          },
+        })
+
+        this.importacion.token = data.token || null
+        this.importacion.archivoNombre = data.archivo_original || file.name
+        this.importacion.resumen = data.resumen || null
+        this.importacion.resultados = Array.isArray(data.resultados) ? data.resultados : []
+        this.importacion.advertencias = Array.isArray(data.advertencias) ? data.advertencias : []
+        this.importacion.confirmado = Boolean(data.confirmado)
+        this.importacion.filtro = 'todos'
+
+        this.showToast('Archivo analizado. Revisa la vista previa antes de confirmar.', 'ok')
+      } catch (e) {
+        const msg = e && e.response && e.response.data && e.response.data.message
+          ? e.response.data.message
+          : 'No se pudo analizar el archivo Excel.'
+
+        this.importacion.token = null
+        this.importacion.resumen = null
+        this.importacion.resultados = []
+        this.importacion.advertencias = []
+        this.importacion.confirmado = false
+        this.showToast(msg)
+      } finally {
+        this.importacion.procesando = false
+      }
+    },
+
+    async confirmarCargaMasiva() {
+      if (this.importacionOcupada || !this.puedeConfirmarCargaMasiva) return
+
+      this.importacion.confirmando = true
+
+      try {
+        const { data } = await axios.post(this._url('/api/revisor/empleados/carga-masiva/confirmar'), {
+          token: this.importacion.token,
+        }, {
+          headers: {
+            'X-CSRF-TOKEN': this._csrfToken(),
+          },
+        })
+
+        this.importacion.resumen = data.resumen || null
+        this.importacion.resultados = Array.isArray(data.resultados) ? data.resultados : []
+        this.importacion.advertencias = Array.isArray(data.advertencias) ? data.advertencias : []
+        this.importacion.confirmado = Boolean(data.confirmado)
+
+        const insertados = Number((this.importacion.resumen && this.importacion.resumen.insertados) || 0)
+        this.showToast('Carga confirmada. Insertados: ' + insertados + '.', 'ok')
+        this.cargarEmpleados()
+      } catch (e) {
+        const msg = e && e.response && e.response.data && e.response.data.message
+          ? e.response.data.message
+          : 'No se pudo confirmar la carga masiva.'
+
+        this.showToast(msg)
+      } finally {
+        this.importacion.confirmando = false
+      }
+    },
+
+    async descargarReporteCargaMasiva() {
+      if (this.importacionOcupada || !this.importacion.token) return
+
+      this.importacion.descargandoReporte = true
+
+      try {
+        const resp = await fetch(this._url('/api/revisor/empleados/carga-masiva/reporte/' + encodeURIComponent(this.importacion.token)), {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/octet-stream, application/json, text/plain, */*',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+
+        if (!resp.ok) {
+          const msgServidor = await this._leerMensajeErrorResponse(resp)
+          this.showToast(msgServidor || 'No se pudo descargar el reporte de carga.')
+          return
+        }
+
+        const blob = await resp.blob()
+        if (!blob || blob.size === 0) {
+          this.showToast('El reporte de carga se genero vacio.')
+          return
+        }
+
+        const filename = this._obtenerFilenameDesdeHeaders(resp, 'resultado_carga_empleados.xlsx')
+        const objectUrl = window.URL.createObjectURL(blob)
+
+        const a = document.createElement('a')
+        a.href = objectUrl
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+
+        window.URL.revokeObjectURL(objectUrl)
+        this.showToast('Reporte de carga generado correctamente.', 'ok')
+      } catch (e) {
+        console.error('Error al descargar reporte de carga:', e)
+        this.showToast('No se pudo descargar el reporte de carga.')
+      } finally {
+        this.importacion.descargandoReporte = false
+      }
     },
 
     // ---------------------------------
@@ -920,26 +1438,33 @@ export default {
       )
     },
 
-    _zipUrl(ejercicio, trimestre) {
-      const base = this._url('/revisor/pdf/aprobados.zip')
+    _descargaQuery(periodo) {
+      const params = new URLSearchParams()
 
-      return (
-        base +
-        '?ejercicio=' + encodeURIComponent(String(ejercicio)) +
-        '&trimestre=' + encodeURIComponent(String(trimestre)) +
-        '&_ts=' + encodeURIComponent(String(Date.now()))
-      )
+      params.set('modo', periodo.modo)
+
+      if (periodo.modo === 'rango') {
+        params.set('fecha_inicio', periodo.fecha_inicio)
+        params.set('fecha_fin', periodo.fecha_fin)
+      }
+
+      params.set('ejercicio', String(periodo.ejercicio))
+      params.set('trimestre', String(periodo.trimestre))
+      params.set('_ts', String(Date.now()))
+
+      return params.toString()
     },
 
-    _excelUrl(ejercicio, trimestre) {
+    _zipUrl(periodo) {
+      const base = this._url('/revisor/pdf/aprobados.zip')
+
+      return base + '?' + this._descargaQuery(periodo)
+    },
+
+    _excelUrl(periodo) {
       const base = this._url('/cv/reportes/empleados-terminados')
 
-      return (
-        base +
-        '?ejercicio=' + encodeURIComponent(String(ejercicio)) +
-        '&trimestre=' + encodeURIComponent(String(trimestre)) +
-        '&_ts=' + encodeURIComponent(String(Date.now()))
-      )
+      return base + '?' + this._descargaQuery(periodo)
     },
 
     _reporteEstatusUrl() {
@@ -954,20 +1479,44 @@ export default {
     },
 
     _periodoDescargaValido() {
+      const modo = this.zipFiltro.modo === 'rango' ? 'rango' : 'trimestre'
       const ejercicio = Number(this.zipFiltro.ejercicio || new Date().getFullYear())
       const trimestre = Number(this.zipFiltro.trimestre || 1)
 
       if (!(ejercicio >= EJ_MIN && ejercicio <= EJ_MAX)) {
-        this.showToast('Ejercicio inválido. Debe estar entre ' + EJ_MIN + ' y ' + EJ_MAX + '.')
+        this.showToast('Ejercicio invalido. Debe estar entre ' + EJ_MIN + ' y ' + EJ_MAX + '.')
         return null
       }
 
       if (TRIM_OK.indexOf(trimestre) === -1) {
-        this.showToast('Trimestre inválido. Debe ser 1, 2, 3 o 4.')
+        this.showToast('Trimestre invalido. Debe ser 1, 2, 3 o 4.')
         return null
       }
 
-      return { ejercicio, trimestre }
+      if (modo === 'rango') {
+        const fechaInicio = String(this.zipFiltro.fecha_inicio || '').trim()
+        const fechaFin = String(this.zipFiltro.fecha_fin || '').trim()
+
+        if (!fechaInicio || !fechaFin) {
+          this.showToast('Selecciona la fecha inicial y la fecha final.')
+          return null
+        }
+
+        if (fechaFin < fechaInicio) {
+          this.showToast('La fecha final no puede ser menor que la fecha inicial.')
+          return null
+        }
+
+        return {
+          modo,
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin,
+          ejercicio,
+          trimestre,
+        }
+      }
+
+      return { modo, ejercicio, trimestre }
     },
 
     _setZipProgress(value, texto = null) {
@@ -1201,7 +1750,7 @@ export default {
       this._closeZipModalSafe()
 
       try {
-        const resp = await fetch(this._excelUrl(periodo.ejercicio, periodo.trimestre), {
+        const resp = await fetch(this._excelUrl(periodo), {
           method: 'GET',
           credentials: 'same-origin',
           cache: 'no-store',
@@ -1217,7 +1766,7 @@ export default {
           if (resp.status === 404) {
             this.showToast(msgServidor || 'No hay CV aprobados para exportar en el periodo seleccionado.')
           } else if (resp.status === 422) {
-            this.showToast(msgServidor || 'Parámetros inválidos. Verifica ejercicio y trimestre.')
+            this.showToast(msgServidor || 'Parámetros inválidos. Verifica el periodo seleccionado.')
           } else {
             this.showToast(msgServidor || 'No se pudo descargar el reporte Excel.')
           }
@@ -1321,7 +1870,7 @@ export default {
       this.zipDescargando = true
       this._startZipProgress()
 
-      const url = this._zipUrl(periodo.ejercicio, periodo.trimestre)
+      const url = this._zipUrl(periodo)
 
       this._closeZipModalSafe()
 
@@ -1344,7 +1893,7 @@ export default {
           if (resp.status === 404) {
             this.showToast(msgServidor || 'No hay CV aprobados para exportar en el periodo seleccionado.')
           } else if (resp.status === 422) {
-            this.showToast(msgServidor || 'Parámetros inválidos. Verifica ejercicio y trimestre.')
+            this.showToast(msgServidor || 'Parámetros inválidos. Verifica el periodo seleccionado.')
           } else if (resp.status === 500) {
             this.showToast(msgServidor || 'No se pudo generar el ZIP. Revisa el servidor.')
           } else {
@@ -1616,6 +2165,10 @@ export default {
   width: 178px;
 }
 
+.imss-action-group-import {
+  width: 178px;
+}
+
 .imss-action-title {
   color: var(--imss-ink);
   font-size: 0.72rem;
@@ -1658,6 +2211,10 @@ export default {
 }
 
 .imss-action-group-list .imss-action-btn {
+  width: 100%;
+}
+
+.imss-action-group-import .imss-action-btn {
   width: 100%;
 }
 
@@ -1863,6 +2420,115 @@ export default {
 
 .imss-table-wrap {
   background: #ffffff;
+}
+
+.imss-import-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.imss-import-summary-item {
+  border: 1px solid var(--imss-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.imss-import-summary-item span {
+  color: var(--imss-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.imss-import-summary-item strong {
+  color: var(--imss-ink);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.imss-import-summary-item.is-ok {
+  border-color: rgba(0, 99, 65, 0.25);
+  background: #f1f8f5;
+}
+
+.imss-import-summary-item.is-dup {
+  border-color: rgba(180, 83, 9, 0.25);
+  background: #fff7ed;
+}
+
+.imss-import-summary-item.is-bad {
+  border-color: rgba(159, 34, 65, 0.25);
+  background: #fff1f2;
+}
+
+.imss-import-summary-item.is-inserted {
+  border-color: rgba(14, 116, 144, 0.25);
+  background: #ecfeff;
+}
+
+.imss-import-filter {
+  width: 180px;
+}
+
+.imss-import-preview-wrap {
+  max-height: 380px;
+  border: 1px solid var(--imss-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.imss-import-preview-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  color: var(--imss-ink);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.imss-import-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 86px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border: 1px solid var(--imss-border);
+  color: var(--imss-muted);
+  background: #f9fafb;
+}
+
+.imss-import-badge.is-ok {
+  border-color: rgba(0, 99, 65, 0.28);
+  color: #006341;
+  background: #eef8f3;
+}
+
+.imss-import-badge.is-dup {
+  border-color: rgba(180, 83, 9, 0.28);
+  color: #92400e;
+  background: #fff7ed;
+}
+
+.imss-import-badge.is-bad {
+  border-color: rgba(159, 34, 65, 0.28);
+  color: #9f2241;
+  background: #fff1f2;
+}
+
+.imss-import-badge.is-inserted {
+  border-color: rgba(14, 116, 144, 0.28);
+  color: #0e7490;
+  background: #ecfeff;
 }
 
 .imss-table thead th {
@@ -2193,6 +2859,10 @@ export default {
   .imss-summary-strip {
     grid-template-columns: 1fr;
   }
+
+  .imss-import-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
@@ -2224,6 +2894,14 @@ export default {
 
   .imss-action-btn,
   .imss-curp-button {
+    width: 100%;
+  }
+
+  .imss-import-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .imss-import-filter {
     width: 100%;
   }
 }

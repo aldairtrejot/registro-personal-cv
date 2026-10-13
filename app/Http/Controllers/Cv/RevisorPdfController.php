@@ -51,8 +51,13 @@ class RevisorPdfController extends Controller
 
         $now = Carbon::now();
 
-        $ejercicio = (int) $request->query('ejercicio', $now->year);
-        $trimestre = (int) $request->query('trimestre', $this->trimestreActual($now));
+        $periodo = $this->resolverPeriodoActualizacion($request, $now);
+        if (!empty($periodo['error'])) {
+            return $this->respuestaTexto($periodo['error'], 422);
+        }
+
+        $ejercicio = $periodo['ejercicio'] ?? (int) $periodo['inicio']->year;
+        $trimestre = $periodo['trimestre'] ?? $this->trimestreActual($periodo['inicio']);
 
         if ($ejercicio < 2000 || $ejercicio > 2100) {
             return $this->respuestaTexto('Ejercicio inválido.', 422);
@@ -62,15 +67,17 @@ class RevisorPdfController extends Controller
             return $this->respuestaTexto('Trimestre inválido.', 422);
         }
 
-        [$inicioTrim, $finTrim] = $this->periodoPorTrimestre($ejercicio, $trimestre);
+        [$inicioTrim, $finTrim] = [$periodo['inicio'], $periodo['fin']];
 
         $inicioTrim = $inicioTrim->copy()->startOfDay();
         $finTrim = $finTrim->copy()->endOfDay();
+        [$inicioPeriodoAsignado] = $this->periodoPorTrimestre($ejercicio, $trimestre);
+        $fechaNombrePdf = $inicioPeriodoAsignado->copy()->startOfDay();
 
         /*
          * Criterio único solicitado:
          * - CV aprobados
-         * - actualizado_en dentro del ejercicio/trimestre seleccionado
+         * - actualizado_en dentro del periodo de actualizacion solicitado
          */
         $empleados = Empleado::query()
             ->with(['puesto'])
@@ -113,7 +120,7 @@ class RevisorPdfController extends Controller
             return $this->respuestaTexto('El directorio temporal del ZIP no tiene permisos de escritura.', 500);
         }
 
-        $zipName = 'CV_APROBADOS_' . $ejercicio . '_T' . $trimestre . '_' . Carbon::now()->format('Ymd_His') . '.zip';
+        $zipName = 'CV_APROBADOS_' . $periodo['suffix'] . '_' . Carbon::now()->format('Ymd_His') . '.zip';
         $zipPath = $zipDir . DIRECTORY_SEPARATOR . $zipName;
 
         if (is_file($zipPath)) {
@@ -153,7 +160,7 @@ class RevisorPdfController extends Controller
 
                 $pdfGenerados[] = $pdfPath;
 
-                $zipInsideName = $this->nombrePdfEmpleado($emp, $folioSvc);
+                $zipInsideName = $this->nombrePdfEmpleadoZip($emp, $folioSvc, $fechaNombrePdf);
                 $zipInsideName = $this->nombreUnicoZip($zipInsideName, $nombresUsados, $emp);
 
                 /*
@@ -299,6 +306,16 @@ class RevisorPdfController extends Controller
         return 'CV_' . ($empleado->id_tbl_empleados ?? 'empleado') . '.pdf';
     }
 
+    private function nombrePdfEmpleadoZip(Empleado $empleado, CvFolioService $folioSvc, Carbon $fechaReferencia): string
+    {
+        $folio = $folioSvc->parseConsecutivo($empleado->folio_cv);
+        $folioNombre = $folio > 0 ? (string) $folio : (string) ($empleado->id_tbl_empleados ?? 'SIN_FOLIO');
+        $trimestre = $this->trimestreActual($fechaReferencia);
+        $ejercicio = (int) $fechaReferencia->year;
+
+        return "{$folioNombre}-T{$trimestre}-{$ejercicio}.pdf";
+    }
+
     private function nombreUnicoZip(string $nombreOriginal, array &$nombresUsados, Empleado $empleado): string
     {
         $nombreOriginal = trim($nombreOriginal) !== '' ? trim($nombreOriginal) : 'CV_empleado.pdf';
@@ -373,6 +390,74 @@ class RevisorPdfController extends Controller
                 Carbon::create($ejercicio, 3, 31)->endOfDay(),
             ],
         };
+    }
+
+    private function resolverPeriodoActualizacion(Request $request, Carbon $now): array
+    {
+        $modo = strtolower(trim((string) $request->query('modo', 'trimestre')));
+        $modo = in_array($modo, ['rango', 'trimestre'], true) ? $modo : 'trimestre';
+
+        if ($modo === 'rango') {
+            $fechaInicioParam = trim((string) $request->query('fecha_inicio', ''));
+            $fechaFinParam = trim((string) $request->query('fecha_fin', ''));
+
+            if ($fechaInicioParam === '' || $fechaFinParam === '') {
+                return ['error' => 'Debes indicar fecha inicial y fecha final.'];
+            }
+
+            try {
+                $inicio = Carbon::createFromFormat('Y-m-d', $fechaInicioParam)->startOfDay();
+                $fin = Carbon::createFromFormat('Y-m-d', $fechaFinParam)->endOfDay();
+            } catch (\Throwable $e) {
+                return ['error' => 'Rango de fechas invalido. Usa formato YYYY-MM-DD.'];
+            }
+
+            if ($inicio->gt($fin)) {
+                return ['error' => 'La fecha inicial no puede ser mayor que la fecha final.'];
+            }
+
+            $ejercicio = (int) $request->query('ejercicio', $now->year);
+            $trimestre = (int) $request->query('trimestre', $this->trimestreActual($now));
+
+            if ($ejercicio < 2000 || $ejercicio > 2100) {
+                return ['error' => 'Ejercicio invalido.'];
+            }
+
+            if (!in_array($trimestre, [1, 2, 3, 4], true)) {
+                return ['error' => 'Trimestre invalido.'];
+            }
+
+            return [
+                'modo' => 'rango',
+                'inicio' => $inicio,
+                'fin' => $fin,
+                'ejercicio' => $ejercicio,
+                'trimestre' => $trimestre,
+                'suffix' => $inicio->format('Ymd') . '_A_' . $fin->format('Ymd') . '_' . $ejercicio . '_T' . $trimestre,
+            ];
+        }
+
+        $ejercicio = (int) $request->query('ejercicio', $now->year);
+        $trimestre = (int) $request->query('trimestre', $this->trimestreActual($now));
+
+        if ($ejercicio < 2000 || $ejercicio > 2100) {
+            return ['error' => 'Ejercicio invalido.'];
+        }
+
+        if (!in_array($trimestre, [1, 2, 3, 4], true)) {
+            return ['error' => 'Trimestre invalido.'];
+        }
+
+        [$inicio, $fin] = $this->periodoPorTrimestre($ejercicio, $trimestre);
+
+        return [
+            'modo' => 'trimestre',
+            'inicio' => $inicio->copy()->startOfDay(),
+            'fin' => $fin->copy()->endOfDay(),
+            'ejercicio' => $ejercicio,
+            'trimestre' => $trimestre,
+            'suffix' => $ejercicio . '_T' . $trimestre,
+        ];
     }
 
     private function respuestaTexto(string $mensaje, int $status)

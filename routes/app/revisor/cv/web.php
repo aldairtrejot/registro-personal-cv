@@ -7,6 +7,7 @@ use App\Http\Controllers\Cv\CatalogosController;
 use App\Http\Controllers\Cv\RevisorController;
 use App\Http\Controllers\Cv\ReporteCvController;
 use App\Http\Controllers\Cv\RevisorPdfController;
+use App\Http\Controllers\Cv\EmpleadoCargaMasivaController;
 
 /*
 |-------------------------------------------------------------------------- 
@@ -79,6 +80,9 @@ Route::middleware(['auth', 'role:1,3'])->group(function () {
     // API revisor
     Route::prefix('api/revisor')->group(function () {
         Route::get('/empleados',               [RevisorController::class, 'index']);
+        Route::post('/empleados/carga-masiva/preview', [EmpleadoCargaMasivaController::class, 'preview']);
+        Route::post('/empleados/carga-masiva/confirmar', [EmpleadoCargaMasivaController::class, 'confirmar']);
+        Route::get('/empleados/carga-masiva/reporte/{token}', [EmpleadoCargaMasivaController::class, 'reporte']);
         Route::get('/empleados/{id}',          [RevisorController::class, 'show']);
         Route::post('/empleados/{id}/estatus', [RevisorController::class, 'updateStatus']);
 

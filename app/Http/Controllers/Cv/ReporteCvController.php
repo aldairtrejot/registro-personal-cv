@@ -204,11 +204,23 @@ class ReporteCvController extends Controller
         // ============================================================
         // 1) Parámetros (ejercicio/trimestre)
         // ============================================================
+        $modo = strtolower(trim((string) $request->query('modo', 'trimestre')));
+        $modo = in_array($modo, ['rango', 'trimestre'], true) ? $modo : 'trimestre';
+
         $ejercicio = (int)($request->query('ejercicio', $now->year));
         $trimestre = (int)($request->query('trimestre', $this->trimestreActual($now)));
 
-        if ($ejercicio < 2000 || $ejercicio > 2100) $ejercicio = (int)$now->year;
-        if (!in_array($trimestre, [1, 2, 3, 4], true)) $trimestre = $this->trimestreActual($now);
+        if ($ejercicio < 2000 || $ejercicio > 2100) {
+            return response('Ejercicio invalido.', 422, [
+                'Content-Type' => 'text/plain; charset=UTF-8'
+            ]);
+        }
+
+        if (!in_array($trimestre, [1, 2, 3, 4], true)) {
+            return response('Trimestre invalido.', 422, [
+                'Content-Type' => 'text/plain; charset=UTF-8'
+            ]);
+        }
 
         [$inicioTrim, $finTrim] = $this->periodoPorTrimestre($ejercicio, $trimestre);
         $inicioTrim = $inicioTrim->copy()->startOfDay();
@@ -220,25 +232,43 @@ class ReporteCvController extends Controller
         // ============================================================
         // 2) Campo de fecha para filtrar (TU TABLA: creado_en/actualizado_en)
         // ============================================================
-        // actualizado (default) = actualizado_en
-        // creado = creado_en
-        $campoFecha = (string)$request->query('campo_fecha', 'actualizado'); // 'creado' | 'actualizado'
-        $colFecha = match ($campoFecha) {
-            'creado' => 'creado_en',
-            default  => 'actualizado_en',
-        };
+        $colFecha = 'actualizado_en';
 
         // ============================================================
-        // 3) (Opcional) rango manual extra: fecha_inicio/fecha_fin (YYYY-MM-DD)
-        //     -> se intersecta con el trimestre
+        // 3) Rango de actualizacion: fecha_inicio/fecha_fin (YYYY-MM-DD)
         // ============================================================
         $fechaInicioParam = $request->query('fecha_inicio');
         $fechaFinParam    = $request->query('fecha_fin');
 
-        $iniFiltroFinal = $inicioTrim->copy();
-        $finFiltroFinal = $finTrim->copy();
+        if ($modo === 'rango') {
+            if (!$fechaInicioParam || !$fechaFinParam) {
+                return response('Debes indicar fecha inicial y fecha final.', 422, [
+                    'Content-Type' => 'text/plain; charset=UTF-8'
+                ]);
+            }
 
-        if ($fechaInicioParam && $fechaFinParam) {
+            try {
+                $iniFiltroFinal = Carbon::createFromFormat('Y-m-d', (string)$fechaInicioParam)->startOfDay();
+                $finFiltroFinal = Carbon::createFromFormat('Y-m-d', (string)$fechaFinParam)->endOfDay();
+            } catch (\Throwable $e) {
+                return response('Rango de fechas inválido. Usa formato YYYY-MM-DD.', 422, [
+                    'Content-Type' => 'text/plain; charset=UTF-8'
+                ]);
+            }
+
+            if ($iniFiltroFinal->gt($finFiltroFinal)) {
+                return response('La fecha inicial no puede ser mayor que la fecha final.', 422, [
+                    'Content-Type' => 'text/plain; charset=UTF-8'
+                ]);
+            }
+        }
+
+        if ($modo !== 'rango') {
+            $iniFiltroFinal = $inicioTrim->copy();
+            $finFiltroFinal = $finTrim->copy();
+        }
+
+        if ($modo !== 'rango' && $fechaInicioParam && $fechaFinParam) {
             try {
                 $iniManual = Carbon::createFromFormat('Y-m-d', (string)$fechaInicioParam)->startOfDay();
                 $finManual = Carbon::createFromFormat('Y-m-d', (string)$fechaFinParam)->endOfDay();
@@ -262,7 +292,7 @@ class ReporteCvController extends Controller
         }
 
         // ============================================================
-        // 4) Traer datos (SOLO APROBADOS) + FILTRO OBLIGATORIO POR TRIMESTRE
+        // 4) Traer datos (SOLO APROBADOS) + FILTRO POR ULTIMA ACTUALIZACION
         // ============================================================
         $empleados = Empleado::query()
             ->with(['puesto'])
