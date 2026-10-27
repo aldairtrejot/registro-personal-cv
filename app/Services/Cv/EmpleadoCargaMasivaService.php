@@ -2,6 +2,7 @@
 
 namespace App\Services\Cv;
 
+use App\Exceptions\Cv\CargaMasivaNoEncontradaException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -52,7 +53,7 @@ class EmpleadoCargaMasivaService
         $payload = $this->cargarPayload($token);
 
         if (!$payload) {
-            throw new \RuntimeException('No se encontro la vista previa de la carga.');
+            throw new CargaMasivaNoEncontradaException();
         }
 
         if (!empty($payload['confirmado'])) {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Cv;
 
+use App\Exceptions\Cv\CargaMasivaNoEncontradaException;
 use App\Http\Controllers\Controller;
 use App\Services\Cv\EmpleadoCargaMasivaService;
 use Illuminate\Http\Request;
@@ -47,7 +48,7 @@ class EmpleadoCargaMasivaController extends Controller
 
         try {
             $payload = $service->confirmar($data['token'], $request->user());
-        } catch (\RuntimeException $e) {
+        } catch (CargaMasivaNoEncontradaException $e) {
             return response()->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
             report($e);
